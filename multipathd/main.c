@@ -50,6 +50,7 @@
 #include "devinfo.h"
 #include "copy.h"
 #include "clone_platform.h"
+#include "pidfile.h"
 
 #define FILE_NAME_SIZE 256
 #define CMDSIZE 160
@@ -605,36 +606,6 @@ prepare_namespace(void)
 }
 #endif
 
-static void
-pidfile (pid_t pid)
-{
-	FILE *file;
-	struct stat *buf;
-
-	buf = MALLOC(sizeof(struct stat));
-
-	if (!stat(DEFAULT_PIDFILE, buf)) {
-		log_safe(LOG_ERR, "already running : out");
-		FREE(buf);
-		log_thread_stop();
-		exit(1);
-	}
-		
-	umask(022);
-	pid = setsid();
-
-	if (pid < -1) {
-		log_safe(LOG_ERR, "setsid() error");
-		log_thread_stop();
-		exit(1);
-	}
-	
-	file = fopen(DEFAULT_PIDFILE, "w");
-	fprintf(file, "%d\n", pid);
-	fclose(file);
-	FREE(buf);
-}
-
 static void *
 signal_set(int signo, void (*func) (int))
 {
@@ -714,7 +685,11 @@ child (void * param)
 	log_thread_start();
 	log_safe(LOG_NOTICE, "--------start up--------");
 
-	pidfile(getpid());
+	if (pidfile_create(DEFAULT_PIDFILE, getpid())) {
+		printf("TOTO\n");
+		log_thread_stop();
+		exit(1);
+	}
 	signal_init();
 	setscheduler();
 	allpaths = initpaths();

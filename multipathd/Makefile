@@ -20,7 +20,7 @@ LDFLAGS = -lpthread
 #
 # object files
 #
-OBJS = main.o copy.o log.o log_pthread.o \
+OBJS = main.o copy.o log.o log_pthread.o pidfile.o \
        $(MULTIPATHLIB)-glibc.a \
        $(CHECKERSLIB)-glibc.a \
 
