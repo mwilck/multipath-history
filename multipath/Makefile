@@ -5,7 +5,7 @@ BUILD = glibc
 
 include ../Makefile.inc
 
-OBJS = pgpolicies.o propsel.o devinfo.o main.o dict.o dmparser.o \
+OBJS = pgpolicies.o propsel.o devinfo.o main.o dict.o \
        $(MULTIPATHLIB)-$(BUILD).a $(CHECKERSLIB)-$(BUILD).a
 
 ifeq ($(strip $(BUILD)),klibc)
