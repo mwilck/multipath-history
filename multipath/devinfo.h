@@ -22,7 +22,7 @@
 void basename (char *, char *);
 int get_serial (char *, char *);
 int sysfs_devinfo (struct path *);
-unsigned long get_disk_size (char *);
+//unsigned long get_disk_size (char *);
 int do_tur (char *);
 int get_claimed(char *);
 int devt2devname (char *, char *);
