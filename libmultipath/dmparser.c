@@ -42,7 +42,7 @@ get_word (char * sentence, char ** word)
 	*word = zalloc(len + 1);
 
 	if (!*word) {
-		fprintf(stderr, "get_word : oom\n");
+		condlog(0, "get_word : oom\n");
 		return 0;
 	}
 	strncpy(*word, sentence, len);
@@ -81,7 +81,7 @@ merge_words (char ** dst, char * word, int space)
 	return 0;
 }
 
-extern void
+extern int
 disassemble_map (vector pathvec, char * params, struct multipath * mpp)
 {
 	char * word;
@@ -102,11 +102,21 @@ disassemble_map (vector pathvec, char * params, struct multipath * mpp)
 	 * features
 	 */
 	p += get_word(p, &mpp->features);
+
+	if (!mpp->features)
+		return 1;
+
 	num_features = atoi(mpp->features);
 
 	for (i = 0; i < num_features; i++) {
 		p += get_word(p, &word);
-		merge_words(&mpp->features, word, 1);
+
+		if (!word)
+			return 1;
+
+		if (merge_words(&mpp->features, word, 1))
+			return 1;
+
 		free(word);
 	}
 
@@ -118,7 +128,13 @@ disassemble_map (vector pathvec, char * params, struct multipath * mpp)
 
 	for (i = 0; i < num_hwhandler; i++) {
 		p += get_word(p, &word);
-		merge_words(&mpp->hwhandler, word, 1);
+
+		if (!word)
+			return 1;
+
+		if (merge_words(&mpp->hwhandler, word, 1))
+			return 1;
+
 		free(word);
 	}
 
@@ -126,16 +142,26 @@ disassemble_map (vector pathvec, char * params, struct multipath * mpp)
 	 * nb of path groups
 	 */
 	p += get_word(p, &word);
+
+	if (!word)
+		return 1;
+
 	num_pg = atoi(word);
 	free(word);
 
 	if (num_pg > 0 && !mpp->pg)
 		mpp->pg = vector_alloc();
 	
+	if (!mpp->pg)
+		return 1;
 	/*
 	 * first pg to try
 	 */
 	p += get_word(p, &word);
+
+	if (!word)
+		return 1;
+
 	mpp->nextpg = atoi(word);
 	free(word);
 
@@ -146,12 +172,23 @@ disassemble_map (vector pathvec, char * params, struct multipath * mpp)
 
 		if (!mpp->selector) {
 			p += get_word(p, &mpp->selector);
+
+			if (!mpp->selector)
+				goto out;
+
 			/*
 			 * selector args
 			 */
 			p += get_word(p, &word);
+
+			if (!word)
+				goto out;
+
 			num_pg_args = atoi(word);
-			merge_words(&mpp->selector, word, 1);
+			
+			if (merge_words(&mpp->selector, word, 1))
+				goto out1;
+
 			free(word);
 		} else {
 			p += get_word(p, NULL);
@@ -164,36 +201,53 @@ disassemble_map (vector pathvec, char * params, struct multipath * mpp)
 		/*
 		 * paths
 		 */
-		pgp = zalloc(sizeof(struct pathgroup));
-		pgp->paths = vector_alloc();
-		vector_alloc_slot(mpp->pg);
-		vector_set_slot(mpp->pg, pgp);
+		pgp = alloc_pathgroup();
+		
+		if (!pgp)
+			goto out;
+
+		if (store_pathgroup(mpp->pg, pgp))
+			goto out;
 
 		p += get_word(p, &word);
+
+		if (!word)
+			return 1;
+
 		num_paths = atoi(word);
 		free(word);
 
 		p += get_word(p, &word);
+
+		if (!word)
+			return 1;
+
 		num_paths_args = atoi(word);
 		free(word);
 
 		for (j = 0; j < num_paths; j++) {
 			pp = NULL;
 			p += get_word(p, &word);
+
+			if (!word)
+				return 1;
+
 			if (pathvec)
 				pp = find_path_by_devt(pathvec, word);
 
 			if (!pp) {
 				pp = alloc_path();
+
+				if (!pp)
+					goto out1;
+
 				strncpy(pp->dev_t, word, BLK_DEV_SIZE);
 			}
 			free(word);
 
-			if (!pp)
-				continue;
+			if (store_path(pgp->paths, pp))
+				goto out;
 
-			vector_alloc_slot(pgp->paths);
-			vector_set_slot(pgp->paths, pp);
 			pgp->id ^= (long)pp;
 
 			if (!strlen(mpp->wwid))
@@ -203,6 +257,12 @@ disassemble_map (vector pathvec, char * params, struct multipath * mpp)
 				p += get_word(p, NULL);
 		}
 	}
+	return 0;
+out1:
+	free(word);
+out:
+	free_pgvec(mpp->pg, KEEP_PATHS);
+	return 1;
 }
 
 extern void

@@ -130,7 +130,6 @@ dm_map_present (char * str)
 extern int
 dm_get_map(char * name, unsigned long * size, char ** outparams)
 {
-	int r = 0;
 	struct dm_task *dmt;
 	void *next = NULL;
 	uint64_t start, length;
@@ -141,7 +140,7 @@ dm_get_map(char * name, unsigned long * size, char ** outparams)
 	cmd = DM_DEVICE_TABLE;
 
 	if (!(dmt = dm_task_create(cmd)))
-		return 0;
+		return 1;
 
 	if (!dm_task_set_name(dmt, name))
 		goto out;
@@ -163,20 +162,16 @@ dm_get_map(char * name, unsigned long * size, char ** outparams)
 	if (!*outparams)
 		goto out;
 
-	if (sprintf(*outparams, params))
-		goto out;
-
-	r = 1;
-
-	out:
+	sprintf(*outparams, params);
+	return 0;
+out:
 	dm_task_destroy(dmt);
-	return r;
+	return 1;
 }
 
 extern int
 dm_get_status(char * name, char ** outstatus)
 {
-	int r = 0;
 	struct dm_task *dmt;
 	void *next = NULL;
 	uint64_t start, length;
@@ -187,7 +182,7 @@ dm_get_status(char * name, char ** outstatus)
 	cmd = DM_DEVICE_STATUS;
 
 	if (!(dmt = dm_task_create(cmd)))
-		return 0;
+		return 1;
 
 	if (!dm_task_set_name(dmt, name))
 		goto out;
@@ -206,14 +201,11 @@ dm_get_status(char * name, char ** outstatus)
 	if (!*outstatus)
 		goto out;
 
-	if (sprintf(*outstatus, status))
-		goto out;
-
-	r = 1;
-
-	out:
+	sprintf(*outstatus, status);
+	return 0;
+out:
 	dm_task_destroy(dmt);
-	return r;
+	return 1;
 }
 
 extern int

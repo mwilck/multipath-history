@@ -25,10 +25,10 @@ void get_pgpolicy_name (char *, int);
 /*
  * policies
  */
-void one_path_per_group(struct multipath *);
-void one_group(struct multipath *);
-void group_by_serial(struct multipath *);
-void group_by_prio(struct multipath *);
-void group_by_node_name(struct multipath *);
+int one_path_per_group(struct multipath *);
+int one_group(struct multipath *);
+int group_by_serial(struct multipath *);
+int group_by_prio(struct multipath *);
+int group_by_node_name(struct multipath *);
 
 #endif

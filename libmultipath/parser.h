@@ -41,7 +41,7 @@
 /* ketword definition */
 struct keyword {
 	char *string;
-	void (*handler) (vector);
+	int (*handler) (vector);
 	vector sub;
 };
 
@@ -55,19 +55,19 @@ vector keywords;
 FILE *stream;
 
 /* Prototypes */
-extern void keyword_alloc(vector keywords, char *string, void (*handler) (vector));
-extern void install_keyword_root(char *string, void (*handler) (vector));
+extern int keyword_alloc(vector keywords, char *string, int (*handler) (vector));
+extern int install_keyword_root(char *string, int (*handler) (vector));
 extern void install_sublevel(void);
 extern void install_sublevel_end(void);
-extern void install_keyword(char *string, void (*handler) (vector));
+extern int install_keyword(char *string, int (*handler) (vector));
 extern void dump_keywords(vector keydump, int level);
 extern void free_keywords(vector keywords);
 extern vector alloc_strvec(char *string);
 extern int read_line(char *buf, int size);
 extern vector read_value_block(void);
-extern void alloc_value_block(vector strvec, void (*alloc_func) (vector));
+extern int alloc_value_block(vector strvec, void (*alloc_func) (vector));
 extern void *set_value(vector strvec);
-extern void process_stream(vector keywords);
-extern void init_data(char *conf_file, vector (*init_keywords) (void));
+extern int process_stream(vector keywords);
+extern int init_data(char *conf_file, vector (*init_keywords) (void));
 
 #endif

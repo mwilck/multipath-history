@@ -61,50 +61,10 @@ get_pgpolicy_name (char * buff, int id)
 	}
 }
 
-extern void
-group_by_status (struct multipath * mp, int state)
-{
-	int i;
-	struct path * pp;
-	struct pathgroup * pgp;
-	vector failedpaths;
-	vector pathsleft;
-
-	if (mp->pg == NULL)
-		mp->pg = vector_alloc();
-
-	failedpaths = vector_alloc();
-	pathsleft = vector_alloc();
-
-	for (i = 0; i < VECTOR_SIZE(mp->paths); i++) {
-		pp = VECTOR_SLOT(mp->paths, i);
-
-		if (pp->state == state) {
-			vector_alloc_slot(failedpaths);
-			vector_set_slot(failedpaths, pp);
-		} else {
-			vector_alloc_slot(pathsleft);
-			vector_set_slot(pathsleft, pp);
-		}
-	}
-	if (VECTOR_SIZE(failedpaths) > 0) {
-		pgp = zalloc(sizeof(struct pathgroup));
-		pgp->paths = failedpaths;
-		vector_alloc_slot(mp->pg);
-		vector_set_slot(mp->pg, pgp);
-		vector_free(mp->paths);
-		mp->paths = pathsleft;
-	} else {
-		vector_free(pathsleft);
-		vector_free(failedpaths);
-	}
-	return;
-}
-
 /*
  * One path group per unique tgt_node_name present in the path vector
  */
-extern void
+extern int
 group_by_node_name (struct multipath * mp) {
 	int i, j;
 	int * bitmap;
@@ -112,11 +72,17 @@ group_by_node_name (struct multipath * mp) {
 	struct pathgroup * pgp;
 	struct path * pp2;
 	
-	if (mp->pg == NULL)
+	if (!mp->pg)
 		mp->pg = vector_alloc();
+
+	if (!mp->pg)
+		return 1;
 
 	/* init the bitmap */
 	bitmap = zalloc(VECTOR_SIZE(mp->paths) * sizeof (int));
+
+	if (!bitmap)
+		goto out;
 
 	for (i = 0; i < VECTOR_SIZE(mp->paths); i++) {
 
@@ -126,15 +92,18 @@ group_by_node_name (struct multipath * mp) {
 		pp = VECTOR_SLOT(mp->paths, i);
 
 		/* here, we really got a new pg */
-		pgp = zalloc(sizeof(struct pathgroup));
-		pgp->paths = vector_alloc();
-		vector_alloc_slot(mp->pg);
-		vector_set_slot(mp->pg, pgp);
+		pgp = alloc_pathgroup();
+
+		if (!pgp)
+			goto out1;
+
+		if (store_pathgroup(mp->pg, pgp))
+			goto out1;
 
 		/* feed the first path */
-		vector_alloc_slot(pgp->paths);
-		vector_set_slot(pgp->paths, pp);
-				
+		if (store_path(pgp->paths, pp))
+			goto out1;
+
 		bitmap[i] = 1;
 
 		for (j = i + 1; j < VECTOR_SIZE(mp->paths); j++) {
@@ -146,21 +115,28 @@ group_by_node_name (struct multipath * mp) {
 			
 			if (!strncmp(pp->tgt_node_name, pp2->tgt_node_name,
 					NODE_NAME_SIZE)) {
-				vector_alloc_slot(pgp->paths);
-				vector_set_slot(pgp->paths, pp2);
+				if (store_path(pgp->paths, pp2))
+					goto out1;
+
 				bitmap[j] = 1;
 			}
 		}
 	}
 	free(bitmap);
-	vector_free(mp->paths);
+	free_pathvec(mp->paths, KEEP_PATHS);
 	mp->paths = NULL;
+	return 0;
+out1:
+	free(bitmap);
+out:
+	free_pgvec(mp->pg, KEEP_PATHS);
+	return 1;
 }
 
 /*
  * One path group per unique serial number present in the path vector
  */
-extern void
+extern int
 group_by_serial (struct multipath * mp) {
 	int i, j;
 	int * bitmap;
@@ -168,11 +144,17 @@ group_by_serial (struct multipath * mp) {
 	struct pathgroup * pgp;
 	struct path * pp2;
 	
-	if (mp->pg == NULL)
+	if (!mp->pg)
 		mp->pg = vector_alloc();
+
+	if (!mp->pg)
+		return 1;
 
 	/* init the bitmap */
 	bitmap = zalloc(VECTOR_SIZE(mp->paths) * sizeof (int));
+
+	if (!bitmap)
+		goto out;
 
 	for (i = 0; i < VECTOR_SIZE(mp->paths); i++) {
 
@@ -182,14 +164,17 @@ group_by_serial (struct multipath * mp) {
 		pp = VECTOR_SLOT(mp->paths, i);
 
 		/* here, we really got a new pg */
-		pgp = zalloc(sizeof(struct pathgroup));
-		pgp->paths = vector_alloc();
-		vector_alloc_slot(mp->pg);
-		vector_set_slot(mp->pg, pgp);
+		pgp = alloc_pathgroup();
+
+		if (!pgp)
+			goto out1;
+
+		if (store_pathgroup(mp->pg, pgp))
+			goto out1;
 
 		/* feed the first path */
-		vector_alloc_slot(pgp->paths);
-		vector_set_slot(pgp->paths, pp);
+		if (store_path(pgp->paths, pp))
+			goto out1;
 				
 		bitmap[i] = 1;
 
@@ -201,61 +186,91 @@ group_by_serial (struct multipath * mp) {
 			pp2 = VECTOR_SLOT(mp->paths, j);
 			
 			if (0 == strcmp(pp->serial, pp2->serial)) {
-				vector_alloc_slot(pgp->paths);
-				vector_set_slot(pgp->paths, pp2);
+				if (store_path(pgp->paths, pp2))
+					goto out1;
+
 				bitmap[j] = 1;
 			}
 		}
 	}
 	free(bitmap);
-	vector_free(mp->paths);
+	free_pathvec(mp->paths, KEEP_PATHS);
 	mp->paths = NULL;
+	return 0;
+out1:
+	free(bitmap);
+out:
+	free_pgvec(mp->pg, KEEP_PATHS);
+	return 1;
 }
 
-extern void
+extern int
 one_path_per_group (struct multipath * mp)
 {
 	int i;
 	struct path * pp;
 	struct pathgroup * pgp;
 
-	if (mp->pg == NULL)
+	if (!mp->pg)
 		mp->pg = vector_alloc();
 	
+	if (!mp->pg)
+		return 1;
+
 	for (i = 0; i < VECTOR_SIZE(mp->paths); i++) {
 		pp = VECTOR_SLOT(mp->paths, i);
-		pgp = zalloc(sizeof(struct pathgroup));
-		pgp->paths = vector_alloc();
-		vector_alloc_slot(pgp->paths);
-		vector_set_slot(pgp->paths, pp);
-		vector_alloc_slot(mp->pg);
-		vector_set_slot(mp->pg, pgp);
+		pgp = alloc_pathgroup();
+
+		if (!pgp)
+			goto out;
+
+		if (store_pathgroup(mp->pg, pgp))
+			goto out;
+		
+		if (store_path(pgp->paths, pp))
+			goto out;
 	}
-	vector_free(mp->paths);
+	free_pathvec(mp->paths, KEEP_PATHS);
 	mp->paths = NULL;
+	return 0;
+out:
+	free_pgvec(mp->pg, KEEP_PATHS);
+	return 1;
 }
 
-extern void
+extern int
 one_group (struct multipath * mp)	/* aka multibus */
 {
 	struct pathgroup * pgp;
 
 	if (VECTOR_SIZE(pgp->paths) < 0)
-		return;
+		return 0;
 
-	if (mp->pg == NULL)
+	if (!mp->pg)
 		mp->pg = vector_alloc();
 
-	pgp = zalloc(sizeof(struct pathgroup));
+	if (!mp->pg)
+		return 1;
+
+	pgp = alloc_pathgroup();
+	
+	if (!pgp)
+		goto out;
+	
+	vector_free(pgp->paths);
 	pgp->paths = mp->paths;
 	mp->paths = NULL;
-	vector_alloc_slot(mp->pg);
-	vector_set_slot(mp->pg, pgp);
 
-	return;
+	if (store_pathgroup(mp->pg, pgp))
+		goto out;
+
+	return 0;
+out:
+	free_pgvec(mp->pg, KEEP_PATHS);
+	return 1;
 }
 
-extern void
+extern int
 group_by_prio (struct multipath * mp)
 {
 	int i;
@@ -263,8 +278,11 @@ group_by_prio (struct multipath * mp)
 	struct path * pp;
 	struct pathgroup * pgp;
 
-	if (mp->pg == NULL)
+	if (!mp->pg)
 		mp->pg = vector_alloc();
+
+	if (!mp->pg)
+		return 1;
 
 	while (VECTOR_SIZE(mp->paths) > 0) {
 		pp = VECTOR_SLOT(mp->paths, 0);
@@ -284,20 +302,25 @@ group_by_prio (struct multipath * mp)
 		/*
 		 * Initialize the new path group.
 		 */
-		pgp = zalloc(sizeof(struct pathgroup));
-		pgp->paths = vector_alloc();
-		vector_alloc_slot(pgp->paths);
-		vector_set_slot(pgp->paths, VECTOR_SLOT(mp->paths, 0));
+		pgp = alloc_pathgroup();
+
+		if (!pgp)
+			goto out;
+		
+		if (store_path(pgp->paths, VECTOR_SLOT(mp->paths, 0)))
+				goto out;
+
 		vector_del_slot(mp->paths, 0);
 
 		/*
 		 * Store the new path group into the vector.
 		 */
 		if (i < VECTOR_SIZE(mp->pg)) {
-			vector_insert_slot(mp->pg, i, pgp);
+			if (!vector_insert_slot(mp->pg, i, pgp))
+				goto out;
 		} else {
-			vector_alloc_slot(mp->pg);
-			vector_set_slot(mp->pg, pgp);
+			if (store_pathgroup(mp->pg, pgp))
+				goto out;
 		}
 
 		/*
@@ -305,13 +328,19 @@ group_by_prio (struct multipath * mp)
 		 */
 		vector_foreach_slot(mp->paths, pp, i) {
 			if (pp->priority == prio) {
-				vector_alloc_slot(pgp->paths);
-				vector_set_slot(pgp->paths, pp);
+				if (store_path(pgp->paths, pp))
+					goto out;
+
 				vector_del_slot(mp->paths, i);
 				i--;
 			}
 		}
 	}
-	vector_free(mp->paths);
+	free_pathvec(mp->paths, KEEP_PATHS);
 	mp->paths = NULL;
+	return 0;
+out:
+	free_pgvec(mp->pg, KEEP_PATHS);
+	return 1;
+
 }
