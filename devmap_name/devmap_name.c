@@ -15,7 +15,8 @@ int main(int argc, char **argv)
         struct dm_names *names;
         unsigned next = 0;
 	int major, minor;
-                                                                                
+        struct dm_task *dmt;
+
 	/* sanity check */
 	if (argc != 3)
 		usage(argv[0]);
@@ -23,8 +24,6 @@ int main(int argc, char **argv)
 	major = atoi(argv[1]);
 	minor = atoi(argv[2]);
 
-        struct dm_task *dmt;
-                                                                                
         if (!(dmt = dm_task_create(DM_DEVICE_LIST)))
                 return 0;
                                                                                 
