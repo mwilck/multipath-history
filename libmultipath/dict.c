@@ -6,6 +6,7 @@
 #include "debug.h"
 #include "memory.h"
 #include "pgpolicies.h"
+#include "blacklist.h"
 
 #include "../libcheckers/checkers.h"
 
@@ -42,7 +43,6 @@ push_callout(char * callout)
 	 */
 	bin = MALLOC((p - callout) + 1);
 	strncpy(bin, callout, p - callout);
-	//log(LOG_DEBUG, "add %s to binvec", bin);
 
 	vector_alloc_slot(conf->binvec);
 	vector_set_slot(conf->binvec, bin);
@@ -134,8 +134,7 @@ ble_handler(vector strvec)
 	char * buff;
 
 	buff = set_value(strvec);
-	vector_alloc_slot(conf->blist);
-	vector_set_slot(conf->blist, buff);
+	store_regex(conf->blist, buff);
 }
 
 /*
