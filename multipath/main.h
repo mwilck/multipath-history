@@ -122,6 +122,7 @@ struct env {
 	char sysfs_path[FILE_NAME_SIZE];
 	char hotplugdev[FILE_NAME_SIZE];
 	struct hwentry * hwtable;
+	int signal;
 };
 
 /* Build version */

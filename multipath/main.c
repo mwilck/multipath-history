@@ -682,7 +682,8 @@ usage (char * progname)
 			"\t-D maj min\tlimit scope to the device's multipath\n" \
 			"\t\t\t(major minor device reference)\n"
 			"\tdevice\t\tlimit scope to the device's multipath\n" \
-			"\t\t\t(hotplug-style $DEVPATH reference)\n"
+			"\t\t\t(hotplug-style $DEVPATH reference)\n" \
+			"\t-S inhibit signal sending to multipathd\n"
 		);
 
 	unlink (RUN);
@@ -722,6 +723,7 @@ main (int argc, char *argv[])
 	conf.major = -1;
 	conf.minor = -1;
 	conf.hwtable = NULL;
+	conf.signal = 1;	/* 1 == Do send a signal to multipathd */
 
 	/* argv parser */
 	for (i = 1; i < argc; ++i) {
@@ -749,8 +751,13 @@ main (int argc, char *argv[])
 			conf.quiet = 1;
 		}
 		
-		else argis ("-d")
+		else argis ("-d") {
 			conf.dry_run = 1;
+			conf.signal = 0;
+		}
+		
+		else argis ("-S")
+			conf.signal = 0;
 		
 		else argis ("-p") {
 			i++;
@@ -831,7 +838,8 @@ main (int argc, char *argv[])
 	}
 
 	/* signal multipathd that new devmaps may have come up */
-	signal_daemon ();
+	if (conf.signal)
+		signal_daemon ();
 	
 	/* free allocs */
 	free (mp);

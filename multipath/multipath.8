@@ -14,6 +14,7 @@ multipath \- Device mapper target autoconfig
 .IR max_devs \|]
 .RB [\| \-p\ \c
 .BR failover | multibus | group_by_serial | group_by_tur \|]
+.RB [\| -S \|]
 .RB [\| device \|]
 .SH DESCRIPTION
 .B multipath
@@ -58,6 +59,9 @@ all paths in 1 priority group
 .B group_by_tur
 1 priority group per TUR state
 .RE
+.TP
+.B \-S
+do not send signal to multipathd. -d activate this silently.
 .TP
 .BI device
 update only the devmap the path pointed by
