@@ -72,7 +72,11 @@ defaults {
 # default : cciss, fd, hd, md, dm, sr, scd, st, ram, raw, loop
 #
 devnode_blacklist {
-	devnode cciss
+	devnode c0d
+	devnode c1d
+	devnode c2d
+	devnode ub
+	devnode nbd
 	devnode fd
 	devnode hd
 	devnode md
@@ -281,6 +285,12 @@ devices {
 		vendor			"IBM     "
 		product			"ProFibre 4000R  "
 		path_grouping_policy	multibus
+		path_checker		tur
+	}
+	device {
+		vendor			"IBM     "
+		product			"3542            "
+		path_grouping_policy	group_by_serial
 		path_checker		tur
 	}
 	device {
