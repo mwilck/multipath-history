@@ -220,23 +220,37 @@ extern void
 group_by_prio (struct multipath * mp)
 {
 	int i;
-	unsigned int prio = -1;
+	unsigned int prio;
 	struct path * pp;
-	vector pgpaths = NULL;
+	vector pgpaths;
 
 	if (mp->pg == NULL)
 		mp->pg = vector_alloc();
 
-	for (i = 0; i < VECTOR_SIZE(mp->paths); i++) {
-		pp = VECTOR_SLOT(mp->paths, i);
-		if (pp->priority != prio || pgpaths == NULL) {
-			pgpaths = vector_alloc();
-			vector_alloc_slot(mp->pg);
-			vector_set_slot(mp->pg, pgpaths);
-			prio = pp->priority;
-		}
+	while (VECTOR_SIZE(mp->paths) > 0) {
+		/*
+		 * init a new pgpaths, put in the first path in mp->paths
+		 */
+		pp = VECTOR_SLOT(mp->paths, 0);
+		prio = pp->priority;
+		pgpaths = vector_alloc();
 		vector_alloc_slot(pgpaths);
 		vector_set_slot(pgpaths, pp);
+		vector_alloc_slot(mp->pg);
+		vector_set_slot(mp->pg, pgpaths);
+		vector_del_slot(mp->paths, 0);
+		
+		/*
+		 * add the other paths with the same prio
+		 */
+		for (i = 0; i < VECTOR_SIZE(mp->paths); i++) {
+			pp = VECTOR_SLOT(mp->paths, i);
+			if (pp->priority == prio) {
+				vector_alloc_slot(pgpaths);
+				vector_set_slot(pgpaths, pp);
+				vector_del_slot(mp->paths, i);
+			}
+		}
 	}
 	vector_free(mp->paths);
 	mp->paths = NULL;
@@ -280,7 +294,7 @@ sort_pg_by_summed_prio (struct multipath * mp)
 				if (pp->state != PATH_DOWN)
 					sum += pp->priority;
 			}
-			if (sum < ref_sum) {
+			if (sum > ref_sum) {
 				vector_insert_slot(sortedpg, j, ref_pgpaths);
 				break;
 			}
