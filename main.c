@@ -438,7 +438,7 @@ group_by_serial(struct multipath * mp, struct path * all_paths, char * str) {
 				path_count++;
 			}
 		}
-		pg_buff_p += sprintf(pg_buff_p, " 1 round-robin %i 0%s",
+		pg_buff_p += sprintf(pg_buff_p, " round-robin %i 0%s",
 				     path_count, path_buff);
 	}
 	sprintf(str, " %i%s", pg_count, pg_buff);
@@ -493,7 +493,6 @@ setup_map(struct env * conf, struct path * all_paths,
 	int i, np;
 
 	/* defaults for multipath target */
-	int dm_pg_prio              = 1;
 	char * dm_ps_name           = "round-robin";
 	int dm_ps_nr_args           = 0;
 
@@ -510,8 +509,8 @@ setup_map(struct env * conf, struct path * all_paths,
 
 	if ((all_paths[PINDEX(index,0)].iopolicy == MULTIBUS &&
 	    conf->iopolicy == -1) || conf->iopolicy == MULTIBUS) {
-		params_p += sprintf(params_p, " 1 %i %s %i %i",
-				    dm_pg_prio, dm_ps_name, np, dm_ps_nr_args);
+		params_p += sprintf(params_p, " 1 %s %i %i",
+				    dm_ps_name, np, dm_ps_nr_args);
 		
 		for (i=0; i<=mp[index].npaths; i++) {
 			if (0 != all_paths[PINDEX(index,i)].sg_id.scsi_type)
@@ -527,8 +526,8 @@ setup_map(struct env * conf, struct path * all_paths,
 		for (i=0; i<=mp[index].npaths; i++) {
 			if (0 != all_paths[PINDEX(index,i)].sg_id.scsi_type)
 				continue;
-			params_p += sprintf(params_p, " %i %s ",
-					    dm_pg_prio, dm_ps_name);
+			params_p += sprintf(params_p, " %s ",
+					    dm_ps_name);
 			params_p += sprintf(params_p, "1 %i",
 					    dm_ps_nr_args);
 			params_p += sprintf(params_p, " %s",
