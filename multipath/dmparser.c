@@ -287,7 +287,7 @@ disassemble_status (char * params, struct multipath * mpp)
 		 */
 		p += get_word(p, &word);
 		switch (*word) {
-		case 'F':
+		case 'D':
 			pgp->status = PGSTATE_DISABLED;
 			break;
 		case 'A':
