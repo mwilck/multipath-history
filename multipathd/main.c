@@ -135,7 +135,7 @@ int get_devmaps (struct devmap *devmaps)
 	unsigned next = 0;
 	void *nexttgt;
 	int r = 0;
-	long long start, length;
+	uint64_t start, length;
 	char *target_type = NULL;
 	char *params;
 
@@ -257,7 +257,7 @@ int updatepaths (struct devmap *devmaps, struct paths *failedpaths)
 	struct devmap *devmaps_p;
 	void *next;
 	struct dm_task *dmt;
-	long long start, length;
+	uint64_t start, length;
 	char *target_type = NULL;
 	char *params, *p1, *p2;
 	char word[6];

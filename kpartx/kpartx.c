@@ -445,7 +445,7 @@ xmalloc (size_t size) {
 /*
  * sseek: seek to specified sector
  */
-#if !defined (__alpha__) && !defined (__ia64__)
+#if !defined (__alpha__) && !defined (__ia64__) && !defined (__x86_64__)
 #include <linux/unistd.h>       /* _syscall */
 static
 _syscall5(int,  _llseek,  uint,  fd, ulong, hi, ulong, lo,
@@ -458,7 +458,7 @@ sseek(int fd, unsigned int secnr) {
 	in = ((long long) secnr << 9);
 	out = 1;
 
-#if !defined (__alpha__) && !defined (__ia64__)
+#if !defined (__alpha__) && !defined (__ia64__) && !defined (__x86_64__)
 	if (_llseek (fd, in>>32, in & 0xffffffff, &out, SEEK_SET) != 0
 	    || out != in)
 #else
