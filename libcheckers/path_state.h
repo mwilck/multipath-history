@@ -1,3 +1,4 @@
-#define PATH_DOWN	0
-#define PATH_UP		1
-#define PATH_SHAKY	2
+#define PATH_UNCHECKED	0
+#define PATH_DOWN	1
+#define PATH_UP		2
+#define PATH_SHAKY	3
