@@ -10,6 +10,7 @@
 #include <syslog.h>
 #include <signal.h>
 #include <wait.h>
+#include <sysfs/libsysfs.h>
 
 #include "devinfo.h"
 #include "checkers.h"
@@ -81,26 +82,10 @@ int select_checkfn(struct path *path_p)
 	/* default checkfn */
 	path_p->checkfn = &readsector0;
 	
-	sprintf (devnode, "/tmp/.select.%i.%i", path_p->major, path_p->minor);
-
-	r = makenode (devnode, path_p->major, path_p->minor);
-	
-	if (r < 0) {
-		LOG(2, "[select_checkfn] can not make node %s", devnode);
-		return r;
-	}
-
-	r = get_lun_strings(vendor, product, rev, devnode);
+	r = get_lun_strings(vendor, product, rev, devname);
 
 	if (r) {
 		LOG(2, "[select_checkfn] can not get strings");
-		return r;
-	}
-
-	r = unlink (devnode);
-
-	if (r < 0) {
-		LOG(2, "[select_checkfn] can not unlink %s", devnode);
 		return r;
 	}
 
