@@ -94,72 +94,6 @@ struct sysfs_directory {
 	struct dlist *attributes;
 };
 
-struct sysfs_driver {
-	char name[SYSFS_NAME_LEN];
-	char path[SYSFS_PATH_MAX];
-
-	/* Private: for internal use only */
-	struct dlist *devices;
-	struct sysfs_directory *directory;	
-};
-
-struct sysfs_device {
-	char name[SYSFS_NAME_LEN];
-	char bus_id[SYSFS_NAME_LEN];
-	char bus[SYSFS_NAME_LEN];
-	char driver_name[SYSFS_NAME_LEN];
-	char path[SYSFS_PATH_MAX];
-
-	/* Private: for internal use only */
-	struct sysfs_device *parent;		
-	struct dlist *children;	
-	struct sysfs_directory *directory;	
-};
-
-struct sysfs_root_device {
-	char name[SYSFS_NAME_LEN];
-	char path[SYSFS_PATH_MAX];
-
-	/* Private: for internal use only */
-	struct dlist *devices;
-	struct sysfs_directory *directory;
-};
-
-struct sysfs_bus {
-	char name[SYSFS_NAME_LEN];
-	char path[SYSFS_PATH_MAX];
-
-	/* Private: for internal use only */
-	struct dlist *drivers;
-	struct dlist *devices;
-	struct sysfs_directory *directory;	
-};
-
-struct sysfs_class_device {
-	char name[SYSFS_NAME_LEN];
-	char classname[SYSFS_NAME_LEN];
-	char path[SYSFS_PATH_MAX];
-
-	/* Private: for internal use only */
-	struct sysfs_class_device *parent;	
-	struct sysfs_device *sysdevice;		/* NULL if virtual */
-	struct sysfs_driver *driver;		/* NULL if not implemented */
-	struct sysfs_directory *directory;	
-};
-
-struct sysfs_class {
-	char name[SYSFS_NAME_LEN];
-	char path[SYSFS_PATH_MAX];
-
-	/* Private: for internal use only */
-	struct dlist *devices;
-	struct sysfs_directory *directory;	
-};
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /*
  * Function Prototypes
  */
@@ -208,87 +142,6 @@ extern struct dlist *sysfs_get_dir_attributes(struct sysfs_directory *dir);
 extern struct dlist *sysfs_get_dir_links(struct sysfs_directory *dir);
 extern struct dlist *sysfs_get_dir_subdirs(struct sysfs_directory *dir);
 
-/* sysfs driver access */
-extern void sysfs_close_driver(struct sysfs_driver *driver);
-extern struct sysfs_driver *sysfs_open_driver
-	(const char *bus_name, const char *drv_name);
-extern struct sysfs_driver *sysfs_open_driver_path(const char *path);
-extern struct sysfs_attribute *sysfs_get_driver_attr
-	(struct sysfs_driver *drv, const char *name);
-extern struct dlist *sysfs_get_driver_attributes(struct sysfs_driver *driver);
-extern struct dlist *sysfs_get_driver_devices(struct sysfs_driver *driver);
-extern struct dlist *sysfs_refresh_driver_devices(struct sysfs_driver *driver);
-extern struct dlist *sysfs_get_driver_links(struct sysfs_driver *driver);
-extern struct sysfs_device *sysfs_get_driver_device
-	(struct sysfs_driver *driver, const char *name);
-extern struct dlist *sysfs_refresh_driver_attributes
-	(struct sysfs_driver *driver);
-extern struct sysfs_attribute *sysfs_open_driver_attr
-	(const char *bus, const char *drv, const char *attrib);
-
-/* generic sysfs device access */
-extern void sysfs_close_root_device(struct sysfs_root_device *root);
-extern struct sysfs_root_device *sysfs_open_root_device(const char *name);
-extern struct dlist *sysfs_get_root_devices(struct sysfs_root_device *root);
-extern void sysfs_close_device_tree(struct sysfs_device *device);
-extern struct sysfs_device *sysfs_open_device_tree(const char *path);
-extern void sysfs_close_device(struct sysfs_device *dev);
-extern struct sysfs_device *sysfs_open_device
-	(const char *bus, const char *bus_id);
-extern struct sysfs_device *sysfs_get_device_parent(struct sysfs_device *dev);
-extern struct sysfs_device *sysfs_open_device_path(const char *path);
-extern int sysfs_get_device_bus(struct sysfs_device *dev);
-extern struct sysfs_attribute *sysfs_get_device_attr
-	(struct sysfs_device *dev, const char *name);
-extern struct dlist *sysfs_get_device_attributes(struct sysfs_device *device);
-extern struct dlist *sysfs_refresh_device_attributes
-	(struct sysfs_device *device);
-extern struct sysfs_attribute *sysfs_open_device_attr(const char *bus, 
-		const char *bus_id, const char *attrib);
-
-/* generic sysfs bus access */
-extern void sysfs_close_bus(struct sysfs_bus *bus);
-extern struct sysfs_bus *sysfs_open_bus(const char *name);
-extern struct sysfs_device *sysfs_get_bus_device(struct sysfs_bus *bus, 
-		char *id);
-extern struct sysfs_driver *sysfs_get_bus_driver(struct sysfs_bus *bus,
-		char *drvname);
-extern struct dlist *sysfs_get_bus_drivers(struct sysfs_bus *bus);
-extern struct dlist *sysfs_get_bus_devices(struct sysfs_bus *bus);
-extern struct dlist *sysfs_get_bus_attributes(struct sysfs_bus *bus);
-extern struct dlist *sysfs_refresh_bus_attributes(struct sysfs_bus *bus);
-extern struct sysfs_attribute *sysfs_get_bus_attribute
-	(struct sysfs_bus *bus,	char *attrname);
-extern int sysfs_find_driver_bus(const char *driver, char *busname, 
-		size_t bsize);
-
-/* generic sysfs class access */
-extern void sysfs_close_class_device(struct sysfs_class_device *dev);
-extern struct sysfs_class_device *sysfs_open_class_device_path
-	(const char *path);
-extern struct sysfs_class_device *sysfs_open_class_device
-	(const char *classname, const char *name);
-extern struct sysfs_device *sysfs_get_classdev_device
-	(struct sysfs_class_device *clsdev);
-extern struct sysfs_driver *sysfs_get_classdev_driver
-	(struct sysfs_class_device *clsdev);
-extern struct sysfs_class_device *sysfs_get_classdev_parent
-	(struct sysfs_class_device *clsdev);
-extern void sysfs_close_class(struct sysfs_class *cls);
-extern struct sysfs_class *sysfs_open_class(const char *name);
-extern struct dlist *sysfs_get_class_devices(struct sysfs_class *cls);
-extern struct sysfs_class_device *sysfs_get_class_device
-	(struct sysfs_class *cls, char *name);
-extern struct dlist *sysfs_get_classdev_attributes
-	(struct sysfs_class_device *cdev);
-extern struct dlist *sysfs_refresh_classdev_attributes
-	(struct sysfs_class_device *cdev);
-extern struct sysfs_attribute *sysfs_get_classdev_attr
-	(struct sysfs_class_device *clsdev, const char *name);
-extern struct sysfs_attribute *sysfs_open_classdev_attr
-	(const char *classname, const char *dev, 
-	 					const char *attrib); 
-
 /**
  * sort_list: sorter function to keep list elements sorted in alphabetical 
  * 	order. Just does a strncmp as you can see :)
@@ -305,10 +158,5 @@ static inline int sort_list(void *new_elem, void *old_elem)
 		((struct sysfs_attribute *)old_elem)->name,
 		strlen(((struct sysfs_attribute *)new_elem)->name))) < 0 ? 1 : 0);
 }
-
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* _LIBSYSFS_H_ */
