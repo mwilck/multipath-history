@@ -11,14 +11,9 @@
 #include "memory.h"
 #include "structs.h"
 #include "util.h"
+#include "debug.h"
 
 #define WORD_SIZE 64
-
-#if DEBUG
-#define dbg(format, arg...) fprintf(stderr, format "\n", ##arg)
-#else
-#define dbg(format, arg...) do {} while(0)
-#endif
 
 static int
 get_word (char * sentence, char ** word)
@@ -51,7 +46,7 @@ get_word (char * sentence, char ** word)
 		return 0;
 	}
 	strncpy(*word, sentence, len);
-//	dbg("*word = %s, len = %i", *word, len);
+	condlog(4, "*word = %s, len = %i", *word, len);
 
 	if (*p == '\0')
 		return 0;

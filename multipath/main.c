@@ -58,7 +58,7 @@ get_refwwid (vector pathvec)
 		return NULL;
 
 	if (conf->dev_type == DEV_DEVNODE) {
-		dbg("limited scope = %s", conf->dev);
+		condlog(3, "limited scope = %s", conf->dev);
 		basename(conf->dev, buff);
 		pp = find_path_by_dev(pathvec, buff);
 		
@@ -81,7 +81,7 @@ get_refwwid (vector pathvec)
 	}
 
 	if (conf->dev_type == DEV_DEVT) {
-		dbg("limited scope = %s", conf->dev);
+		condlog(3, "limited scope = %s", conf->dev);
 		pp = find_path_by_devt(pathvec, conf->dev);
 		
 		if (!pp) {
@@ -107,7 +107,7 @@ get_refwwid (vector pathvec)
 		return refwwid;
 	}
 	if (conf->dev_type == DEV_DEVMAP) {
-		dbg("limited scope = %s", conf->dev);
+		condlog(3, "limited scope = %s", conf->dev);
 		/*
 		 * may be an alias
 		 */
@@ -312,7 +312,7 @@ filter_pathvec (vector pathvec, char * refwwid)
 
 	vector_foreach_slot (pathvec, pp, i) {
 		if (memcmp(pp->wwid, refwwid, WWID_SIZE) != 0) {
-			dbg("skip path %s : out of scope", pp->dev);
+			condlog(3, "skip path %s : out of scope", pp->dev);
 			free_path(pp);
 			vector_del_slot(pathvec, i);
 			i--;
@@ -432,7 +432,7 @@ setup_map (struct multipath * mpp)
 		break;
 	}
 	if (mpp->pg == NULL) {
-		dbg("pgpolicy failed to produce a ->pg vector");
+		condlog(3, "pgpolicy failed to produce a ->pg vector");
 		return 1;
 	}
 
@@ -525,45 +525,45 @@ select_action (struct multipath * mpp, vector curmp)
 		return;
 	}
 	if (pathcount(mpp, PATH_UP) == 0) {
-		dbg("no good path");
+		condlog(3, "no good path");
 		mpp->action = ACT_NOTHING;
 		return;
 	}
 	if (cmpp->size != mpp->size) {
-		dbg("size different than current");
+		condlog(3, "size different than current");
 		mpp->action = ACT_RELOAD;
 		return;
 	}
 	if (strncmp(cmpp->features, mpp->features,
 		    strlen(mpp->features))) {
-		dbg("features different than current");
+		condlog(3, "features different than current");
 		mpp->action =  ACT_RELOAD;
 		return;
 	}
 	if (strncmp(cmpp->hwhandler, mpp->hwhandler,
 		    strlen(mpp->hwhandler))) {
-		dbg("hwhandler different than current");
+		condlog(3, "hwhandler different than current");
 		mpp->action = ACT_RELOAD;
 		return;
 	}
 	if (strncmp(cmpp->selector, mpp->selector,
 		    strlen(mpp->selector))) {
-		dbg("selector different than current");
+		condlog(3, "selector different than current");
 		mpp->action = ACT_RELOAD;
 		return;
 	}
 	if (VECTOR_SIZE(cmpp->pg) != VECTOR_SIZE(mpp->pg)) {
-		dbg("different number of PG");
+		condlog(3, "different number of PG");
 		mpp->action = ACT_RELOAD;
 		return;
 	}
 	if (pgcmp2(mpp, cmpp)) {
-		dbg("different path group topology");
+		condlog(3, "different path group topology");
 		mpp->action = ACT_RELOAD;
 		return;
 	}
 	if (cmpp->nextpg != mpp->nextpg) {
-		dbg("nextpg different than current");
+		condlog(3, "nextpg different than current");
 		mpp->action = ACT_SWITCHPG;
 		return;
 	}
@@ -701,7 +701,7 @@ coalesce_paths (vector curmp, vector pathvec)
 				/*
 				 * ouch, avoid feeding that to the DM
 				 */
-				dbg("path size mismatch : discard %s",
+				condlog(3, "path size mismatch : discard %s",
 				     mpp->wwid);
 				mpp->action = ACT_NOTHING;
 			}
@@ -734,9 +734,7 @@ signal_daemon (void)
 	file = fopen(DEFAULT_PIDFILE, "r");
 
 	if (!file) {
-		if (conf->verbosity > 0)
-			fprintf(stderr, "cannot signal daemon, "
-					"pidfile not found\n");
+		condlog(1, "cannot signal daemon, pidfile not found");
 		return;
 	}
 
@@ -819,8 +817,8 @@ get_current_mp (vector curmp, vector pathvec, char * refwwid)
 		if (refwwid && strncmp(mpp->wwid, refwwid, WWID_SIZE))
 			continue;
 
-		dbg("params = %s", mpp->params);
-		dbg("status = %s", mpp->status);
+		condlog(3, "params = %s", mpp->params);
+		condlog(3, "status = %s", mpp->status);
 		disassemble_map(pathvec, mpp->params, mpp);
 		update_pathvec(pathvec);
 		disassemble_status(mpp->status, mpp);
@@ -988,7 +986,7 @@ main (int argc, char *argv[])
 		exit(0);
 	
 	if (!cache_cold(CACHE_EXPIRE)) {
-		dbg("load path identifiers cache");
+		condlog(3, "load path identifiers cache");
 		cache_load(pathvec);
 	}
 
@@ -1008,7 +1006,6 @@ main (int argc, char *argv[])
 	cache_dump(pathvec);
 	filter_pathvec(pathvec, refwwid);
 
-	dbg("===== list = %i =====", conf->list);
 	if (conf->list)
 		goto out;
 

@@ -296,28 +296,28 @@ sysfs_devinfo(struct path * curpath)
 	if (sysfs_get_vendor(sysfs_path, curpath->dev,
 			     curpath->vendor_id, SCSI_VENDOR_SIZE))
 		return 1;
-	dbg("vendor = %s", curpath->vendor_id);
+	condlog(3, "vendor = %s", curpath->vendor_id);
 
 	if (sysfs_get_model(sysfs_path, curpath->dev,
 			    curpath->product_id, SCSI_PRODUCT_SIZE))
 		return 1;
-	dbg("product = %s", curpath->product_id);
+	condlog(3, "product = %s", curpath->product_id);
 
 	if (sysfs_get_rev(sysfs_path, curpath->dev,
 			  curpath->rev, SCSI_REV_SIZE))
 		return 1;
-	dbg("rev = %s", curpath->rev);
+	condlog(3, "rev = %s", curpath->rev);
 
 	if (sysfs_get_dev(sysfs_path, curpath->dev,
 			  curpath->dev_t, BLK_DEV_SIZE))
 		return 1;
-	dbg("dev_t = %s", curpath->dev_t);
+	condlog(3, "dev_t = %s", curpath->dev_t);
 
 	curpath->size = sysfs_get_size(sysfs_path, curpath->dev);
 
 	if (curpath->size == 0)
 		return 1;
-	dbg("size = %lu", curpath->size);
+	condlog(3, "size = %lu", curpath->size);
 
 	/*
 	 * host / bus / target / lun
@@ -335,7 +335,7 @@ sysfs_devinfo(struct path * curpath)
 			&curpath->sg_id.channel,
 			&curpath->sg_id.scsi_id,
 			&curpath->sg_id.lun);
-	dbg("h:b:t:l = %i:%i:%i:%i",
+	condlog(3, "h:b:t:l = %i:%i:%i:%i",
 			curpath->sg_id.host_no,
 			curpath->sg_id.channel,
 			curpath->sg_id.scsi_id,
@@ -356,7 +356,7 @@ sysfs_devinfo(struct path * curpath)
 	if (0 <= readattr(attr_path, attr_buff) && strlen(attr_buff) > 0)
 		strncpy(curpath->tgt_node_name, attr_buff,
 			strlen(attr_buff) - 1);
-	dbg("tgt_node_name = %s", curpath->tgt_node_name);
+	condlog(3, "tgt_node_name = %s", curpath->tgt_node_name);
 
 	return 0;
 }
@@ -441,7 +441,7 @@ apply_format (char * string, int maxsize, struct path * pp)
 	}
 
 	snprintf(p, len, "%s", pos);
-	dbg("reformated callout = %s", dst);
+	condlog(3, "reformated callout = %s", dst);
 	return dst;
 }
 
@@ -451,7 +451,7 @@ devinfo (struct path *pp, vector hwtable)
 	char * buff;
 	char prio[16];
 
-	dbg("===== path %s =====", pp->dev);
+	condlog(3, "===== path %s =====", pp->dev);
 
 	/*
 	 * fetch info available in sysfs
@@ -470,10 +470,10 @@ devinfo (struct path *pp, vector hwtable)
 		return 1;
 
 	get_serial(pp->serial, pp->fd);
-	dbg("serial = %s", pp->serial);
+	condlog(3, "serial = %s", pp->serial);
 #if 0
 	pp->claimed = get_claimed(pp->fd);
-	dbg("claimed = %i", pp->claimed);
+	condlog(3, "claimed = %i", pp->claimed);
 #endif
 
 	/* get and store hwe pointer */
@@ -484,7 +484,7 @@ devinfo (struct path *pp, vector hwtable)
 	 */
 	select_checkfn(pp);
 	pp->state = pp->checkfn(pp->fd, NULL, NULL);
-	dbg("state = %i", pp->state);
+	condlog(3, "state = %i", pp->state);
 	
 	/*
 	 * get path prio
@@ -495,13 +495,13 @@ devinfo (struct path *pp, vector hwtable)
 	if (!buff)
 		pp->priority = 1;
 	else if (execute_program(buff, prio, 16)) {
-		dbg("error calling out %s", buff);
+		condlog(3, "error calling out %s", buff);
 		pp->priority = 1;
 		free(buff);
 	} else
 		pp->priority = atoi(prio);
 
-	dbg("prio = %u", pp->priority);
+	condlog(3, "prio = %u", pp->priority);
 
 	/*
 	 * get path uid
@@ -514,11 +514,11 @@ devinfo (struct path *pp, vector hwtable)
 			if (!execute_program(buff, pp->wwid, WWID_SIZE) == 0)
 				memset(pp->wwid, 0, WWID_SIZE);
 
-			dbg("uid = %s (callout)", pp->wwid);
+			condlog(3, "uid = %s (callout)", pp->wwid);
 			free(buff);
 		}
 	} else
-		dbg("uid = %s (cache)", pp->wwid);
+		condlog(3, "uid = %s (cache)", pp->wwid);
 
 	return 0;
 }

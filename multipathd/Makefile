@@ -1,12 +1,6 @@
 BUILD = glibc
 EXEC = multipathd
 
-#
-# debug verbosity, same as syslog.h
-# nothing to below 5, full debug at 7
-#
-LOGLEVEL = 6
-
 include ../Makefile.inc
 
 #
@@ -19,8 +13,8 @@ rcdir = /etc/init.d
 #
 # basic flags setting
 #
-CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes -DLOGLEVEL=$(LOGLEVEL) \
-	 -I$(multipathdir) -I$(checkersdir)
+CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes \
+	 -DDAEMON -I$(multipathdir) -I$(checkersdir)
 LDFLAGS = -lpthread
 
 #
@@ -65,7 +59,7 @@ $(CHECKERSLIB)-glibc.a:
 	$(MAKE) -C $(checkersdir) BUILD=glibc glibc
 
 $(MULTIPATHLIB)-glibc.a:
-	$(MAKE) -C $(multipathdir) BUILD=glibc glibc
+	$(MAKE) -C $(multipathdir) DAEMON=1 BUILD=glibc glibc
 
 $(DMLIB)-glibc.a:
 	$(MAKE) -C $(libdmdir) BUILD=glibc glibc

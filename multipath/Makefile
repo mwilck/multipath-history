@@ -30,7 +30,6 @@ endif
 endif
 
 EXEC = multipath
-DEBUG = 0
 
 all: $(BUILD)
 
