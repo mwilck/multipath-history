@@ -77,7 +77,7 @@ get_pgpolicy_name (char * buff, int id)
 }
 
 extern void
-group_by_status (struct multipath * mp, int status)
+group_by_status (struct multipath * mp, int state)
 {
 	int i;
 	struct path * pp;
@@ -93,7 +93,7 @@ group_by_status (struct multipath * mp, int status)
 	for (i = 0; i < VECTOR_SIZE(mp->paths); i++) {
 		pp = VECTOR_SLOT(mp->paths, i);
 
-		if (pp->state & PATH_DOWN) {
+		if (pp->state == state) {
 			vector_alloc_slot(failedpaths);
 			vector_set_slot(failedpaths, pp);
 		} else {
@@ -106,10 +106,10 @@ group_by_status (struct multipath * mp, int status)
 		vector_set_slot(mp->pg, failedpaths);
 		vector_free(mp->paths);
 		mp->paths = pathsleft;
-		return;
+	} else {
+		vector_free(pathsleft);
+		vector_free(failedpaths);
 	}
-	vector_free(pathsleft);
-	vector_free(failedpaths);
 	return;
 }
 /*
@@ -208,9 +208,12 @@ one_group (struct multipath * mp)	/* aka multibus */
 	if (VECTOR_SIZE(pgpaths) > 0) {
 		vector_alloc_slot(mp->pg);
 		vector_set_slot(mp->pg, pgpaths);
-		vector_free(mp->paths);
-		mp->paths = NULL;
+	} else {
+		vector_free(pgpaths);
 	}
+	vector_free(mp->paths);
+	mp->paths = NULL;
+	return;
 }
 
 extern void
@@ -245,7 +248,7 @@ sort_pg_by_summed_prio (struct multipath * mp)
 	int i, j, k;
 	int sum = 0, ref_sum = 0;
 	vector sortedpg;
-	vector pgpaths;
+	vector pgpaths, ref_pgpaths;
 	struct path * pp;
 	
 	if (mp->pg == NULL)
@@ -255,34 +258,36 @@ sort_pg_by_summed_prio (struct multipath * mp)
 		return;
 
 	/*
-	 * fill first slot of the orederd vector
+	 * fill first slot of the ordered vector
 	 */
 	pgpaths = VECTOR_SLOT(mp->pg, 0);
+
 	sortedpg = vector_alloc();
 	vector_alloc_slot(sortedpg);
 	vector_set_slot(sortedpg, pgpaths);
 	
 	for (i = 1; i < VECTOR_SIZE(mp->pg); i++) {
-		pgpaths = VECTOR_SLOT(mp->pg, i);
-		for (j = 0; j < VECTOR_SIZE(pgpaths); j++) {
-			pp = VECTOR_SLOT(pgpaths, j);
-			ref_sum += pp->priority;
+		ref_pgpaths = VECTOR_SLOT(mp->pg, i);
+		for (j = 0; j < VECTOR_SIZE(ref_pgpaths); j++) {
+			pp = VECTOR_SLOT(ref_pgpaths, j);
+			if (pp->state != PATH_DOWN)
+				ref_sum += pp->priority;
 		}
 		for (j = 0; j < VECTOR_SIZE(sortedpg); j++) {
 			pgpaths = VECTOR_SLOT(sortedpg, j);
 			for (k = 0; k < VECTOR_SIZE(pgpaths); k++) {
 				pp = VECTOR_SLOT(pgpaths, k);
-				sum += pp->priority;
+				if (pp->state != PATH_DOWN)
+					sum += pp->priority;
 			}
 			if (sum < ref_sum) {
-				vector_insert_slot(sortedpg, j, pgpaths);
+				vector_insert_slot(sortedpg, j, ref_pgpaths);
 				break;
 			}
 		}
 		if (j == VECTOR_SIZE(sortedpg)) {
-			pgpaths = VECTOR_SLOT(mp->pg, i);
 			vector_alloc_slot(sortedpg);
-			vector_set_slot(sortedpg, pgpaths);
+			vector_set_slot(sortedpg, ref_pgpaths);
 		}
 	}
 	vector_free(mp->pg);
