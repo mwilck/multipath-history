@@ -68,7 +68,7 @@ int makenode (char *devnode, int major, int minor)
 	dev = makedev (major, minor);
         unlink (devnode);
 	
-	return mknod(devnode, S_IFBLK | S_IRUSR | S_IWUSR, dev);
+	return mknod(devnode, S_IFCHR | S_IRUSR | S_IWUSR, dev);
 }
 
 int select_checkfn(struct path *path_p)
