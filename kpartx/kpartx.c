@@ -176,9 +176,23 @@ strip_slash (char * device)
 	}
 }
 
+static int
+find_devname_offset (char * device)
+{
+	char *p, *q = NULL;
+	
+	p = device;
+	
+	while (*p++)
+		if (*p == '/')
+			q = p;
+
+	return (int)(q - device) + 1;
+}
+			
 int
 main(int argc, char **argv){
-        int fd, i, j, k, n, op;
+        int fd, i, j, k, n, op, off;
 	struct slice all;
 	struct pt *ptp;
 	enum action what = LIST;
@@ -285,7 +299,8 @@ main(int argc, char **argv){
 	}
 
 	set_delimiter (device, &delim[0]);
-			
+	off = find_devname_offset (device);
+
 	fd = open (device, O_RDONLY);
 
 	if (fd == -1) {
@@ -321,8 +336,9 @@ main(int argc, char **argv){
 				if (slices[j].size == 0)
 					continue;
 
-				printf ("%s%d : 0 %d %s %d\n",
-				        device+5, j+1, slices[j].size, device,
+				printf ("%s%s%d : 0 %d %s %d\n",
+				        device + off, delim, j+1,
+					slices[j].size, device,
 				        slices[j].start);
 			}
 		}
@@ -332,7 +348,7 @@ main(int argc, char **argv){
 			for (j = 0; j < n; j++) {
 
 				sprintf (partname, 
-					 "%s%s%d", device+5 , delim, j+1);
+					 "%s%s%d", device + off , delim, j+1);
 
 				strip_slash (partname);
 			
@@ -399,7 +415,7 @@ main(int argc, char **argv){
 					continue;
 
 				sprintf(partname, "%s%s%d", 
-					device+5 , delim, j+1);
+					device + off , delim, j+1);
 
 				strip_slash (partname);
 
