@@ -16,14 +16,13 @@ enum checkers {
 #define MSG(a) if (msg != NULL) \
 			snprintf(msg, MAX_CHECKER_MSG_SIZE, "%s\n", a);
 
-int checkpath (char *, void *, char *, void *);
 
 int get_checker_id (char *);
 void *get_checker_addr (int);
 int get_checker_name (char *, int);
 
-int emc_clariion (char *, char *, void *);
-int readsector0 (char *, char *, void *);
-int tur (char *, char *, void *);
+int emc_clariion (char *, char *, void **);
+int readsector0 (char *, char *, void **);
+int tur (char *, char *, void **);
 
 #endif /* _CHECKERS_H */
