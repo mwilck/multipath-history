@@ -840,8 +840,10 @@ child (void * param)
 	/*
 	 * fill the voids left in the config file
 	 */
-	if (binvec == NULL)
+	if (binvec == NULL) {
 		binvec = vector_alloc();
+		push_callout("/sbin/scsi_id");
+	}
 
 	if (multipath == NULL) {
 		multipath = MULTIPATH;
