@@ -2,7 +2,7 @@ defaults {
 	multipath_tool	"/sbin/multipath -v 0 -S"
 	udev_dir	/dev
 	polling_interval 10
-	default_selector	round-robin
+	default_selector	"round-robin 0"
 	default_path_grouping_policy	multibus
 	default_getuid_callout	"/sbin/scsi_id -g -u -s /block/%n"
 	default_prio_callout	"/bin/false"
@@ -27,7 +27,7 @@ multipaths {
 		alias			yellow
 		path_grouping_policy	multibus
 		path_checker		readsector0
-		path_selector		round-robin
+		path_selector		"round-robin 0"
 	}
 	multipath {
 		wwid	1DEC_____321816758474
@@ -41,7 +41,7 @@ devices {
 		path_grouping_policy	multibus
 		getuid_callout          "/sbin/scsi_id -g -u -s /block/%n"
 		path_checker		readsector0
-		path_selector		round-robin
+		path_selector		"round-robin 0"
 		features		"1 queue_if_no_path"
 		hardware_handler	"0"
 	}
