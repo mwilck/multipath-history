@@ -404,6 +404,7 @@ print_path (struct path * pp, int style)
 		dbg("undefined path state");
 		break;
 	}
+	printf ("(%s) ", pp->dev_t);
 
 	if (pp->claimed)
 		printf ("[claimed] ");
