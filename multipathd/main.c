@@ -35,6 +35,7 @@
 #define MAPNAMESIZE 64
 #define TARGETTYPESIZE 16
 #define PARAMSSIZE 2048
+#define DEV_T_SIZE 2048
 
 #define PIDFILE "/var/run/multipathd.pid"
 #define CONFIGFILE "/etc/multipath.conf"
@@ -62,8 +63,7 @@ pthread_cond_t *event;
  */
 struct path
 {
-	int major;
-	int minor;
+	char sg_dev_t[DEV_T_SIZE];
 	int (*checkfn) (char *);
 };
 
@@ -84,17 +84,6 @@ struct event_thread
 /*
  * helpers functions
  */
-static int
-makenode (char *devnode, int major, int minor)
-{
-	dev_t dev;
-	
-	dev = makedev (major, minor);
-        unlink (devnode);
-	
-	return mknod(devnode, S_IFCHR | S_IRUSR | S_IWUSR, dev);
-}
-
 static int
 blacklist (char * dev) {
 	int i;
@@ -337,8 +326,7 @@ updatepaths (struct paths *failedpaths)
 		vector_alloc_slot(failedpaths->pathvec);
 		vector_set_slot(failedpaths->pathvec, path_p);
 
-		LOG(2, "%i:%i added to failedpaths",
-		    path_p->major, path_p->minor);
+		LOG(2, "%s added to failedpaths", path_p->sg_dev_t);
 	}
 	pthread_mutex_unlock(failedpaths->lock);
 	sysfs_close_directory(sdir);
@@ -432,7 +420,7 @@ log_failedpaths_vec (vector pathvec)
 
 	for (i = 0; i < VECTOR_SIZE(pathvec); i++) {
 		pp = VECTOR_SLOT(pathvec, i);
-		LOG(1, "%i:%i", pp->major, pp->minor);
+		LOG(1, "%s", pp->sg_dev_t);
 	}
 }
 
