@@ -9,26 +9,14 @@ test -x $DAEMON || exit 0
 case "$1" in
   start)
 	echo -n "Starting multipath daemon: multipathd"
-        if start-stop-daemon --quiet --stop --signal 0 --pidfile $PIDFILE --name multipathd
-	then
-		echo " already running."
-		exit
-	fi
-	/sbin/start-stop-daemon --start --quiet --exec $DAEMON
+	/sbin/modprobe sg;
+        $DAEMON
 	echo "."
 	;;
   stop)
-	echo -n "Stopping multipath daemon: multipathd"
-	if start-stop-daemon --quiet --stop --signal 0 --pidfile $PIDFILE --name multipathd
-	then
-		PID=`cat $PIDFILE`
-		start-stop-daemon --quiet --stop --exec $DAEMON --pidfile $PIDFILE --name multipathd
-		# Now we wait for it to die
-		while kill -0 $PID 2>/dev/null; do sleep 1; done
-		echo "."
-	else
-		echo " not running.";
-	fi
+	echo -n "Stopping multipath daemon: multipathd "
+	killall multipathd
+	echo "."
 	;;
   force-reload|restart)
 	$0 stop
