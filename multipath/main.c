@@ -1191,7 +1191,8 @@ usage (char * progname)
 		"\t   group_by_prio\t\t- 1 priority group per priority lvl\n" \
 		"\n" \
 		"\tdevice\t\tlimit scope to the device's multipath\n" \
-		"\t\t\t(udev-style $DEVNAME reference, eg /dev/sdb)\n" \
+		"\t\t\t(udev-style $DEVNAME reference, eg /dev/sdb\n" \
+		"\t\t\tor a device map name)\n" \
 		);
 
 	exit(1);
@@ -1235,6 +1236,7 @@ main (int argc, char *argv[])
 {
 	vector mp;
 	vector pathvec;
+	struct multipath * mpp;
 	int k;
 	int arg;
 	extern char *optarg;
@@ -1372,6 +1374,20 @@ main (int argc, char *argv[])
 	}
 
 	coalesce_paths(mp, pathvec);
+
+	/*
+	 * may be conf->dev is a mapname
+	 * if so, only reconfigure this map
+	 */
+	for (k = 0; k < VECTOR_SIZE(mp); k++) {
+		mpp = VECTOR_SLOT(mp, k);
+
+		if (0 == strncmp(mpp->alias, conf->dev, FILE_NAME_SIZE) ||
+		    0 == strncmp(mpp->wwid, conf->dev, FILE_NAME_SIZE)) {
+			setup_map(pathvec, mpp);
+			goto out;
+		}
+	}
 
 	if (conf->verbosity > 1) {
 		print_all_path(pathvec);
