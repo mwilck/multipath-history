@@ -6,6 +6,7 @@
                                                                                 
 static void usage(char * progname) {
 	fprintf(stderr, "usage : %s major minor\n", progname);
+	fprintf(stderr, "        %s major:minor\n", progname);
 	exit(1);
 }
 
@@ -18,11 +19,11 @@ int main(int argc, char **argv)
         struct dm_task *dmt;
 
 	/* sanity check */
-	if (argc != 3)
+	if (argc == 3) {
+		major = atoi(argv[1]);
+		minor = atoi(argv[2]);
+	} else if (argc != 2 || 2 != sscanf(argv[1], "%i:%i", &major, &minor))
 		usage(argv[0]);
-
-	major = atoi(argv[1]);
-	minor = atoi(argv[2]);
 
         if (!(dmt = dm_task_create(DM_DEVICE_LIST)))
                 return 0;
