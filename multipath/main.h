@@ -49,6 +49,31 @@
 #define SCSI_PRODUCT_SIZE	17
 #define SCSI_REV_SIZE		5
 
+#define ACT_NOTHING_STR		"unchanged"
+#define ACT_RELOAD_STR		"reload"
+#define ACT_SWITCHPG_STR	"switchpg"
+#define ACT_CREATE_STR		"create"
+
+enum actions {
+	ACT_NOTHING,
+	ACT_RELOAD,
+	ACT_SWITCHPG,
+	ACT_CREATE
+};
+
+enum pathstates {
+	PSTATE_RESERVED,
+	PSTATE_FAILED,
+	PSTATE_ACTIVE
+};
+
+enum pgstates {
+	PGSTATE_RESERVED,
+	PGSTATE_ENABLED,
+	PGSTATE_DISABLED,
+	PGSTATE_ACTIVE
+};
+
 /* global types */
 struct scsi_idlun {
 	int dev_id;
@@ -76,7 +101,6 @@ struct scsi_dev {
 struct path {
 	char dev[FILE_NAME_SIZE];
 	char dev_t[DEV_T_SIZE];
-	char sg_dev_t[DEV_T_SIZE];
 	struct scsi_idlun scsi_id;
 	struct sg_id sg_id;
 	char wwid[WWID_SIZE];
@@ -85,6 +109,8 @@ struct path {
 	char rev[SCSI_REV_SIZE];
 	char serial[SERIAL_SIZE];
 	int state;
+	int dmstate;
+	int failcount;
 	unsigned int priority;
 	int claimed;
 	char * getuid;
@@ -96,13 +122,27 @@ struct multipath {
 	char wwid[WWID_SIZE];
 	char * alias;
 	int pgpolicy;
+	int nextpg;
+	int queuedio;
 	unsigned long size;
 	vector paths;
 	vector pg;
 	char params[PARAMS_SIZE];
+	char status[PARAMS_SIZE];
 	char * selector;
 	char * features;
 	char * hwhandler;
+
+	/* configlet pointers */
+	struct mpentry * mpe;
+	struct hwentry * hwe;
+};
+
+struct pathgroup {
+	int id;
+	int status;
+	int priority;
+	vector paths;
 };
 
 /* Build version */
