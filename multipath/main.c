@@ -1114,36 +1114,58 @@ usage (char * progname)
 	exit(1);
 }
 
+int try_lock (char * file)
+{
+	int fd;
+	struct flock fl;
+
+	/*
+	 * create the file to lock if it does not exist
+	 */
+	fd = open(file, O_CREAT|O_RDWR);
+
+	if (fd < 0) {
+		fprintf(stderr, "can't create runfile\n");
+		exit(1);
+	}
+	fl.l_type = F_WRLCK;
+	fl.l_whence = 0;
+	fl.l_start = 0;
+	fl.l_len = 0;
+
+	/*
+	 * set a max wait time
+	 */
+	alarm(2);
+	
+	if (fcntl(fd, F_SETLKW, &fl) == -1) {
+		fprintf(stderr, "can't take a write lease on %s\n", file);
+		return 1;
+	}
+	alarm(0);
+
+	return 0;
+}
+
 int
 main (int argc, char *argv[])
 {
 	vector mp;
 	vector pathvec;
 	int k;
-	int try = 0;
 	int arg;
 	extern char *optarg;
 	extern int optind;
 
 	/*
 	 * Don't run in parallel
+	 * ie, acquire a F_WRLCK-type lock on RUN
 	 */
-	while (filepresent(RUN) && try++ < MAXTRY)
-		usleep(100000);
-
-	if (filepresent(RUN)) {
+	if (try_lock(RUN)) {
 		fprintf(stderr, "waited for to long. exiting\n");
 		exit(1);
 	}
 	
-	/*
-	 * Our turn
-	 */
-	if (!open(RUN, O_CREAT)) {
-		fprintf(stderr, "can't create runfile\n");
-		exit(1);
-	}
-		
 	/*
 	 * alloc config struct
 	 */
