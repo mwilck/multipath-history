@@ -273,7 +273,7 @@ out:
 }
 
 static int
-updatepaths (struct paths *failedpaths)
+updatepaths (struct paths *allpaths)
 {
 	int i;
 	struct path *pp;
@@ -295,7 +295,7 @@ updatepaths (struct paths *failedpaths)
 	}
 	sdir = sysfs_open_directory(path);
 	sysfs_read_dir_subdirs(sdir);
-	pthread_mutex_lock(failedpaths->lock);
+	pthread_mutex_lock(allpaths->lock);
 
 	dlist_for_each_data(sdir->subdirs, devp, struct sysfs_directory) {
 		if (blacklist(devp->name)) {
@@ -320,14 +320,14 @@ updatepaths (struct paths *failedpaths)
 		 * if so, keep the old one for for checker context and
 		 * state persistance
 		 */
-		for (i = 0; i < VECTOR_SIZE(failedpaths->pathvec); i++) {
-			pp = VECTOR_SLOT(failedpaths->pathvec, i);
+		for (i = 0; i < VECTOR_SIZE(allpaths->pathvec); i++) {
+			pp = VECTOR_SLOT(allpaths->pathvec, i);
 
 			if (0 == strncmp(pp->dev_t, attr_buff,
 					strlen(pp->dev_t)))
 				break;
 		}
-		if (i < VECTOR_SIZE(failedpaths->pathvec)) {
+		if (i < VECTOR_SIZE(allpaths->pathvec)) {
 			syslog(LOG_INFO, "path checker already active : %s",
 				pp->dev_t);
 			continue;
@@ -354,24 +354,12 @@ updatepaths (struct paths *failedpaths)
 		pp->state = checkpath(pp->dev_t, pp->checkfn, NULL,
 					pp->checker_context);
 
-		if (safe_sprintf(attr_path, "%s/block/%s/dev",
-			sysfs_path, devp->name)) {
-			fprintf(stderr, "updatepaths: attr_path too small\n");
-			continue;
-		}
-		if (0 > sysfs_read_attribute_value(attr_path, attr_buff, 17)) {
-			syslog(LOG_DEBUG, "no such attribute : %s",
-				attr_path);
-			continue;
-		}
-		sscanf(attr_buff, "%i:%i", &pp->major, &pp->minor);
-		
-		vector_alloc_slot(failedpaths->pathvec);
-		vector_set_slot(failedpaths->pathvec, pp);
+		vector_alloc_slot(allpaths->pathvec);
+		vector_set_slot(allpaths->pathvec, pp);
 
 		syslog(LOG_NOTICE, "path checker startup : %s", pp->dev_t);
 	}
-	pthread_mutex_unlock(failedpaths->lock);
+	pthread_mutex_unlock(allpaths->lock);
 	sysfs_close_directory(sdir);
 	return 0;
 }
@@ -466,7 +454,7 @@ out:
 static void *
 waiterloop (void *ap)
 {
-	struct paths * failedpaths;
+	struct paths * allpaths;
 	vector devmaps = NULL;
 	char * devmap;
 	vector waiters;
@@ -482,7 +470,7 @@ waiterloop (void *ap)
 	/*
 	 * inits
 	 */
-	failedpaths = (struct paths *)ap;
+	allpaths = (struct paths *)ap;
 	waiters = vector_alloc();
 	pthread_attr_init(&attr);
 	pthread_attr_setstacksize(&attr, 32 * 1024);
@@ -510,7 +498,7 @@ waiterloop (void *ap)
 		 * update paths list
 		 */
 		syslog(LOG_INFO, "refresh failpaths list");
-		updatepaths(failedpaths);
+		updatepaths(allpaths);
 
 		/*
 		 * start waiters on all devmaps
@@ -578,7 +566,7 @@ waiterloop (void *ap)
 static void *
 checkerloop (void *ap)
 {
-	struct paths *failedpaths;
+	struct paths *allpaths;
 	struct path *pp;
 	int i;
 	int newstate;
@@ -589,12 +577,12 @@ checkerloop (void *ap)
 	memset(checker_msg, 0, MAX_CHECKER_MSG_SIZE);
 
 	mlockall(MCL_CURRENT | MCL_FUTURE);
-	failedpaths = (struct paths *)ap;
+	allpaths = (struct paths *)ap;
 
 	syslog(LOG_NOTICE, "path checkers start up");
 
 	while (1) {
-		pthread_mutex_lock(failedpaths->lock);
+		pthread_mutex_lock(allpaths->lock);
 		syslog(LOG_DEBUG, "checking paths");
 
 		for (i = 0; i < VECTOR_SIZE(allpaths->pathvec); i++) {
@@ -633,7 +621,7 @@ checkerloop (void *ap)
 			}
 			pp->state = newstate;
 		}
-		pthread_mutex_unlock(failedpaths->lock);
+		pthread_mutex_unlock(allpaths->lock);
 		sleep(checkint);
 	}
 
@@ -643,20 +631,20 @@ checkerloop (void *ap)
 static struct paths *
 initpaths (void)
 {
-	struct paths *failedpaths;
+	struct paths *allpaths;
 
-	failedpaths = MALLOC (sizeof (struct paths));
-	failedpaths->lock = 
+	allpaths = MALLOC (sizeof (struct paths));
+	allpaths->lock = 
 		(pthread_mutex_t *) MALLOC (sizeof (pthread_mutex_t));
-	failedpaths->pathvec = vector_alloc();
-	pthread_mutex_init (failedpaths->lock, NULL);
+	allpaths->pathvec = vector_alloc();
+	pthread_mutex_init (allpaths->lock, NULL);
 
 	event = (pthread_cond_t *) MALLOC (sizeof (pthread_cond_t));
 	pthread_cond_init (event, NULL);
 	event_lock = (pthread_mutex_t *) MALLOC (sizeof (pthread_mutex_t));
 	pthread_mutex_init (event_lock, NULL);
 	
-	return (failedpaths);
+	return (allpaths);
 }
 
 #define VECTOR_ADDSTR(a, b) \
@@ -883,7 +871,7 @@ sighup (int sig)
 	from_sighup = 1;
 
 	/*
-	 * ask for failedpaths refresh
+	 * ask for allpaths refresh
 	 */
 	pthread_mutex_lock (event_lock);
 	pthread_cond_signal(event);
@@ -925,7 +913,7 @@ child (void * param)
 {
 	pthread_t wait_thr, check_thr;
 	pthread_attr_t attr;
-	struct paths *failedpaths;
+	struct paths *allpaths;
 
 	openlog("multipathd", 0, LOG_DAEMON);
 	setlogmask(LOG_UPTO(LOGLEVEL));
@@ -934,7 +922,7 @@ child (void * param)
 	pidfile(getpid());
 	signal_init();
 	setscheduler();
-	failedpaths = initpaths();
+	allpaths = initpaths();
 	checkint = CHECKINT;
 
 	syslog(LOG_INFO, "read " CONFIGFILE);
@@ -975,8 +963,8 @@ child (void * param)
 	pthread_attr_init(&attr);
 	pthread_attr_setstacksize(&attr, 64 * 1024);
 	
-	pthread_create(&wait_thr, &attr, waiterloop, failedpaths);
-	pthread_create(&check_thr, &attr, checkerloop, failedpaths);
+	pthread_create(&wait_thr, &attr, waiterloop, allpaths);
+	pthread_create(&check_thr, &attr, checkerloop, allpaths);
 	pthread_join(wait_thr, NULL);
 	pthread_join(check_thr, NULL);
 
