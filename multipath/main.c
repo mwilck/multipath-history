@@ -96,6 +96,7 @@ get_pathvec_sysfs (vector pathvec)
 	 * that relate to the device pointed by conf->dev
 	 */
 	if (conf->dev && filepresent(conf->dev)) {
+		dbg("limited scope = %s", conf->dev);
 		curpath = zalloc(sizeof (struct path));
 		basename(conf->dev, curpath->dev);
 
@@ -559,6 +560,7 @@ setup_map (struct multipath * mpp)
 	select_selector(mpp);
 	select_features(mpp);
 	select_hwhandler(mpp);
+	select_alias(mpp);
 
 	/*
 	 * apply selected grouping policy to valid paths
@@ -805,7 +807,8 @@ dm_get_maps (vector mp, char * type)
 				goto out;
 			}
 			mpp->size = length;
-			strncat(mpp->wwid, names->name, WWID_SIZE);
+			mpp->alias = zalloc(strlen(names->name) + 1);
+			strncat(mpp->alias, names->name, strlen(names->name));
 			strncat(mpp->params, params, PARAMS_SIZE);
 
 			vector_alloc_slot(mp);
@@ -1089,7 +1092,7 @@ main (int argc, char *argv[])
 	}
 
 	/*
-	 * allocate the two core vectors to store paths and multipaths
+	 * allocate core vectors to store paths and multipaths
 	 */
 	mp = vector_alloc();
 	curmp = vector_alloc();
