@@ -26,6 +26,7 @@ struct logarea {
 	void * tail;
 	void * start;
 	void * end;
+	char * buff;
 };
 
 struct logarea * la;
@@ -35,7 +36,7 @@ void log_close (void);
 int log_enqueue (int prio, const char * fmt, va_list ap);
 int log_dequeue (void *);
 void log_syslog (void *);
-char * log_alloc_buffer (void);
 void dump_logmsg (void *);
+void free_logarea (void);
 
 #endif /* LOG_H */
