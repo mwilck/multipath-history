@@ -18,13 +18,12 @@
 #define HEAVY_CHECK_COUNT       10
 
 struct emc_clariion_checker_context {
-	int fd;
 	int run_count;
 	char wwn[16];
 	unsigned wwn_set;
 };
 
-int emc_clariion(char *devt, char *msg, void **context)
+int emc_clariion(int fd, char *msg, void **context)
 {
 	unsigned char sense_buffer[256];
 	unsigned char sb[128];
@@ -62,13 +61,10 @@ int emc_clariion(char *devt, char *msg, void **context)
 		/* do stuff */
 	}
 
-	if (!ctxt->fd) {
-		if (devnode(CREATE_NODE, devt)) {
-			ret = -1;
-			goto out;
-		}
-		ctxt->fd = devnode(OPEN_NODE, devt);
-		devnode(UNLINK_NODE, devt);
+	if (fd <= 0) {
+		MSG("no usable fd");
+		ret = -1;
+		goto out;
 	}
 	memset(&io_hdr, 0, sizeof (struct sg_io_hdr));
 	io_hdr.interface_id = 'S';
@@ -81,7 +77,7 @@ int emc_clariion(char *devt, char *msg, void **context)
 	io_hdr.sbp = sb;
 	io_hdr.timeout = 60000;
 	io_hdr.pack_id = 0;
-	if (ioctl(ctxt->fd, SG_IO, &io_hdr) < 0) {
+	if (ioctl(fd, SG_IO, &io_hdr) < 0) {
 		MSG("emc_clariion_checker: sending query command failed");
 		ret = PATH_DOWN;
 		goto out;
@@ -150,9 +146,8 @@ out:
 	 * caller told us he doesn't want to keep the context :
 	 * free it
 	 */
-	if (!context) {
-		close(ctxt->fd);
+	if (!context)
 		free(ctxt);
-	}
+
 	return(ret);
 }

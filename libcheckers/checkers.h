@@ -19,8 +19,8 @@ int get_checker_id (char *);
 void *get_checker_addr (int);
 int get_checker_name (char *, int);
 
-int emc_clariion (char *, char *, void **);
-int readsector0 (char *, char *, void **);
-int tur (char *, char *, void **);
+int emc_clariion (int fd, char * msg, void ** ctxt);
+int readsector0 (int fd, char * msg, void ** ctxt);
+int tur (int fd, char * msg, void ** ctxt);
 
 #endif /* _CHECKERS_H */

@@ -547,7 +547,7 @@ checkerloop (void *ap)
 				log_safe(LOG_ERR, "checkfn is void");
 				continue;
 			}
-			newstate = pp->checkfn(pp->dev_t, checker_msg,
+			newstate = pp->checkfn(pp->fd, checker_msg,
 					       &pp->checker_context);
 			
 			if (newstate != pp->state) {

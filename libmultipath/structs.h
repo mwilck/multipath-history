@@ -69,9 +69,10 @@ struct path {
 	int claimed;
 	char * getuid;
 	char * getprio;
-	int (*checkfn) (char *, char *, void **);
+	int (*checkfn) (int, char *, void **);
 	void * checker_context;
 	struct multipath * mpp;
+	int fd;
 	
 	/* configlet pointers */
 	struct hwentry * hwe;

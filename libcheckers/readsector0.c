@@ -20,7 +20,7 @@
 #define MSG_READSECTOR0_DOWN	"readsector0 checker reports path is down"
 
 struct readsector0_checker_context {
-	int fd;
+	void * dummy;
 };
 
 static int
@@ -83,7 +83,7 @@ sg_read (int sg_fd, unsigned char * buff)
 }
 
 extern int
-readsector0 (char *devt, char *msg, void **context)
+readsector0 (int fd, char *msg, void **context)
 {
 	char buf[512];
 	struct readsector0_checker_context * ctxt = NULL;
@@ -110,16 +110,12 @@ readsector0 (char *devt, char *msg, void **context)
 		if (context)
 			*context = ctxt;
 	}
-	if (!ctxt->fd) {
-		if (devnode(CREATE_NODE, devt)) {
-			MSG("cannot create node");
-			ret = -1;
-			goto out;
-		}
-		ctxt->fd = devnode(OPEN_NODE, devt);
-		devnode(UNLINK_NODE, devt);
+	if (fd <= 0) {
+		MSG("no usable fd");
+		ret = -1;
+		goto out;
 	}
-	ret = sg_read(ctxt->fd, &buf[0]);
+	ret = sg_read(fd, &buf[0]);
 
 	switch (ret)
 	{
@@ -137,9 +133,8 @@ out:
 	 * caller told us he doesn't want to keep the context :
 	 * free it
 	 */
-	if (!context) {
-		close(ctxt->fd);
+	if (!context)
 		free(ctxt);
-	}
+
 	return ret;
 }
