@@ -12,7 +12,7 @@ CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes -DDEBUG=$(DEBUG) -DFLOATING
 #LDFLAGS = -lpthread -ldevmapper -lsysfs
 LDFLAGS = -lpthread -ldevmapper
 
-OBJS = main.o devinfo.o checkers.o parser.o vector.o dict.o memory.o libsysfs/libsysfs.a
+OBJS = main.o copy.o devinfo.o checkers.o parser.o vector.o dict.o memory.o libsysfs/libsysfs.a
 
 all: sysfs $(EXEC)
 

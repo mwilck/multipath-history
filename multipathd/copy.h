@@ -1,0 +1,1 @@
+int copytodir (char *, char *);
