@@ -237,30 +237,20 @@ one_path_per_group (struct multipath * mp)
 extern void
 one_group (struct multipath * mp)	/* aka multibus */
 {
-	int i;
-	struct path * pp;
 	struct pathgroup * pgp;
 
-	pgp = zalloc(sizeof(struct pathgroup));
-	pgp->paths = vector_alloc();
+	if (VECTOR_SIZE(pgp->paths) < 0)
+		return;
 
 	if (mp->pg == NULL)
 		mp->pg = vector_alloc();
 
-	for (i = 0; i < VECTOR_SIZE(mp->paths); i++) {
-		pp = VECTOR_SLOT(mp->paths, i);
-		vector_alloc_slot(pgp->paths);
-		vector_set_slot(pgp->paths, pp);
-	}
-	if (VECTOR_SIZE(pgp->paths) > 0) {
-		vector_alloc_slot(mp->pg);
-		vector_set_slot(mp->pg, pgp);
-	} else {
-		vector_free(pgp->paths);
-		free(pgp);
-	}
-	vector_free(mp->paths);
+	pgp = zalloc(sizeof(struct pathgroup));
+	pgp->paths = mp->paths;
 	mp->paths = NULL;
+	vector_alloc_slot(mp->pg);
+	vector_set_slot(mp->pg, pgp);
+
 	return;
 }
 
@@ -276,28 +266,48 @@ group_by_prio (struct multipath * mp)
 		mp->pg = vector_alloc();
 
 	while (VECTOR_SIZE(mp->paths) > 0) {
-		/*
-		 * init a new pgpaths, put in the first path in mp->paths
-		 */
 		pp = VECTOR_SLOT(mp->paths, 0);
 		prio = pp->priority;
+
+		/*
+		 * Find the position to insert the new path group. All groups
+		 * are ordered by the priority value (higher value first).
+		 */
+		vector_foreach_slot(mp->pg, pgp, i) {
+			pp  = VECTOR_SLOT(pgp->paths, 0);
+
+			if (prio > pp->priority)
+				break;
+		}
+
+		/*
+		 * Initialize the new path group.
+		 */
 		pgp = zalloc(sizeof(struct pathgroup));
 		pgp->paths = vector_alloc();
 		vector_alloc_slot(pgp->paths);
-		vector_set_slot(pgp->paths, pp);
-		vector_alloc_slot(mp->pg);
-		vector_set_slot(mp->pg, pgp);
+		vector_set_slot(pgp->paths, VECTOR_SLOT(mp->paths, 0));
 		vector_del_slot(mp->paths, 0);
-		
+
+		/*
+		 * Store the new path group into the vector.
+		 */
+		if (i < VECTOR_SIZE(mp->pg)) {
+			vector_insert_slot(mp->pg, i, pgp);
+		} else {
+			vector_alloc_slot(mp->pg);
+			vector_set_slot(mp->pg, pgp);
+		}
+
 		/*
 		 * add the other paths with the same prio
 		 */
-		for (i = 0; i < VECTOR_SIZE(mp->paths); i++) {
-			pp = VECTOR_SLOT(mp->paths, i);
+		vector_foreach_slot(mp->paths, pp, i) {
 			if (pp->priority == prio) {
 				vector_alloc_slot(pgp->paths);
 				vector_set_slot(pgp->paths, pp);
 				vector_del_slot(mp->paths, i);
+				i--;
 			}
 		}
 	}
