@@ -1,4 +1,27 @@
-2004-10-16 multipath-tools-0.3.1
+2004-10-16 multipath-tools-0.3.2
+
+	* [multipath] add path reinstate logic :
+		* if a path is given as multipath arg
+		* if the map containing that path already exists
+		* if this map is the same as the that would be
+		  created by this multipath run
+		* THEN reinstate the path
+	  multipathd is is thus unchanged, while now supporting
+	  reinstate
+	* audit and ensafe all sprintf usage
+	* [multipath] fix the annoying \n after each dev_t in
+	  params string reporting
+	* [multipath] print out devmaps in "-v2 -d" mode
+	* [kpartx] bump up the params string size (lmb at suse)
+	* [kpartx] replace sprintf by snprintf (lmb at suse)
+	* [kpartx] initialize some more vars (lmb at suse)
+	* [multipath] mp->pg == NULL safety net before calling
+	  assemble_map() (for Andy who happen to hit the bug)
+	* [multipath] last rampant bug in map CREATE or UPDATE switch
+	  logic due to the device alias feature
+	* [kpartx] zeroe "struct slice all" (lmb at suse)
+
+2004-10-11 multipath-tools-0.3.1
 
 	* [kpartx] move back to getopt, originaly removed from the 
 	  original partx because of lack of implementation in klibc
