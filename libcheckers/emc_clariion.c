@@ -14,7 +14,7 @@
 
 #define INQUIRY_CMD     0x12
 #define INQUIRY_CMDLEN  6
-#define HEAVY_CHECK_COUNT	10
+#define HEAVY_CHECK_COUNT       10
 
 struct emc_clariion_checker_context {
 	int fd;
@@ -55,7 +55,7 @@ int emc_clariion(char *devt, char *msg, void **context)
 	}
 	ctxt->run_count++;
 
-	if (ctxt->run_count % HEAVY_CHECK_COUNT) {
+	if ((ctxt->run_count % HEAVY_CHECK_COUNT) == 0) {
 		ctxt->run_count = 0;
 		/* do stuff */
 	}

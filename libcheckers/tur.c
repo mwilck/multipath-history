@@ -56,7 +56,7 @@ tur (char *devt, char *msg, void **context)
 	}
 	ctxt->run_count++;
 
-	if (ctxt->run_count % HEAVY_CHECK_COUNT) {
+	if ((ctxt->run_count % HEAVY_CHECK_COUNT) == 0) {
 		ctxt->run_count = 0;
 		/* do stuff */
 	}
