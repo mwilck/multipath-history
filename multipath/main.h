@@ -37,7 +37,6 @@
 #define DEFAULT_GETUID	"/sbin/scsi_id -g -u -s"
 #define DEFAULT_UDEVDIR	"/udev"
 #define DEFAULT_SELECTOR	"round-robin"
-#define MAXTRY		50
 
 /*
  * SCSI strings sizes
