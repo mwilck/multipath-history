@@ -161,7 +161,7 @@ get_devmaps (void)
 		 */
 		names = (void *) names + next;
 		nexttgt = NULL;
-		log_safe(LOG_DEBUG, "devmap %s :", names->name);
+		log_safe(LOG_DEBUG, "devmap %s", names->name);
 		
 		if (dm_type(names->name, "multipath")) {
 			devmap = MALLOC(WWID_SIZE);
