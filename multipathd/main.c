@@ -477,8 +477,8 @@ waiterloop (void *ap)
 	char buff[1];
 	int i, j;
 
-	syslog(LOG_NOTICE, "start DM events thread");
 	mlockall(MCL_CURRENT | MCL_FUTURE);
+	syslog(LOG_NOTICE, "start DM events thread");
 
 	if (sysfs_get_mnt_path(sysfs_path, FILE_NAME_SIZE)) {
 		syslog(LOG_ERR, "can not find sysfs mount point");
@@ -593,9 +593,9 @@ checkerloop (void *ap)
 	char cmd[CMDSIZE];
 	char checker_msg[MAX_CHECKER_MSG_SIZE];
 
-	memset(checker_msg, 0, MAX_CHECKER_MSG_SIZE);
-
 	mlockall(MCL_CURRENT | MCL_FUTURE);
+
+	memset(checker_msg, 0, MAX_CHECKER_MSG_SIZE);
 	allpaths = (struct paths *)ap;
 
 	syslog(LOG_NOTICE, "path checkers start up");
@@ -876,6 +876,8 @@ child (void * param)
 	pthread_attr_t attr;
 	struct paths *allpaths;
 
+	mlockall(MCL_CURRENT | MCL_FUTURE);
+
 	openlog("multipathd", 0, LOG_DAEMON);
 	setlogmask(LOG_UPTO(LOGLEVEL));
 	syslog(LOG_NOTICE, "--------start up--------");
@@ -919,7 +921,6 @@ child (void * param)
 	}
 #endif
 
-	mlockall(MCL_CURRENT | MCL_FUTURE);
 	/*
 	 * start threads
 	 */
