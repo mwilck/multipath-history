@@ -563,55 +563,58 @@ pgcmp (struct multipath * mpp, struct multipath * cmpp)
 static void
 select_action (struct multipath * mpp, vector curmp)
 {
-	int i;
 	struct multipath * cmpp;
 
-	vector_foreach_slot (curmp, cmpp, i) {
-		if (strncmp(cmpp->alias, mpp->alias, strlen(mpp->alias)))
-			continue;
+	cmpp = find_mp(curmp, mpp->alias);
 
-		if (cmpp->size != mpp->size) {
-			dbg("size different than current");
-			mpp->action = ACT_RELOAD;
-			return;
-		}
-		if (strncmp(cmpp->features, mpp->features,
-			    strlen(mpp->features))) {
-			dbg("features different than current");
-			mpp->action =  ACT_RELOAD;
-			return;
-		}
-		if (strncmp(cmpp->hwhandler, mpp->hwhandler,
-			    strlen(mpp->hwhandler))) {
-			dbg("hwhandler different than current");
-			mpp->action = ACT_RELOAD;
-			return;
-		}
-		if (strncmp(cmpp->selector, mpp->selector,
-			    strlen(mpp->selector))) {
-			dbg("selector different than current");
-			mpp->action = ACT_RELOAD;
-			return;
-		}
-		if (VECTOR_SIZE(cmpp->pg) != VECTOR_SIZE(mpp->pg)) {
-			dbg("different number of PG");
-			mpp->action = ACT_RELOAD;
-			return;
-		}
-		if (pgcmp2(mpp, cmpp)) {
-			dbg("different path group topology");
-			mpp->action = ACT_RELOAD;
-			return;
-		}
-		if (cmpp->nextpg != mpp->nextpg) {
-			dbg("nextpg different than current");
-			mpp->action = ACT_SWITCHPG;
-			return;
-		}
+	if (!cmpp) {
+		mpp->action = ACT_CREATE;
+		return;
+	}
+	if (pathcount(mpp, PATH_UP) == 0) {
+		dbg("no good path");
 		mpp->action = ACT_NOTHING;
 		return;
 	}
-	mpp->action = ACT_CREATE;
+	if (cmpp->size != mpp->size) {
+		dbg("size different than current");
+		mpp->action = ACT_RELOAD;
+		return;
+	}
+	if (strncmp(cmpp->features, mpp->features,
+		    strlen(mpp->features))) {
+		dbg("features different than current");
+		mpp->action =  ACT_RELOAD;
+		return;
+	}
+	if (strncmp(cmpp->hwhandler, mpp->hwhandler,
+		    strlen(mpp->hwhandler))) {
+		dbg("hwhandler different than current");
+		mpp->action = ACT_RELOAD;
+		return;
+	}
+	if (strncmp(cmpp->selector, mpp->selector,
+		    strlen(mpp->selector))) {
+		dbg("selector different than current");
+		mpp->action = ACT_RELOAD;
+		return;
+	}
+	if (VECTOR_SIZE(cmpp->pg) != VECTOR_SIZE(mpp->pg)) {
+		dbg("different number of PG");
+		mpp->action = ACT_RELOAD;
+		return;
+	}
+	if (pgcmp2(mpp, cmpp)) {
+		dbg("different path group topology");
+		mpp->action = ACT_RELOAD;
+		return;
+	}
+	if (cmpp->nextpg != mpp->nextpg) {
+		dbg("nextpg different than current");
+		mpp->action = ACT_SWITCHPG;
+		return;
+	}
+	mpp->action = ACT_NOTHING;
 	return;
 }
 
