@@ -2,7 +2,7 @@
 #
 # Copyright (C) 2003 Christophe Varoqui, <christophe.varoqui@free.fr>
 
-SUBDIRS = libdevmapper devmap_name multipath multipathd
+SUBDIRS = libdevmapper devmap_name multipath multipathd kpartx
 
 recurse:
 	@for dir in $(SUBDIRS); do\
