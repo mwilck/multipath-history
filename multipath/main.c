@@ -204,7 +204,8 @@ devinfo (struct path *curpath)
 			dbg("get uid callout :");
 			dbg("=================");
 			if(safe_sprintf(buff, "%s /block/%s",
-				 hwe->getuid, curpath->dev)) {
+			   hwe->getuid ? hwe->getuid : conf->default_getuid,
+			   curpath->dev)) {
 				fprintf(stderr, "buff too small\n");
 				exit(1);
 			}
@@ -468,7 +469,7 @@ find_mp (char * wwid)
 	struct mpentry * mpe;
 
 	vector_foreach_slot (conf->mptable, mpe, i)
-                if (strcmp(mpe->wwid, wwid) == 0)
+                if (mpe->wwid && strcmp(mpe->wwid, wwid) == 0)
 			return mpe;
 
 	return NULL;
@@ -646,7 +647,7 @@ select_selector (struct multipath * mp)
 
 	/* 3) override by LUN specific settings */
 	vector_foreach_slot (conf->mptable, mpe, i) {
-		if (strcmp(mpe->wwid, mp->wwid) == 0) {
+		if (mpe->wwid && strcmp(mpe->wwid, mp->wwid) == 0) {
 			mp->selector = (mpe->selector) ?
 				   mpe->selector : conf->default_selector;
 			mp->selector_args = (mpe->selector_args) ?
@@ -781,7 +782,7 @@ setup_map (vector pathvec, struct multipath * mpp)
 	 * 4) override by LUN specific setting
 	 */
 	vector_foreach_slot (conf->mptable, mpe, i) {
-		if (strcmp(mpe->wwid, mpp->wwid) == 0 &&
+		if (mpe->wwid && strcmp(mpe->wwid, mpp->wwid) == 0 &&
 		    mpe->iopolicy > 0) {
 			iopolicy = mpe->iopolicy;
 			get_pgpolicy_name(iopolicy_name, iopolicy);
