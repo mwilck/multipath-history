@@ -21,17 +21,6 @@ def_selector_handler(vector strvec)
 }
 
 static void
-def_selector_args_handler(vector strvec)
-{
-	char * buff;
-
-	buff = set_value(strvec);
-	conf->default_selector_args = atoi(buff);
-
-	free(buff);
-}
-
-static void
 def_pgpolicy_handler(vector strvec)
 {
 	char * buff;
@@ -141,18 +130,6 @@ hw_selector_handler(vector strvec)
 }
 
 static void
-hw_selector_args_handler(vector strvec)
-{
-	char * buff;
-	struct hwentry * hwe = VECTOR_LAST_SLOT(conf->hwtable);
-
-	buff = set_value(strvec);
-	hwe->selector_args = atoi(buff);
-
-	free(buff);
-}
-
-static void
 hw_path_checker_handler(vector strvec)
 {
 	char * buff;
@@ -237,23 +214,11 @@ mp_pgpolicy_handler(vector strvec)
 static void
 mp_selector_handler(vector strvec)
 {
-	struct mpentry * mpe = VECTOR_SLOT(conf->mptable, VECTOR_SIZE(conf->mptable) - 1);
+	struct mpentry * mpe = VECTOR_LAST_SLOT(conf->mptable);
 	
 	mpe->selector = set_value(strvec);
 }
 
-static void
-mp_selector_args_handler(vector strvec)
-{
-	char * buff;
-	struct mpentry * mpe = VECTOR_SLOT(conf->mptable, VECTOR_SIZE(conf->mptable) - 1);
-
-	buff = set_value(strvec);
-	mpe->selector_args = atoi(buff);
-
-	free(buff);
-}
-			
 vector
 init_keywords(void)
 {
@@ -262,7 +227,6 @@ init_keywords(void)
 	install_keyword_root("defaults", NULL);
 	install_keyword("udev_dir", &udev_dir_handler);
 	install_keyword("default_selector", &def_selector_handler);
-	install_keyword("default_selector_args", &def_selector_args_handler);
 	install_keyword("default_path_grouping_policy", &def_pgpolicy_handler);
 	install_keyword("default_getuid_callout", &def_getuid_callout_handler);
 	install_keyword("default_prio_callout", &def_prio_callout_handler);
@@ -279,7 +243,6 @@ init_keywords(void)
 	install_keyword("path_grouping_policy", &hw_pgpolicy_handler);
 	install_keyword("getuid_callout", &hw_getuid_callout_handler);
 	install_keyword("path_selector", &hw_selector_handler);
-	install_keyword("path_selector_args", &hw_selector_args_handler);
 	install_keyword("path_checker", &hw_path_checker_handler);
 	install_keyword("features", &hw_features_handler);
 	install_keyword("hardware_handler", &hw_handler_handler);
@@ -293,7 +256,6 @@ init_keywords(void)
 	install_keyword("alias", &alias_handler);
 	install_keyword("path_grouping_policy", &mp_pgpolicy_handler);
 	install_keyword("path_selector", &mp_selector_handler);
-	install_keyword("path_selector_args", &mp_selector_args_handler);
 	install_sublevel_end();
 
 	return keywords;

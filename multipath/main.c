@@ -131,41 +131,6 @@ select_pgpolicy (struct multipath * mp)
 }
 
 static int
-select_selector (struct multipath * mp)
-{
-	int i;
-	struct mpentry * mpe = NULL;
-	struct hwentry * hwe = NULL;
-	struct path * pp;
-
-	pp = VECTOR_SLOT(mp->paths, 0);
-
-	mpe = find_mp(mp->wwid);
-
-	if (mpe && mpe->selector) {
-		mp->selector = mpe->selector;
-		mp->selector_args = mpe->selector_args;
-		dbg("selector = %s (LUN setting)", mp->selector);
-		dbg("selector_args = %s (LUN setting)", mp->selector_args);
-		return 0;
-	}
-	hwe = find_hw(pp->vendor_id, pp->product_id);
-
-	if (hwe && hwe->selector) {
-		mp->selector = hwe->selector;
-		mp->selector_args = hwe->selector_args;
-		dbg("selector = %s (controler setting)", mp->selector);
-		dbg("selector_args = %s (controler setting)", mp->selector_args);
-		return 0;
-	}
-	mp->selector = conf->default_selector;
-	mp->selector_args = conf->default_selector_args;
-	dbg("selector = %s (internal default)", mp->selector);
-	dbg("selector_args = %s (internal default)", mp->selector_args);
-	return 0;
-}
-
-static int
 select_features (struct multipath * mp)
 {
 	int i;
@@ -613,10 +578,10 @@ assemble_map (struct multipath * mp)
 	p += shift;
 	freechar -= shift;
 	
-	for (i = VECTOR_SIZE(mp->pg) - 1; i >= 0; i--) {
-		pgpaths = VECTOR_SLOT(mp->pg, i);
-		shift = snprintf(p, freechar, " %s %i %i", mp->selector,
-				 VECTOR_SIZE(pgpaths), mp->selector_args);
+	vector_foreach_slot (mp->pg, pgp, i) {
+		pgp = VECTOR_SLOT(mp->pg, i);
+		shift = snprintf(p, freechar, " %s %i 1", mp->selector,
+				 VECTOR_SIZE(pgp->paths));
 		if (shift >= freechar) {
 			fprintf(stderr, "mp->params too small\n");
 			exit(1);

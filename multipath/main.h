@@ -101,7 +101,6 @@ struct multipath {
 	vector pg;
 	char params[PARAMS_SIZE];
 	char * selector;
-	int selector_args;
 	char * features;
 	char * hwhandler;
 };
