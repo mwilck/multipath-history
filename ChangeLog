@@ -1,3 +1,4 @@
+2004-06-05 multipath-tools-0.2.1
 	* [multipath] add a flag to inihibit the final SIGHUP to
 	  multipathd. Needed to avoid recursion with the correction
 	  below
