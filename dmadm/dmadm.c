@@ -39,7 +39,7 @@
 #include	"md_u.h"
 #include	"md_p.h"
 
-#define DEBUG 1
+#define DEBUG 2
 #define LOG(x, y, z...) if (DEBUG >= x) fprintf (stderr, y, ##z)
 
 #define LINEAR	-1
@@ -352,9 +352,19 @@ int main (int argc, char **argv)
 	sysfs_close_directory (sdir);
 
 	/*
+	 * we need at least one superblock to continue
+	 */
+	if (devlist == NULL) {
+		LOG (1, "no superblocks found\n");
+		exit (0);
+	}
+	
+	/*
 	 * coalesce by MD UUID
 	 */
+	LOG (2, "start coalescing\n");
 	dlist_start (devlist);
+
 	while (dlist_next (devlist)) {
 		refdev = dlist_pop (devlist);
 		mddevs = dlist_new (sizeof (struct device));
