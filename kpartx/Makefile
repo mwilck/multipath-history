@@ -7,14 +7,16 @@ BUILD=glibc
 include ../Makefile.inc
 
 ifeq ($(strip $(BUILD)),klibc)
-	CFLAGS = ${REQFLAGS} ${OPTFLAGS} -I$(libdmdir) -I.
+	CFLAGS = ${REQFLAGS} ${OPTFLAGS} -I$(libdmdir) -I. -I$(multipathdir)
 	OBJS = bsd.o dos.o kpartx.o solaris.o unixware.o gpt.o crc32.o \
-	       lopart.o xstrncpy.o $(DMLIB)-$(BUILD).a
+	       lopart.o xstrncpy.o \
+	       $(MULTIPATHLIB)-$(BUILD).a $(DMLIB)-$(BUILD).a
 else
-	CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes -I.
+	CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes -I. \
+		 -I$(multipathdir)
 	LDFLAGS = -ldevmapper
-	OBJS = bsd.o dos.o kpartx.o solaris.o unixware.o gpt.o crc32.o \
-	       lopart.o xstrncpy.o
+	OBJS = bsd.o dos.o kpartx.o solaris.o unixware.o \
+	       gpt.o crc32.o lopart.o xstrncpy.o $(MULTIPATHLIB)-$(BUILD).a
 endif
 
 EXEC = kpartx
