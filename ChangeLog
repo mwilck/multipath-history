@@ -1,5 +1,9 @@
 2005-03-19 multipath-tools-0.4.4
 
+	* [libmultipath] move blacklist to a real regex matcher
+	  Example config files updated : watch out yours !!
+	* [multipath] fix path group compare logic to not stop
+	  comparing at first path in each PG.
 	* [multipathd] check if pidfile is a dead remnent of a
 	  crashed daemon. If so, overwrite it. Suggested by
 	  Alasdair Kergon, RedHat. Code heavily based on work
