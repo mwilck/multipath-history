@@ -21,8 +21,8 @@
 
 /* local includes */
 #include "sg_include.h"
-#include "devinfo.h"
 #include "vector.h"
+#include "dev_t.h"
 
 /* exerpt from "sg_err.h" */
 #define SCSI_CHECK_CONDITION 	0x2
