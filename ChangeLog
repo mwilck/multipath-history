@@ -1,3 +1,9 @@
+	* add get_null_uid to getuid methods. assign it the "0" index
+	  devices with this getuid are thus ignored by multipath.
+	  warning : change /etc/multipath.conf (get_evpd_wwid == 1)
+	* mv all_scsi_ids out of the 2.6 code path, into the 2.4 one
+	* unlink runfile on malloc exit path
+	* update multipath manpage (MikeC)
 2004-03-17 multipath-tools-0.1.4
 	* multipath clean up
 		* split default hw table in hwtable.h

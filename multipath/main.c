@@ -40,7 +40,11 @@
 #define argis(x) if (0 == strcmp (x, argv[i]))
 
 /* not nice */
-void *getuid_list[] = {&get_evpd_wwid, NULL};
+void *getuid_list[] = {
+	&get_null_uid,
+	&get_evpd_wwid,
+	NULL,
+};
         
 static int
 sysfsdevice2devname (char *devname, char *device)
@@ -149,7 +153,10 @@ devinfo (struct path *curpath, struct hwentry * hwtable)
 			
 			curpath->iopolicy = hwtable[i].iopolicy;
 
-			if (!hwtable[i].getuid (curpath->sg_dev, curpath->wwid))
+			if (getuid == NULL)
+				return 1;
+
+			if (hwtable[i].getuid (curpath->sg_dev, curpath->wwid))
 				return 1;
 		}
 	}
@@ -267,49 +274,6 @@ get_all_paths_sysfs (struct env * conf, struct path * all_paths)
 }
 
 static int
-get_all_paths_nosysfs (struct env * conf, struct path * all_paths,
-		      struct scsi_dev * all_scsi_ids)
-{
-	int k, i, fd;
-	char buff[FILE_NAME_SIZE];
-	char file_name[FILE_NAME_SIZE];
-
-	for (k = 0; k < conf->max_devs; k++) {
-		strcpy (file_name, "/dev/sg");
-		sprintf (buff, "%d", k);
-		strncat (file_name, buff, FILE_NAME_SIZE);
-		strcpy (all_paths[k].sg_dev, file_name);
-
-		devinfo (&all_paths[k], conf->hwtable);
-
-		if ((fd = open (all_paths[k].sg_dev, O_RDONLY)) < 0)
-			return 0;
-
-		if (0 > ioctl (fd, SG_GET_SCSI_ID, &(all_paths[k].sg_id)))
-			printf ("device %s failed on sg ioctl, skip\n",
-			       file_name);
-
-		close (fd);
-
-		for (i = 0; i < conf->max_devs; i++) {
-			if ((all_paths[k].sg_id.host_no ==
-			     all_scsi_ids[i].host_no)
-			    && (all_paths[k].sg_id.scsi_id ==
-				(all_scsi_ids[i].scsi_id.dev_id & 0xff))
-			    && (all_paths[k].sg_id.lun ==
-				((all_scsi_ids[i].scsi_id.dev_id >> 8) & 0xff))
-			    && (all_paths[k].sg_id.channel ==
-				((all_scsi_ids[i].scsi_id.
-				  dev_id >> 16) & 0xff))) {
-				strcpy (all_paths[k].dev, all_scsi_ids[i].dev);
-				break;
-			}
-		}
-	}
-	return 0;
-}
-
-static int
 get_all_scsi_ids (struct env * conf, struct scsi_dev * all_scsi_ids)
 {
 	int k, big, little, res, host_no, fd;
@@ -363,6 +327,62 @@ get_all_scsi_ids (struct env * conf, struct scsi_dev * all_scsi_ids)
 		all_scsi_ids[k].scsi_id = my_scsi_id;
 		all_scsi_ids[k].host_no = host_no;
 	}
+	return 0;
+}
+
+static int
+get_all_paths_nosysfs (struct env * conf, struct path * all_paths)
+{
+	int k, i, fd;
+	char buff[FILE_NAME_SIZE];
+	char file_name[FILE_NAME_SIZE];
+	struct scsi_dev * all_scsi_ids;
+
+	/* get all scsi ids for pivoting sd / sg */
+	all_scsi_ids = malloc (conf->max_devs * sizeof (struct scsi_dev));
+
+	if (all_scsi_ids == NULL) {
+		fprintf (stderr, "can not allocate memory\n");
+		unlink (RUN);
+		exit (1);
+	}
+
+	get_all_scsi_ids (conf, all_scsi_ids);
+
+	for (k = 0; k < conf->max_devs; k++) {
+		strcpy (file_name, "/dev/sg");
+		sprintf (buff, "%d", k);
+		strncat (file_name, buff, FILE_NAME_SIZE);
+		strcpy (all_paths[k].sg_dev, file_name);
+
+		devinfo (&all_paths[k], conf->hwtable);
+
+		if ((fd = open (all_paths[k].sg_dev, O_RDONLY)) < 0)
+			return 0;
+
+		if (0 > ioctl (fd, SG_GET_SCSI_ID, &(all_paths[k].sg_id)))
+			printf ("device %s failed on sg ioctl, skip\n",
+			       file_name);
+
+		close (fd);
+
+		for (i = 0; i < conf->max_devs; i++) {
+			if ((all_paths[k].sg_id.host_no ==
+			     all_scsi_ids[i].host_no)
+			    && (all_paths[k].sg_id.scsi_id ==
+				(all_scsi_ids[i].scsi_id.dev_id & 0xff))
+			    && (all_paths[k].sg_id.lun ==
+				((all_scsi_ids[i].scsi_id.dev_id >> 8) & 0xff))
+			    && (all_paths[k].sg_id.channel ==
+				((all_scsi_ids[i].scsi_id.
+				  dev_id >> 16) & 0xff))) {
+				strcpy (all_paths[k].dev, all_scsi_ids[i].dev);
+				break;
+			}
+		}
+	}
+
+	free (all_scsi_ids);
 	return 0;
 }
 
@@ -672,7 +692,6 @@ main (int argc, char *argv[])
 {
 	struct multipath * mp;
 	struct path * all_paths;
-	struct scsi_dev * all_scsi_ids;
 	struct env conf;
 	int i, k, nmp;
 	int try = 0;
@@ -772,14 +791,15 @@ main (int argc, char *argv[])
 	/* dynamic allocations */
 	mp = malloc (conf.max_devs * sizeof (struct multipath));
 	all_paths = malloc (conf.max_devs * sizeof (struct path));
-	all_scsi_ids = malloc (conf.max_devs * sizeof (struct scsi_dev));
 
-	if (mp == NULL || all_paths == NULL || all_scsi_ids == NULL)
+	if (mp == NULL || all_paths == NULL) {
+		fprintf (stderr, "can not allocate memory\n");
+		unlink (RUN);
 		exit (1);
+	}
 
 	if (sysfs_get_mnt_path (conf.sysfs_path, FILE_NAME_SIZE)) {
-		get_all_scsi_ids (&conf, all_scsi_ids);
-		get_all_paths_nosysfs (&conf, all_paths, all_scsi_ids);
+		get_all_paths_nosysfs (&conf, all_paths);
 	} else {
 		get_all_paths_sysfs (&conf, all_paths);
 	}
@@ -814,7 +834,6 @@ main (int argc, char *argv[])
 	/* free allocs */
 	free (mp);
 	free (all_paths);
-	free (all_scsi_ids);
 
 	/* release runfile */
 	unlink (RUN);
