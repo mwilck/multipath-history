@@ -305,7 +305,7 @@ updatepaths (struct paths *allpaths)
 		memset(attr_buff, 0, sizeof (attr_buff));
 		memset(attr_path, 0, sizeof (attr_path));
 
-		if (safe_sprintf(attr_path, "%s/block/%s/device/generic/dev",
+		if (safe_sprintf(attr_path, "%s/block/%s/dev",
 			sysfs_path, devp->name)) {
 			fprintf(stderr, "updatepaths: attr_path too small\n");
 			continue;
