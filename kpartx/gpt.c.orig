@@ -34,21 +34,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
-#include <endian.h>
-#include <byteswap.h>
+#include <asm/byteorder.h>
 #include "crc32.h"
-
-#if BYTE_ORDER == LITTLE_ENDIAN
-#  define __le16_to_cpu(x) (x)
-#  define __le32_to_cpu(x) (x)
-#  define __le64_to_cpu(x) (x)
-#  define __cpu_to_le32(x) (x)
-#elif BYTE_ORDER == BIG_ENDIAN
-#  define __le16_to_cpu(x) bswap_16(x)
-#  define __le32_to_cpu(x) bswap_32(x)
-#  define __le64_to_cpu(x) bswap_64(x)
-#  define __cpu_to_le32(x) bswap_32(x)
-#endif
 
 #define BLKGETLASTSECT  _IO(0x12,108)   /* get last sector of block device */
 #define BLKGETSIZE _IO(0x12,96)	        /* return device size */
