@@ -25,9 +25,10 @@ struct emc_clariion_checker_context {
 
 int emc_clariion(char *devt, char *msg, void **context)
 {
-	unsigned char sense_buffer[128];
+	unsigned char sense_buffer[256];
+	unsigned char sb[128];
 	unsigned char inqCmdBlk[INQUIRY_CMDLEN] = {INQUIRY_CMD, 0, 0xC0, 0,
-						sizeof(sense_buffer), 0};
+						sizeof(sb), 0};
 	struct sg_io_hdr io_hdr;
 	struct emc_clariion_checker_context * ctxt = NULL;
 	int ret;
@@ -71,11 +72,13 @@ int emc_clariion(char *devt, char *msg, void **context)
 	memset(&io_hdr, 0, sizeof (struct sg_io_hdr));
 	io_hdr.interface_id = 'S';
 	io_hdr.cmd_len = sizeof (inqCmdBlk);
-	io_hdr.mx_sb_len = sizeof (sense_buffer);
-	io_hdr.dxfer_direction = SG_DXFER_NONE;
+	io_hdr.mx_sb_len = sizeof (sb);
+	io_hdr.dxfer_direction = SG_DXFER_FROM_DEV;
+	io_hdr.dxfer_len = sizeof (sense_buffer);
+	io_hdr.dxferp = sense_buffer;
 	io_hdr.cmdp = inqCmdBlk;
-	io_hdr.sbp = sense_buffer;
-	io_hdr.timeout = 20000;
+	io_hdr.sbp = sb;
+	io_hdr.timeout = 60000;
 	io_hdr.pack_id = 0;
 	if (ioctl(ctxt->fd, SG_IO, &io_hdr) < 0) {
 		MSG("emc_clariion_checker: sending query command failed");
