@@ -277,8 +277,12 @@ checkpath (struct path *path_p)
 	char devnode[FILENAMESIZE];
 	int r;
 	
-	sprintf (devnode, "/tmp/.checker.%i.%i", path_p->major, path_p->minor);
-	r = makenode (devnode, path_p->major, path_p->minor);
+	if (safe_sprintf(devnode, "/tmp/.checker.%i.%i",
+			 path_p->major, path_p->minor)) {
+		fprintf(stderr, "checkpath: devnode too small\n");
+		return -1;
+	}
+	r = makenode(devnode, path_p->major, path_p->minor);
 
 	if (r < 0) {
 		LOG (2, "can not create %s", devnode);
@@ -286,7 +290,7 @@ checkpath (struct path *path_p)
 	}
 
 	r = path_p->checkfn(devnode);
-	unlink (devnode);
+	unlink(devnode);
 				
 	LOG (2, "check path %i:%i => %s",
 	     path_p->major, path_p->minor,
@@ -306,54 +310,60 @@ updatepaths (struct paths *failedpaths)
 	char attr_path[FILENAMESIZE];
 	char attr_buff[17];
 	
-	if (sysfs_get_mnt_path (sysfs_path, FILENAMESIZE)) {
-		LOG (2, "can not find sysfs mount point");
+	if (sysfs_get_mnt_path(sysfs_path, FILENAMESIZE)) {
+		LOG(2, "can not find sysfs mount point");
 		return 1;
 	}
 
-	sprintf (path, "%s/block", sysfs_path);
-	sdir = sysfs_open_directory (path);
-	sysfs_read_dir_subdirs (sdir);
+	if (safe_sprintf(path, "%s/block", sysfs_path)) {
+		fprintf(stderr, "updatepaths: path too small\n");
+		return 1;
+	}
+	sdir = sysfs_open_directory(path);
+	sysfs_read_dir_subdirs(sdir);
 
-	pthread_mutex_lock (failedpaths->lock);
-	pathvec_free (failedpaths->pathvec);
+	pthread_mutex_lock(failedpaths->lock);
+	pathvec_free(failedpaths->pathvec);
 	failedpaths->pathvec = vector_alloc();
 
-	dlist_for_each_data (sdir->subdirs, devp, struct sysfs_directory) {
-		if (blacklist (devp->name)) {
+	dlist_for_each_data(sdir->subdirs, devp, struct sysfs_directory) {
+		if (blacklist(devp->name)) {
 			LOG (3, "%s blacklisted", devp->name);
 			continue;
 		}
 
-		memset (attr_buff, 0, sizeof (attr_buff));
-		memset (attr_path, 0, sizeof (attr_path));
-		sprintf(attr_path, "%s/block/%s/device/generic/dev",
-			sysfs_path, devp->name);
+		memset(attr_buff, 0, sizeof (attr_buff));
+		memset(attr_path, 0, sizeof (attr_path));
 
+		if (safe_sprintf(attr_path, "%s/block/%s/device/generic/dev",
+			sysfs_path, devp->name)) {
+			fprintf(stderr, "updatepaths: attr_path too small\n");
+			return 1;
+		}
 		if (0 > sysfs_read_attribute_value(attr_path, attr_buff, 17)) {
-			LOG (3, "no such attribute : %s",
+			LOG(3, "no such attribute : %s",
 				attr_path);
 			continue;
 		}
 
-		path_p = MALLOC (sizeof (struct path));
+		path_p = MALLOC(sizeof (struct path));
 		sscanf(attr_buff, "%i:%i", &path_p->major, &path_p->minor);
 
 		if (!select_checkfn(path_p, devp->name) && checkpath(path_p)) {
 			LOG(2, "discard %i:%i as valid path",
 			    path_p->major, path_p->minor);
-			FREE (path_p);
+			FREE(path_p);
 			continue;
 		}
 
-		vector_alloc_slot (failedpaths->pathvec);
-		vector_set_slot (failedpaths->pathvec, path_p);
+		vector_alloc_slot(failedpaths->pathvec);
+		vector_set_slot(failedpaths->pathvec, path_p);
 
-		LOG (2, "%i:%i added to failedpaths",
-		     path_p->major, path_p->minor);
+		LOG(2, "%i:%i added to failedpaths",
+		    path_p->major, path_p->minor);
 	}
-	pthread_mutex_unlock (failedpaths->lock);
-	sysfs_close_directory (sdir);
+	pthread_mutex_unlock(failedpaths->lock);
+	sysfs_close_directory(sdir);
 	return 0;
 }
 
@@ -434,6 +444,20 @@ out:
 	return (NULL);
 }
 
+static void
+log_failedpaths_vec (vector pathvec)
+{
+	int i;
+	struct path * pp;
+
+	LOG(1, "paths to check :");
+
+	for (i = 0; i < VECTOR_SIZE(pathvec); i++) {
+		pp = VECTOR_SLOT(pathvec, i);
+		LOG(1, "%i:%i", pp->major, pp->minor);
+	}
+}
+
 static void *
 waiterloop (void *ap)
 {
@@ -488,9 +512,10 @@ waiterloop (void *ap)
 		/*
 		 * update failed paths list
 		 */
-		LOG (2, "refresh failpaths list");
-		updatepaths (failedpaths);
-		
+		LOG(2, "refresh failpaths list");
+		updatepaths(failedpaths);
+		log_failedpaths_vec(failedpaths->pathvec);
+
 		/*
 		 * start waiters on all devmaps
 		 */
@@ -567,25 +592,25 @@ checkerloop (void *ap)
 	LOG (1, "path checkers start up");
 
 	while (1) {
-		pthread_mutex_lock (failedpaths->lock);
-		LOG (3, "checking paths");
+		pthread_mutex_lock(failedpaths->lock);
+		LOG(3, "checking paths");
 
 		for (i = 0; i < VECTOR_SIZE(failedpaths->pathvec); i++) {
-			path_p = VECTOR_SLOT (failedpaths->pathvec, i);
+			path_p = VECTOR_SLOT(failedpaths->pathvec, i);
 			
-			if (checkpath (path_p)) {
+			if (checkpath(path_p)) {
 				/*
 				 * tell waiterloop we have an event
 				 */
-				LOG (1, "path checker event on device %i:%i",
-					 path_p->major, path_p->minor);
+				LOG(1, "path checker event on device %i:%i",
+					path_p->major, path_p->minor);
 				pthread_mutex_lock (event_lock);
 				pthread_cond_signal(event);
 				pthread_mutex_unlock (event_lock);
 			}
 		}
-		pthread_mutex_unlock (failedpaths->lock);
-		sleep (checkint ? checkint : CHECKINT);
+		pthread_mutex_unlock(failedpaths->lock);
+		sleep(checkint ? checkint : CHECKINT);
 	}
 
 	return (NULL);
@@ -612,7 +637,7 @@ initpaths (void)
 
 #define VECTOR_ADDSTR(a, b) \
 	str = MALLOC (6 * sizeof(char)); \
-	sprintf (str, b); \
+	snprintf(str, 6, b); \
 	vector_alloc_slot(a); \
 	vector_set_slot(a, str);
 
@@ -637,9 +662,9 @@ setup_default_blist (vector blist)
 #define VECTOR_ADDHWE(a, b, c, d) \
 	hwe = MALLOC (sizeof(struct hwentry)); \
 	hwe->vendor = MALLOC (9 * sizeof(char)); \
-	sprintf (hwe->vendor, b); \
+	snprintf (hwe->vendor, 9, b); \
 	hwe->product = MALLOC (17 * sizeof(char)); \
-	sprintf (hwe->product, c); \
+	snprintf (hwe->product, 17, c); \
 	hwe->checker_index = d; \
 	vector_alloc_slot(a); \
 	vector_set_slot(a, hwe);
@@ -726,8 +751,10 @@ prepare_namespace(void)
 	/*
 	 * mount the ramfs
 	 */
-	sprintf(ramfs_args, "maxsize=%u", (unsigned int) size);
-
+	if (safe_sprintf(ramfs_args, "maxsize=%u", (unsigned int) size)) {
+		fprintf(stderr, "ramfs_args too small\n");
+		return -1;
+	}
 	if (mount(NULL, CALLOUT_DIR, "ramfs", MS_SYNCHRONOUS, ramfs_args) < 0) {
 		LOG(1, "cannot mount ramfs on " CALLOUT_DIR);
 		return -1;

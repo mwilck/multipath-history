@@ -9,5 +9,7 @@
 #endif
 
 #define LOG(x, y, z...) if (DEBUG>=x) syslog(x, "[%lu] " y, pthread_self(), ##z)
+#define safe_sprintf(var, format, args...)	\
+	snprintf(var, sizeof(var), format, ##args) >= sizeof(var)
 
 #endif /* _LOG_H */
