@@ -7,6 +7,7 @@ defaults {
 	default_path_grouping_policy	multibus
 	default_getuid_callout	"/sbin/scsi_id -g -u -s"
 	default_prio_callout	"/bin/false"
+	default_features	"0"
 }
 devnode_blacklist {
 	devnode cciss
@@ -43,6 +44,8 @@ devices {
 		getuid_callout          "/sbin/scsi_id -g -u -s"
 		path_checker		readsector0
 		path_selector		round-robin
+		features		"1 queue_if_no_path"
+		hardware_handler	"0"
 	}
 	device {
 		vendor			"COMPAQ  "

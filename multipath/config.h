@@ -24,7 +24,9 @@ struct hwentry {
 	char * product;
 	char * selector;
 	char * getuid;
-	int checker_index;
+	char * getprio;
+	char * features;
+	char * hwhandler;
 };
 
 struct config {
@@ -43,6 +45,8 @@ struct config {
 	char * default_selector;
 	char * default_getuid;
 	char * default_getprio;
+	char * default_features;
+	char * default_hwhandler;
 
 	vector mptable;
 	vector hwtable;

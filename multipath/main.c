@@ -49,6 +49,32 @@
 #define argis(x) if (0 == strcmp (x, argv[i]))
 #define MATCH(x,y) 0 == strncmp (x, y, strlen(y))
 
+static struct hwentry *
+find_hw (char * vendor, char * product)
+{
+	int i;
+	struct hwentry * hwe;
+
+	vector_foreach_slot (conf->hwtable, hwe, i)
+		if (hwe->vendor && hwe->product &&
+		    strcmp(hwe->vendor, vendor) == 0 &&
+		    strcmp(hwe->product, product) == 0)
+			return hwe;
+	return NULL;
+}
+
+static struct mpentry *
+find_mp (char * wwid)
+{
+	int i;
+	struct mpentry * mpe;
+
+	vector_foreach_slot (conf->mptable, mpe, i)
+                if (mpe->wwid && strcmp(mpe->wwid, wwid) == 0)
+			return mpe;
+
+	return NULL;
+}
 
 /*
  * selectors :
@@ -101,6 +127,138 @@ select_pgpolicy (struct multipath * mp)
 	mp->pgpolicy = FAILOVER;
 	get_pgpolicy_name(pgpolicy_name, FAILOVER);
 	dbg("pgpolicy = %s (internal default)", pgpolicy_name);
+	return 0;
+}
+
+static int
+select_selector (struct multipath * mp)
+{
+	int i;
+	struct mpentry * mpe = NULL;
+	struct hwentry * hwe = NULL;
+	struct path * pp;
+
+	pp = VECTOR_SLOT(mp->paths, 0);
+
+	mpe = find_mp(mp->wwid);
+
+	if (mpe && mpe->selector) {
+		mp->selector = mpe->selector;
+		mp->selector_args = mpe->selector_args;
+		dbg("selector = %s (LUN setting)", mp->selector);
+		dbg("selector_args = %s (LUN setting)", mp->selector_args);
+		return 0;
+	}
+	hwe = find_hw(pp->vendor_id, pp->product_id);
+
+	if (hwe && hwe->selector) {
+		mp->selector = hwe->selector;
+		mp->selector_args = hwe->selector_args;
+		dbg("selector = %s (controler setting)", mp->selector);
+		dbg("selector_args = %s (controler setting)", mp->selector_args);
+		return 0;
+	}
+	mp->selector = conf->default_selector;
+	mp->selector_args = conf->default_selector_args;
+	dbg("selector = %s (internal default)", mp->selector);
+	dbg("selector_args = %s (internal default)", mp->selector_args);
+	return 0;
+}
+
+static int
+select_features (struct multipath * mp)
+{
+	int i;
+	struct hwentry * hwe = NULL;
+	struct path * pp;
+
+	pp = VECTOR_SLOT(mp->paths, 0);
+	hwe = find_hw(pp->vendor_id, pp->product_id);
+
+	if (hwe && hwe->features) {
+		mp->features = hwe->features;
+		dbg("features = %s (controler setting)", mp->features);
+		return 0;
+	}
+	mp->features = conf->default_features;
+	dbg("features = %s (internal default)", mp->features);
+	return 0;
+}
+
+static int
+select_hwhandler (struct multipath * mp)
+{
+	int i;
+	struct hwentry * hwe = NULL;
+	struct path * pp;
+
+        pp = VECTOR_SLOT(mp->paths, 0);
+	hwe = find_hw(pp->vendor_id, pp->product_id);
+
+	if (hwe && hwe->hwhandler) {
+		mp->hwhandler = hwe->hwhandler;
+		dbg("hwhandler = %s (controler setting)", mp->hwhandler);
+		return 0;
+	}
+	mp->hwhandler = conf->default_hwhandler;
+	dbg("hwhandler = %s (internal default)", mp->hwhandler);
+	return 0;
+}
+
+static int
+select_checkfn(struct path *pp)
+{
+	char checker_name[CHECKER_NAME_SIZE];
+	int i;
+	struct hwentry * hwe = NULL;
+
+	hwe = find_hw(pp->vendor_id, pp->product_id);
+
+	if (hwe && hwe->checker_index > 0) {
+		get_checker_name(checker_name, hwe->checker_index);
+		dbg("path checker = %s (controler setting)", checker_name);
+		pp->checkfn = get_checker_addr(hwe->checker_index);
+		return 0;
+	}
+	pp->checkfn = &readsector0;
+	get_checker_name(checker_name, READSECTOR0);
+	dbg("path checker = %s (internal default)", checker_name);
+	return 0;
+}
+
+static int
+select_getuid (struct path * pp)
+{
+	int i;
+	struct hwentry * hwe = NULL;
+
+	hwe = find_hw(pp->vendor_id, pp->product_id);
+
+	if (hwe && hwe->getuid) {
+		pp->getuid = hwe->getuid;
+		dbg("getuid = %s (controler setting)", pp->getuid);
+		return 0;
+	}
+	pp->getuid = conf->default_getuid;
+	dbg("getuid = %s (internal default)", pp->getuid);
+	return 0;
+}
+
+static int
+select_getprio (struct path * pp)
+{
+	int i;
+	struct hwentry * hwe = NULL;
+
+	hwe = find_hw(pp->vendor_id, pp->product_id);
+
+	if (hwe && hwe->getprio) {
+		pp->getprio = hwe->getprio;
+		dbg("getprio = %s (controler setting)", pp->getprio);
+		return 0;
+	}
+	pp->getprio = conf->default_getprio;
+	dbg("getprio = %s (internal default)", pp->getprio);
 	return 0;
 }
 
@@ -171,70 +329,47 @@ blacklist (char * dev) {
 	return 0;
 }
 
-static int
-select_checkfn(struct path *pp)
 {
-	char checker_name[CHECKER_NAME_SIZE];
-	int i;
-	struct hwentry * hwe;
 
-	/*
-	 * default checkfn
-	 */
-	pp->checkfn = &readsector0;
 
-	vector_foreach_slot (conf->hwtable, hwe, i) {
-		if (MATCH(hwe->vendor, pp->vendor_id) &&
-		    MATCH(hwe->product, pp->product_id) &&
-		    hwe->checker_index > 0) {
-			get_checker_name(checker_name, hwe->checker_index);
-			dbg("set %s path checker for %s",
-				checker_name, pp->dev);
-			pp->checkfn = get_checker_addr(hwe->checker_index);
-			return 0;
-		}
 	}
-	get_checker_name(checker_name, READSECTOR0);
-	dbg("set %s path checker for %s", checker_name, pp->dev);
-	return 0;
 }
 
 static int
-devinfo (struct path *curpath)
+devinfo (struct path *pp)
 {
 	int i;
 	struct hwentry * hwe;
 	char buff[100];
 	char prio[16];
 
+	dbg("===== path %s =====", pp->dev);
+
 	/*
 	 * fetch info available in sysfs
 	 */
-	if (sysfs_devinfo(curpath))
+	if (sysfs_devinfo(pp))
 		return 1;
 
 	/*
 	 * then those not available through sysfs
 	 */
-	get_serial(curpath->serial, curpath->dev_t);
-	curpath->claimed = get_claimed(curpath->dev_t);
+	get_serial(pp->serial, pp->dev_t);
+	dbg("serial = %s", pp->serial);
+	pp->claimed = get_claimed(pp->dev_t);
+	dbg("claimed = %i", pp->claimed);
 
 	/*
 	 * get path state, no message collection, no context
 	 */
-	select_checkfn(curpath);
-	curpath->state = checkpath(curpath->dev_t, curpath->checkfn,
-				   NULL, NULL);
-	dbg("path %s state : %i", curpath->dev, curpath->state);
+	select_checkfn(pp);
+	pp->state = pp->checkfn(pp->dev_t, NULL, NULL);
+	dbg("state = %i", pp->state);
 	
 	/*
 	 * get path prio
 	 */
-	if(safe_sprintf(buff, "%s /block/%s",
-			conf->default_getprio, curpath->dev)) {
-		fprintf(stderr, "buff too small\n");
-		exit(1);
-	}
+	select_getprio(pp);
 
 	dbg("get prio callout :");
 	dbg("==================");
@@ -250,27 +385,7 @@ devinfo (struct path *curpath)
 	/*
 	 * get path uid
 	 */
-	vector_foreach_slot (conf->hwtable, hwe, i) {
-		if (MATCH (curpath->vendor_id, hwe->vendor) &&
-		    MATCH (curpath->product_id, hwe->product)) {
-			/*
-			 * callout program
-			 */
-			dbg("get uid callout :");
-			dbg("=================");
-			if(safe_sprintf(buff, "%s /block/%s",
-			   hwe->getuid ? hwe->getuid : conf->default_getuid,
-			   curpath->dev)) {
-				fprintf(stderr, "buff too small\n");
-				exit(1);
-			}
-			if (execute_program(buff, curpath->wwid,
-			    WWID_SIZE) == 0) {
-				dbg("devinfo found uid : %s", curpath->wwid);
-				return 0;
-			}
-			dbg("error calling out %s", buff);
-			dbg("falling back to internal getuid function");
+	select_getuid(pp);
 
 			/*
 			 * fallback
@@ -517,19 +632,6 @@ print_all_mp (vector mp)
 	}
 }
 
-static struct mpentry *
-find_mp (char * wwid)
-{
-	int i;
-	struct mpentry * mpe;
-
-	vector_foreach_slot (conf->mptable, mpe, i)
-                if (mpe->wwid && strcmp(mpe->wwid, wwid) == 0)
-			return mpe;
-
-	return NULL;
-}
-
 static void
 coalesce_paths (vector mp, vector pathvec)
 {
@@ -632,50 +734,6 @@ dm_reinstate(char * mapname, char * path)
         return r;
 }
 
-static int
-select_selector (struct multipath * mp)
-{
-	int i;
-	struct mpentry * mpe;
-	struct hwentry * hwe;
-	struct path * pp;
-
-	pp = VECTOR_SLOT(mp->paths, 0);
-
-	/*
-	 * select the right path selector :
-	 * 1) set internal default
-	 * 2) override by controler wide settings
-	 * 3) override by LUN specific settings
-	 */
-
-	/* 1) set internal default */
-	mp->selector = conf->default_selector;
-	mp->selector_args = conf->default_selector_args;
-
-	/* 2) override by controler wide settings */
-	vector_foreach_slot (conf->hwtable, hwe, i) {
-		if (strcmp(hwe->vendor, pp->vendor_id) == 0 &&
-		    strcmp(hwe->product, pp->product_id) == 0) {
-			mp->selector = (hwe->selector) ?
-				   hwe->selector : conf->default_selector;
-			mp->selector_args = (hwe->selector_args) ?
-				   hwe->selector_args : conf->default_selector_args;
-		}
-	}
-
-	/* 3) override by LUN specific settings */
-	vector_foreach_slot (conf->mptable, mpe, i) {
-		if (mpe->wwid && strcmp(mpe->wwid, mp->wwid) == 0) {
-			mp->selector = (mpe->selector) ?
-				   mpe->selector : conf->default_selector;
-			mp->selector_args = (mpe->selector_args) ?
-				   mpe->selector_args : conf->default_selector_args;
-		}
-	}
-	return 0;
-}
-
 /*
  * Transforms the path group vector into a proper device map string
  */
@@ -691,7 +749,9 @@ assemble_map (struct multipath * mp)
 	p = mp->params;
 	freechar = sizeof(mp->params);
 	
-	shift = snprintf(p, freechar, "%i", VECTOR_SIZE(mp->pg));
+	shift = snprintf(p, freechar, "%s %s %i 1",
+			 mp->features, mp->hwhandler,
+			 VECTOR_SIZE(mp->pg));
 
 	if (shift >= freechar) {
 		fprintf(stderr, "mp->params too small\n");
@@ -732,20 +792,17 @@ static int
 setup_map (vector pathvec, struct multipath * mpp)
 {
 	struct path * pp;
-	int i, iopolicy;
-	char iopolicy_name[POLICY_NAME_SIZE];
-	int fd;
-	struct hwentry * hwe = NULL;
-	struct mpentry * mpe;
-	char * mapname;
-	char curparams[PARAMS_SIZE];
+	int i;
+	char * mapname = NULL;
+	char * curparams = NULL;
 	int op;
+	int r = 0;
 
 	/*
 	 * don't bother if devmap size is unknown
 	 */
 	if (mpp->size <= 0)
-		return 0;
+		return 1;
 
 	/*
 	 * don't bother if a constituant path is claimed
@@ -753,7 +810,7 @@ setup_map (vector pathvec, struct multipath * mpp)
 	 */
 	vector_foreach_slot (mpp->paths, pp, i)
 		if (pp->claimed)
-			return 0;
+			return 1;
 
 	pp = VECTOR_SLOT(mpp->paths, 0);
 
@@ -762,6 +819,8 @@ setup_map (vector pathvec, struct multipath * mpp)
 	 */
 	select_pgpolicy(mpp);
 	select_selector(mpp);
+	select_features(mpp);
+	select_hwhandler(mpp);
 
 	/*
 	 * layered map computation :
@@ -1163,6 +1222,12 @@ main (int argc, char *argv[])
 
 	if (conf->default_getuid == NULL)
 		conf->default_getuid = DEFAULT_GETUID;
+
+	if (conf->default_features == NULL)
+		conf->default_features = DEFAULT_FEATURES;
+
+	if (conf->default_hwhandler == NULL)
+		conf->default_hwhandler = DEFAULT_HWHANDLER;
 
 	/*
 	 * allocate the two core vectors to store paths and multipaths
