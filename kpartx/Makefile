@@ -2,7 +2,7 @@
 #
 # Copyright (C) 2003 Christophe Varoqui, <christophe.varoqui@free.fr>
 #
-BUILD=klibc
+BUILD=glibc
 
 include ../Makefile.inc
 
@@ -19,7 +19,7 @@ endif
 
 EXEC = kpartx
 
-all: klibc
+all: $(BUILD)
 
 prepare:
 	rm -f core *.o *.gz

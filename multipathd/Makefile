@@ -1,3 +1,4 @@
+BUILD = glibc
 EXEC = multipathd
 
 #
@@ -28,12 +29,11 @@ LDFLAGS = -lpthread -ldevmapper
 OBJS = main.o copy.o devinfo.o callout.o dict.o \
        $(CHECKERSLIB)-glibc.a \
        $(MULTIPATHLIB)-glibc.a \
-       $(SYSFSLIB)-glibc.a
 
 #
 # directives
 #
-all : glibc
+all : $(BUILD)
 
 glibc: $(EXEC)
 

@@ -10,7 +10,7 @@ CFLAGS += -I. -Iioctl -Iinclude ${REQFLAGS} ${OPTFLAGS}
 
 OBJS = ioctl/libdm-iface.o libdm-common.o
 
-all: klibc
+all: $(BUILD)
 
 klibc: $(KLIBC) $(OBJS)
 	ar rs libdevmapper-klibc.a *.o ioctl/*.o

@@ -14,13 +14,12 @@ endif
 
 OBJS = dlist.o sysfs_dir.o sysfs_utils.o
 
-all: klibc
+all: $(BUILD)
 
 prepare:
 	rm -f core *.o *.gz
 
-glibc: prepare $(OBJS)
-	ar rs libsysfs-glibc.a *.o
+glibc:
 	
 klibc: prepare $(KLIBC) $(OBJS)
 	ar rs libsysfs-klibc.a *.o

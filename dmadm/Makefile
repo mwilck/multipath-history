@@ -1,4 +1,4 @@
-BUILD = klibc
+BUILD = glibc
 
 EXEC = dmadm
 
@@ -13,7 +13,7 @@ else
 	OBJS = util.o dmadm.o
 endif
 
-all: klibc
+all: $(BUILD)
 
 prepare:
 	rm -f core *.o *.gz

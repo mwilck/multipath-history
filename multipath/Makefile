@@ -1,7 +1,7 @@
 # Makefile
 #
 # Copyright (C) 2003 Christophe Varoqui, <christophe.varoqui@free.fr>
-BUILD = klibc
+BUILD = glibc
 
 include ../Makefile.inc
 
@@ -24,14 +24,14 @@ endif
 EXEC = multipath
 DEBUG = 0
 
-all: klibc
+all: $(BUILD)
 
 prepare:
 	rm -f core *.o *.gz
 
 glibc: prepare $(OBJS)
 	$(CC) $(OBJS) -o $(EXEC) $(LDFLAGS)
-#	$(STRIP) $(EXEC)
+	$(STRIP) $(EXEC)
 	$(GZIP) $(EXEC).8 > $(EXEC).8.gz
 	
 klibc: prepare $(KLIBC) $(OBJS)
