@@ -32,7 +32,7 @@ push_callout(char * callout)
 	for (i = 0; i < VECTOR_SIZE(binvec); i++) {
 		bin = VECTOR_SLOT(binvec, i);
 
-		if (memcmp (bin, callout, p - callout) == 0)
+		if (memcmp(bin, callout, p - callout) == 0)
 			return;
 	}
 	/*
@@ -59,7 +59,10 @@ multipath_tool_handler(vector strvec)
 static void
 polling_interval_handler(vector strvec)
 {
-	checkint = atoi(VECTOR_SLOT(strvec, 1));
+	char * buff;
+
+	buff = VECTOR_SLOT(strvec, 1);
+	checkint = atoi(buff);
 }
 
 static void

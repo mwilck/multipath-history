@@ -742,18 +742,10 @@ dm_reinstate(char * mapname, char * path)
         return r;
 }
 
-/*
- * Transforms the path group vector into a proper device map string
- */
-void
-assemble_map (struct multipath * mp)
+static int
+select_selector (struct multipath * mp)
 {
-	int i, j;
-	int shift, freechar;
-	char * p;
-	vector pgpaths;
-	char * selector;
-	int selector_args;
+	int i;
 	struct mpentry * mpe;
 	struct hwentry * hwe;
 	struct path * pp;
@@ -768,8 +760,8 @@ assemble_map (struct multipath * mp)
 	 */
 
 	/* 1) set internal default */
-	selector = conf->default_selector;
-	selector_args = conf->default_selector_args;
+	mp->selector = conf->default_selector;
+	mp->selector_args = conf->default_selector_args;
 
 	/* 2) override by controler wide settings */
 	for (i = 0; i < VECTOR_SIZE(conf->hwtable); i++) {
@@ -777,9 +769,9 @@ assemble_map (struct multipath * mp)
 
 		if (strcmp(hwe->vendor, pp->vendor_id) == 0 &&
 		    strcmp(hwe->product, pp->product_id) == 0) {
-			selector = (hwe->selector) ?
+			mp->selector = (hwe->selector) ?
 				   hwe->selector : conf->default_selector;
-			selector_args = (hwe->selector_args) ?
+			mp->selector_args = (hwe->selector_args) ?
 				   hwe->selector_args : conf->default_selector_args;
 		}
 	}
@@ -789,12 +781,26 @@ assemble_map (struct multipath * mp)
 		mpe = VECTOR_SLOT(conf->mptable, i);
 
 		if (strcmp(mpe->wwid, mp->wwid) == 0) {
-			selector = (mpe->selector) ?
+			mp->selector = (mpe->selector) ?
 				   mpe->selector : conf->default_selector;
-			selector_args = (mpe->selector_args) ?
+			mp->selector_args = (mpe->selector_args) ?
 				   mpe->selector_args : conf->default_selector_args;
 		}
 	}
+	return 0;
+}
+
+/*
+ * Transforms the path group vector into a proper device map string
+ */
+void
+assemble_map (struct multipath * mp)
+{
+	int i, j;
+	int shift, freechar;
+	char * p;
+	vector pgpaths;
+	struct path * pp;
 
 	p = mp->params;
 	freechar = sizeof(mp->params);
@@ -808,10 +814,10 @@ assemble_map (struct multipath * mp)
 	p += shift;
 	freechar -= shift;
 	
-	for (i = 0; i < VECTOR_SIZE(mp->pg); i++) {
+	for (i = VECTOR_SIZE(mp->pg) - 1; i >= 0; i--) {
 		pgpaths = VECTOR_SLOT(mp->pg, i);
-		shift = snprintf(p, freechar, " %s %i %i",
-			         selector, VECTOR_SIZE(pgpaths), selector_args);
+		shift = snprintf(p, freechar, " %s %i %i", mp->selector,
+				 VECTOR_SIZE(pgpaths), mp->selector_args);
 		if (shift >= freechar) {
 			fprintf(stderr, "mp->params too small\n");
 			exit(1);
@@ -820,8 +826,8 @@ assemble_map (struct multipath * mp)
 		freechar -= shift;
 
 		for (j = 0; j < VECTOR_SIZE(pgpaths); j++) {
-			shift = snprintf(p, freechar, " %s",
-					 (char *)VECTOR_SLOT(pgpaths, j));
+			pp = VECTOR_SLOT(pgpaths, j);
+			shift = snprintf(p, freechar, " %s", pp->dev_t);
 			if (shift >= freechar) {
 				fprintf(stderr, "mp->params too small\n");
 				exit(1);
@@ -838,10 +844,9 @@ assemble_map (struct multipath * mp)
 }
 
 static int
-setup_map (vector pathvec, vector mp, int slot)
+setup_map (vector pathvec, struct multipath * mpp)
 {
 	struct path * pp;
-	struct multipath * mpp;
 	int i, iopolicy;
 	char iopolicy_name[POLICY_NAME_SIZE];
 	int fd;
@@ -850,8 +855,6 @@ setup_map (vector pathvec, vector mp, int slot)
 	char * mapname;
 	char curparams[PARAMS_SIZE];
 	int op;
-
-	mpp = VECTOR_SLOT(mp, slot);
 
 	/*
 	 * don't bother if devmap size is unknown
@@ -937,9 +940,17 @@ setup_map (vector pathvec, vector mp, int slot)
 	}
 
 	/*
-	 * layered mpp->paths reordering :
+	 * select the appropriate path group selector and args
+	 */
+	select_selector(mpp);
+
+	/*
+	 * layered map computation :
 	 *  1) sort paths by priority
-	 *  2) apply selected grouping policy to paths
+	 *  2) separate failed paths in a tersary PG
+	 *  3) separate shaky paths in a secondary PG
+	 *  4) apply selected grouping policy to valid paths
+	 *  5) reorder path groups by summed priority
 	 */
 
 	/*
@@ -948,7 +959,13 @@ setup_map (vector pathvec, vector mp, int slot)
 	mpp->paths = sort_pathvec_by_prio(mpp->paths);
 
 	/*
-	 * 2) apply selected grouping policy
+	 * 2) & 3)
+	 */
+	group_by_status(mpp, PATH_DOWN);
+	group_by_status(mpp, PATH_SHAKY);
+
+	/*
+	 * 4) apply selected grouping policy
 	 */
 	if (iopolicy == MULTIBUS)
 		one_group (mpp);
@@ -966,6 +983,11 @@ setup_map (vector pathvec, vector mp, int slot)
 		dbg("iopolicy failed to produce a ->pg vector");
 		return 1;
 	}
+
+	/*
+	 * 5)
+	 */
+	sort_pg_by_summed_prio(mpp);
 
 	/*
 	 * transform the mp->pg vector of vectors of paths
@@ -1349,9 +1371,12 @@ main (int argc, char *argv[])
 	if (conf->verbosity > 1)
 		fprintf(stdout, "#\n# device maps :\n#\n");
 
-	for (k = 0; k < VECTOR_SIZE(mp); k++)
-		setup_map(pathvec, mp, k);
+	for (k = 0; k < VECTOR_SIZE(mp); k++) {
+		mpp = VECTOR_SLOT(mp, k);
+		setup_map(pathvec, mpp);
+	}
 
+out:
 	/*
 	 * signal multipathd that new devmaps may have come up
 	 */
