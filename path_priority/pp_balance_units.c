@@ -231,7 +231,7 @@ get_params (void)
 		nexttgt = NULL;
 		debug("devmap %s :", names->name);
 
-		if (!(dmt1 = dm_task_create(DM_DEVICE_STATUS)))
+		if (!(dmt1 = dm_task_create(DM_DEVICE_TABLE)))
 			goto out;
 
 		if (!dm_task_set_name(dmt1, names->name))
