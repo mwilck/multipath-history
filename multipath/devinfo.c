@@ -105,6 +105,52 @@ get_claimed(char *devt)
 	return 0;
 }	
 
+extern int
+devt2devname (char *devname, char *devt)
+{
+	struct sysfs_directory * sdir;
+	struct sysfs_directory * devp;
+	char sysfs_path[FILE_NAME_SIZE];
+	char block_path[FILE_NAME_SIZE];
+	char attr_path[FILE_NAME_SIZE];
+	char attr_value[16];
+
+	if (sysfs_get_mnt_path(sysfs_path, FILE_NAME_SIZE)) {
+		fprintf(stderr, "-D feature available with sysfs only\n");
+		exit(1);
+	}
+		
+	if(safe_sprintf(block_path, "%s/block", sysfs_path)) {
+		fprintf(stderr, "block_path too small\n");
+		exit(1);
+	}
+	sdir = sysfs_open_directory(block_path);
+	sysfs_read_directory(sdir);
+
+	dlist_for_each_data (sdir->subdirs, devp, struct sysfs_directory) {
+		if(safe_sprintf(attr_path, "%s/%s/dev",
+				block_path, devp->name)) {
+			fprintf(stderr, "attr_path too small\n");
+			exit(1);
+		}
+		sysfs_read_attribute_value(attr_path, attr_value,
+					   sizeof(attr_value));
+
+		if (!strncmp(attr_value, devt, strlen(devt))) {
+			if(safe_sprintf(attr_path, "%s/%s",
+					block_path, devp->name)) {
+				fprintf(stderr, "attr_path too small\n");
+				exit(1);
+			}
+			sysfs_get_name_from_path(attr_path, devname,
+						 FILE_NAME_SIZE);
+			break;
+		}
+	}
+	sysfs_close_directory(sdir);
+	return 0;
+}
+
 static int
 do_inq(int sg_fd, int cmddt, int evpd, unsigned int pg_op,
        void *resp, int mx_resp_len, int noisy)

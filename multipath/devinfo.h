@@ -25,6 +25,7 @@ int sysfs_devinfo (struct path *);
 unsigned long get_disk_size (char *);
 int do_tur (char *);
 int get_claimed(char *);
+int devt2devname (char *, char *);
 
 /*
  * internal getuid methods
