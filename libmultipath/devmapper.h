@@ -6,3 +6,4 @@ int dm_get_map(char *, unsigned long *, char **);
 int dm_get_status(char *, char **);
 int dm_type(char *, char *);
 int dm_flush_maps (char *);
+int dm_reinstate(char * mapname, char * path);
