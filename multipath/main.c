@@ -292,8 +292,14 @@ print_mp (struct multipath * mpp)
 
 	printf("\n");
 
-	if (mpp->size)
+	if (mpp->size < 2000)
+		printf("[size=%lu kB]", mpp->size / 2);
+	else if (mpp->size < (2000 * 1024))
 		printf("[size=%lu MB]", mpp->size / 2 / 1024);
+	else if (mpp->size < (2000 * 1024 * 1024))
+		printf("[size=%lu GB]", mpp->size / 2 / 1024 / 1024);
+	else
+		printf("[size=%lu TB]", mpp->size / 2 / 1024 / 1024 / 1024);
 
 	if (mpp->features)
 		printf("[features=\"%s\"]", mpp->features);
