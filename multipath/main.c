@@ -26,18 +26,20 @@
 #include <signal.h>
 #include <sys/ioctl.h>
 
-#include "../libsysfs/dlist.h"
-#include "../libsysfs/sysfs/libsysfs.h"
-#include "../libdevmapper/libdevmapper.h"
-#include "../libcheckers/checkers.h"
+#include <parser.h>
+#include <vector.h>
+#include <memory.h>
+#include <sysfs/dlist.h>
+#include <sysfs/libsysfs.h>
+#include <libdevmapper.h>
+#include <checkers.h>
+#include <path_state.h>
+
 #include "main.h"
 #include "devinfo.h"
 #include "config.h"
 #include "pgpolicies.h"
-#include "parser.h"
 #include "dict.h"
-#include "vector.h"
-#include "memory.h"
 #include "callout.h"
 #include "debug.h"
 

@@ -12,20 +12,34 @@
 #include <wait.h>
 #include <sched.h>
 #include <errno.h>
+#include <syslog.h>
 #include <sys/mount.h>
 #include <sys/mman.h>
-#include "libsysfs/sysfs/libsysfs.h"
-#include "libsysfs/dlist.h"
-#include "libcheckers/checkers.h"
+
+/*
+ * libsysfs
+ */
+#include <sysfs/libsysfs.h>
+#include <sysfs/dlist.h>
+
+/*
+ * libcheckers
+ */
+#include <checkers.h>
+#include <path_state.h>
+
+/*
+ * libmultipath
+ */
+#include <parser.h>
+#include <vector.h>
+#include <memory.h>
 
 #include "hwtable.h"
 #include "dict.h"
-#include "parser.h"
-#include "vector.h"
 #include "devinfo.h"
-#include "memory.h"
 #include "copy.h"
-#include "log.h"
+#include "safe.h"
 #include "callout.h"
 
 #define CHILD_SS 16384

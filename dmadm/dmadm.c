@@ -31,7 +31,7 @@
 #include	"../libdevmapper/libdevmapper.h"
 #include	<endian.h>
 #include	<sysfs/libsysfs.h>
-#include	<dlist.h>
+#include	<sysfs/dlist.h>
 
 #if ! defined(__BIG_ENDIAN) && ! defined(__LITTLE_ENDIAN)
 #error no endian defined

@@ -20,7 +20,7 @@
 #define _MAIN_H
 
 /* local includes */
-#include "vector.h"
+#include <vector.h>
 #include "dev_t.h"
 
 /* global defs */
