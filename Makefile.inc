@@ -13,6 +13,7 @@ bindir      = ${exec_prefix}/sbin
 libdmdir    = ../libdevmapper
 sysfsdir    = ../libsysfs
 checkersdir = ../libcheckers
+multipathdir = ../libmultipath
 mandir      = /usr/share/man/man8
 
 GZIP        = /bin/gzip -9 -c
@@ -21,3 +22,4 @@ STRIP       = strip --strip-all -R .comment -R .note
 DMLIB = $(libdmdir)/libdevmapper
 SYSFSLIB = $(sysfsdir)/libsysfs
 CHECKERSLIB = $(checkersdir)/libcheckers
+MULTIPATHLIB = $(multipathdir)/libmultipath

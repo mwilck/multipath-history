@@ -19,7 +19,7 @@ rcdir = /etc/init.d
 # basic flags setting
 #
 CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes -DLOGLEVEL=$(LOGLEVEL) \
-	 -DFLOATING_STACKS -I../libmultipath -I../libcheckers -I../libsysfs
+	 -DFLOATING_STACKS -I$(multipathdir) -I$(checkersdir) -I$(sysfsdir)
 LDFLAGS = -lpthread -ldevmapper
 
 #
@@ -32,9 +32,9 @@ CFLAGS += -D${ARCH}
 # object files
 #
 OBJS = main.o copy.o devinfo.o callout.o dict.o \
-       ../libcheckers/libcheckers-glibc.a \
-       ../libmultipath/libmultipath-glibc.a \
-       ../libsysfs/libsysfs-glibc.a
+       $(CHECKERSLIB)-glibc.a \
+       $(MULTIPATHLIB)-glibc.a \
+       $(SYSFSLIB)-glibc.a
 
 #
 # directives
@@ -49,14 +49,14 @@ $(EXEC): $(OBJS)
 	$(CC) $(OBJS) -o $(EXEC) $(LDFLAGS)
 	strip $(EXEC)
 
-../libcheckers/libcheckers-glibc.a:
-	$(MAKE) -C ../libcheckers BUILD=glibc glibc
+$(CHECKERSLIB)-glibc.a:
+	$(MAKE) -C $(checkersdir) BUILD=glibc glibc
 
-../libmultipath/libmultipath-glibc.a:
-	$(MAKE) -C ../libmultipath BUILD=glibc glibc
+$(MULTIPATHLIB)-glibc.a:
+	$(MAKE) -C $(multipathdir) BUILD=glibc glibc
 
-../libsysfs/libsysfs-glibc.a:
-	$(MAKE) -C ../libsysfs BUILD=glibc glibc
+$(SYSFSLIB)-glibc.a:
+	$(MAKE) -C $(sysfsdir) BUILD=glibc glibc
 
 install:
 	install -d $(DESTDIR)$(bindir)

@@ -2,7 +2,7 @@
 #
 # Copyright (C) 2003 Christophe Varoqui, <christophe.varoqui@free.fr>
 #
-BUILD = glibc
+BUILD = klibc
 
 include ../Makefile.inc
 
@@ -13,6 +13,8 @@ ifeq ($(strip $(BUILD)),klibc)
 else
 	CFLAGS =
 endif
+
+all: klibc
 
 prepare:
 	rm -f core *.o *.gz
