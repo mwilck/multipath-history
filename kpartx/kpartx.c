@@ -100,7 +100,7 @@ dm_simplecmd (int task, const char *name) {
 }
 
 static int
-dm_addmap (int task, const char *name, const char *params, long size) {
+dm_addmap (int task, const char *name, const char *params, unsigned long size) {
         struct dm_task *dmt;
 
         if (!(dmt = dm_task_create (task)))
@@ -430,7 +430,7 @@ main(int argc, char **argv){
 					dm_simplecmd (DM_DEVICE_RESUME, partname);
 
 				if (verbose)
-					printf("Added %s : 0 %d %s %s\n",
+					printf("add map %s : 0 %lu %s %s\n",
 						partname, slices[j].size,
 						DM_TARGET, params);
 			}
