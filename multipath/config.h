@@ -24,14 +24,13 @@ struct hwentry {
 };
 
 struct config {
-	int verbose;
-	int quiet;
+	int verbosity;
 	int dry_run;
 	int iopolicy_flag;
 	int with_sysfs;
 	int major;
 	int minor;
-	char * hotplugdev;
+	char * dev;
 	int signal;
 
 	char * udev_dir;

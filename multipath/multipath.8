@@ -11,24 +11,32 @@ multipath \- Device mapper target autoconfig
 .RB [\| \-i\ \c
 .IR int \|]
 .RB [\| \-p\ \c
-.BR failover | multibus | group_by_serial | group_by_tur \|]
+.BR failover | multibus | group_by_serial | group_by_prio \|]
 .RB [\| -S \|]
 .RB [\| device \|]
 .SH DESCRIPTION
 .B multipath
-is used to detect multiple paths to devices for fail-over or performance reasons and coalesces them.
+is used to detect multiple paths to devices for fail-over or performance reasons and coalesces them
 .SH OPTIONS
 .TP
-.B \-v
-verbose, print all paths and multipaths
+.B \-v " level"
+verbosity, print all paths and multipaths
+.RS 1.2i
+.TP 1.2i
+.B 0
+no output
 .TP
-.B \-q
-quiet, no output at all
+.B 1
+print the created or updated multipath names only, for use to feed other tools like kpartx
+.TP
+.B 2 +
+print all info : detected paths, coalesced paths (ie multipaths) and device maps
+.RE
 .TP
 .B \-d
 dry run, do not create or update devmaps
 .TP
-.BI \-i " int"
+.BI \-i " interval"
 multipath target param: polling interval
 .TP
 .BI \-D " major minor"
@@ -49,8 +57,8 @@ all paths in 1 priority group
 .B group_by_serial
 1 priority group per serial
 .TP
-.B group_by_tur
-1 priority group per TUR state
+.B group_by_prio
+1 priority group per priority value. Priorities are determined by callout programs specified as a global, per-controler or per-multipath option in the configuration file
 .RE
 .TP
 .B \-S
@@ -59,7 +67,9 @@ do not send signal to multipathd. -d activate this silently.
 .BI device
 update only the devmap the path pointed by
 .I device
-is in
+is in. 
+.I device
+is in the /dev/sdb format, as shown by udev in the $DEVNAME variable
 .SH "SEE ALSO"
 .BR udev (8),
 .BR dmsetup (8)

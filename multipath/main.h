@@ -83,7 +83,7 @@ struct multipath {
 	char wwid[WWID_SIZE];
 	char * alias;
 	int iopolicy;
-	long size;
+	unsigned long size;
 	vector paths;
 	vector pg;
 	char params[PARAMS_SIZE];

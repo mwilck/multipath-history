@@ -2,7 +2,7 @@
 #define HWTABLE_H
 
 #define CHECKINT 5
-#define MULTIPATH "/sbin/multipath -q -S"
+#define MULTIPATH "/sbin/multipath -v 0 -S"
 
 #include "checkers.h"
 #include "vector.h"

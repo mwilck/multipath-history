@@ -1,3 +1,34 @@
+2004-10-06 multipath-tools-0.3.0
+
+	* first cut at making scripts to create multipath-aware initrds
+	  those scripts are tested on Debian SID, and must be copied into
+	  /etc/mkinitrd/scripts. it works here.
+	* [multipath] verify presence of the /sys/block/... node before
+	  reading sysfs attributes. Avoids libsysfs and scsi_id stderr
+	  garbage
+	* [multipath] move down the stderr close (Ake Sandgren at umu.se)
+	* [multipath] don't care about 0-sized mp (Ake Sandgren at umu.se)
+	* [multipath] bump mp size field to ulong (Ake Sandgren at umu.se)
+	* [multipath] replace quiet/verbose flags by a verbosity one.
+	  introduce a new verbosity level : 1 == print only devmap names
+	  thus we can feed kpartx with that output
+	* [multipath] update man page to reflect the hotplug.d -> dev.d
+	  transition and replace the obsolete group_by_tur policy by the
+	  forgotten group_by_prio
+	* [multipath] provide a /etc/udev/rules.d/multipath.rules for
+	  multipath devices naming. Cleaner than the previously suggested
+	  rule addition in the main udev.rules
+	* [multipath] move out of hotplug.d to dev.d : kill synchronisation
+	  problems between device node creation and multipath execution.
+	  Incidentally the unfriendly $DEVPATH param become a friendly
+	  $DEVNAME (simply /dev/sdb)
+	* [multipath] rework the iopolicies name-to-id & id-to-name
+	  translations. kills the last compilation warning here too
+	* [kpartx] kill last compilation warnings
+	* bump klibc to 0.181
+	* add the debian/ packaging dir (make deb)
+	* prototype __clone & __clone2
+
 2004-09-24 multipath-tools-0.2.9
 
 	* [multipathd] finally tame the clone compilation glitch on IA64

@@ -42,6 +42,12 @@
 
 #define MATCH(x, y) strncmp(x, y, strlen(y)) == 0
 
+#ifdef ia64
+int  __clone2(int (*fn)(void *), void *, size_t, int, void *);
+#else
+int  __clone(int (*fn)(void *), void *, int, void *);
+#endif
+
 /*
  * global vars
  */
@@ -234,7 +240,9 @@ get_devmaps (void)
 						   &length,
 						   &target_type,
 						   &params);
-			LOG (3, "\\_ %lu %lu %s", start, length, target_type);
+			LOG (3, "\\_ %lu %lu %s", (unsigned long) start,
+						  (unsigned long) length,
+						  target_type);
 
 			if (!target_type) {
 				LOG (2, "   unknown target type");
@@ -855,7 +863,7 @@ setscheduler (void)
 	return;
 }
 
-static void *
+static int
 child (void * param)
 {
 	pthread_t wait_thr, check_thr;
@@ -918,12 +926,13 @@ int
 main (int argc, char *argv[])
 {
 	int err;
-	void * child_stack = malloc(CHILD_SS) + CHILD_SS;
+	void * child_stack = malloc(CHILD_SS);
 
 #ifdef ia64
 	size_t child_ss = CHILD_SS;
 	err = __clone2(child, child_stack, child_ss, CLONE_NEWNS, NULL);
 #else
+	child_stack += CHILD_SS;
 	err = __clone(child, child_stack, CLONE_NEWNS, NULL);
 #endif
 

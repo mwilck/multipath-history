@@ -2,6 +2,7 @@
 #include "config.h"
 #include "pgpolicies.h"
 #include "debug.h"
+#include "memory.h"
 
 /*
  * default block handlers
@@ -31,16 +32,9 @@ static void
 def_iopolicy_handler(vector strvec)
 {
 	char * buff;
-	int i = 0;
 
 	buff = set_value(strvec);
-	while (iopolicies[i]) {
-		if (0 == strcmp(iopolicies[i], buff)) {
-			conf->default_iopolicy = i;
-			break;
-		}
-		i++;
-	}
+	conf->default_iopolicy = get_pgpolicy_id(buff);
 	free(buff);
 }
 
@@ -90,7 +84,7 @@ device_handler(vector strvec)
 	struct hwentry * hwe;
 
 	vector_alloc_slot(conf->hwtable);
-	hwe = malloc(sizeof(struct hwentry));
+	hwe = zalloc(sizeof(struct hwentry));
 	vector_set_slot(conf->hwtable, hwe);
 }
 
@@ -114,18 +108,11 @@ static void
 hw_iopolicy_handler(vector strvec)
 {
 	char * buff;
-	int i = 0;
 	struct hwentry * hwe =
 		VECTOR_SLOT(conf->hwtable, VECTOR_SIZE(conf->hwtable) - 1);
 
 	buff = set_value(strvec);
-	while (iopolicies[i]) {
-		if (0 == strcmp(iopolicies[i], buff)) {
-			hwe->iopolicy = i;
-			break;
-		}
-		i++;
-	}
+	hwe->iopolicy = get_pgpolicy_id(buff);
 	free(buff);
 }
 
@@ -171,7 +158,7 @@ multipath_handler(vector strvec)
 	struct mpentry * mpe;
 
 	vector_alloc_slot(conf->mptable);
-	mpe = malloc(sizeof(struct mpentry));
+	mpe = zalloc(sizeof(struct mpentry));
 	vector_set_slot(conf->mptable, mpe);
 }
 
@@ -195,17 +182,10 @@ static void
 mp_iopolicy_handler(vector strvec)
 {
 	char * buff;
-	int i = 0;
 	struct mpentry * mpe = VECTOR_SLOT(conf->mptable, VECTOR_SIZE(conf->mptable) - 1);
 
 	buff = set_value(strvec);
-	while (iopolicies[i]) {
-		if (0 == strcmp(iopolicies[i], buff)) {
-			mpe->iopolicy = i;
-			break;
-		}
-		i++;
-	}
+	mpe->iopolicy = get_pgpolicy_id(buff);
 	free(buff);
 }
 
