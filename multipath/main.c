@@ -811,22 +811,21 @@ domap (struct multipath * mpp)
 	 */
 	dm_log_init_verbose(0);
 
-	if (op == DM_DEVICE_RELOAD) {
-		if (!dm_simplecmd(DM_DEVICE_SUSPEND, mpp->alias))
-			goto out;
-	}
+	r = dm_addmap(op, mpp->alias, DEFAULT_TARGET, mpp->params, mpp->size);
 
-	if (!dm_addmap(op, mpp->alias, DM_TARGET, mpp->params, mpp->size)) {
+	if (r == 0)
 		dm_simplecmd(DM_DEVICE_REMOVE, mpp->alias);
-		goto out;
-	}
+	else if (op == DM_DEVICE_RELOAD)
+		dm_simplecmd(DM_DEVICE_RESUME, mpp->alias);
 
-	if (op == DM_DEVICE_RELOAD)
-		if (!dm_simplecmd(DM_DEVICE_RESUME, mpp->alias))
-			goto out;
+	/*
+	 * PG order is random, so we need to set the primary one
+	 * upon create or reload
+	 */
+	dm_switchgroup(mpp->alias, mpp->nextpg);
 
-	out:
 	dm_log_init_verbose(1);
+
 	return r;
 }
 
