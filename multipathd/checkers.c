@@ -23,6 +23,10 @@ int readsector0 (char *devnode)
 	char buf;
 
 	fd = open (devnode, O_RDONLY);
+
+	if (fd <= 0)
+		return fd;
+
 	if (read (fd, &buf, 1) != 1)
 		r = 0;
 	else
@@ -52,11 +56,13 @@ int tur(char *devnode)
         io_hdr.timeout = 20000;
         io_hdr.pack_id = 0;
         if (ioctl(fd, SG_IO, &io_hdr) < 0) {
-                close(fd);
+                close (fd);
                 return 0;
         }
         if (io_hdr.info & SG_INFO_OK_MASK) {
+		close (fd);
                 return 0;
         }
+        close (fd);
         return 1;
 }
