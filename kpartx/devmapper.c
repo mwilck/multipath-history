@@ -18,6 +18,8 @@ dm_prereq (char * str, int x, int y, int z)
 	if (!(dmt = dm_task_create(DM_DEVICE_LIST_VERSIONS)))
 		return 1;
 
+	dm_task_no_open_count(dmt);
+
 	if (!dm_task_run(dmt))
 		goto out;
 
@@ -54,6 +56,8 @@ dm_simplecmd (int task, const char *name) {
 	if (!dm_task_set_name (dmt, name))
 		goto out;
 
+	dm_task_no_open_count(dmt);
+
 	r = dm_task_run (dmt);
 
 	out:
@@ -76,6 +80,8 @@ dm_addmap (int task, const char *name, const char *target,
 	if (!dm_task_add_target (dmt, 0, size, target, params))
 		goto addout;
 
+	dm_task_no_open_count(dmt);
+
 	r = dm_task_run (dmt);
 
 	addout:
@@ -93,6 +99,8 @@ dm_map_present (char * str)
 
 	if (!(dmt = dm_task_create (DM_DEVICE_LIST)))
 		return 0;
+
+	dm_task_no_open_count(dmt);
 
 	if (!dm_task_run (dmt))
 		goto out;
