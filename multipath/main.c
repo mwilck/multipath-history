@@ -798,11 +798,11 @@ update_pathvec (vector pathvec)
 	struct path * pp;
 
 	vector_foreach_slot (pathvec, pp, i) {
-		if (strlen(pp->dev) == 0) {
+		if (pp->dev && pp->dev_t && strlen(pp->dev) == 0) {
 			devt2devname(pp->dev, pp->dev_t);
 			devinfo(pp, conf->hwtable);
 		}
-		if (pp->state == PATH_UNCHECKED)
+		if (pp->checkfn && pp->state == PATH_UNCHECKED)
 			pp->state = pp->checkfn(pp->fd, NULL, NULL);
 	}
 	return 0;
