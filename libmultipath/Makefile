@@ -8,7 +8,7 @@ include ../Makefile.inc
 
 OBJS = memory.o parser.o vector.o devmapper.o callout.o \
        sysfs_devinfo.o hwtable.o blacklist.o util.o dmparser.o \
-       structs.o
+       structs.o cache.o
 
 ifeq ($(strip $(BUILD)),klibc)
 	CFLAGS = -I$(libdmdir) -I$(sysfsdir)
