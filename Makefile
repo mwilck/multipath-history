@@ -11,7 +11,7 @@ ifeq ($(strip $(BUILD)),klibc)
 		    libmultipath \
 		    devmap_name multipath multipathd kpartx
 else
-	BUILDDIRS = libsysfs libmultipath libcheckers \
+	BUILDDIRS = libmultipath libcheckers \
 		    devmap_name multipath multipathd kpartx
 endif
 
