@@ -194,6 +194,12 @@ disassemble_map (vector pathvec, char * params, struct multipath * mpp)
 		for (j = 0; j < num_paths; j++) {
 			p += get_word(p, &word);
 			pp = find_path(pathvec, word);
+			if (!pp) {
+				pp = zalloc(sizeof(struct path));
+				strncpy(pp->dev_t, word, DEV_T_SIZE);
+				devt2devname(pp->dev, pp->dev_t);
+				devinfo(pp);
+			}
 			free(word);
 
 			if (pp) {
