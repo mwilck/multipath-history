@@ -32,21 +32,22 @@ recurse:
 
 recurse_clean:
 	@for dir in $(BUILDDIRS); do\
-	$(MAKE) -C $$dir clean ; \
+	$(MAKE) -C $$dir clean || exit $?; \
 	done
 	$(MAKE) -C klibc spotless
 
 recurse_install:
 	@for dir in $(INSTALLDIRS); do\
-	$(MAKE) -C $$dir install ; \
+	$(MAKE) -C $$dir install || exit $?; \
 	done
 
 recurse_uninstall:
 	@for dir in $(INSTALLDIRS); do\
-	$(MAKE) -C $$dir uninstall ; \
+	$(MAKE) -C $$dir uninstall || exit $?; \
 	done
 
 clean:	recurse_clean
+	rm -f multipath-tools.spec
 	rm -f klibc/linux
 	rm -rf rpms
 
