@@ -1,3 +1,6 @@
+	* [kpartx] move .start and .size from uint to ulong (Ake)
+	* briefly document system-disk-on-multipath in the FAQ file
+
 2004-10-06 multipath-tools-0.3.0
 
 	* first cut at making scripts to create multipath-aware initrds
