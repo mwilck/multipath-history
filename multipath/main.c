@@ -1127,6 +1127,11 @@ main (int argc, char *argv[])
 	if (conf->dev && blacklist(conf->blist, conf->dev))
 		exit(0);
 	
+	if (!cache_cold(CACHE_EXPIRE)) {
+		dbg("load path identifiers cache");
+		cache_load(pathvec);
+	}
+
 	/*
 	 * get a path list
 	 */
