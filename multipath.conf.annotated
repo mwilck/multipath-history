@@ -63,6 +63,15 @@ defaults {
 	# default : /bin/false
 	#
 	default_prio_callout	"/bin/false"
+
+	#
+	# name    : rr_min_io
+	# scope   : multipath
+	# desc    : the number of IO to route to a path before switching
+	#           to the next in the same path group
+	# default : 1000
+	#
+	r_min_io	100
 }
 	
 #
