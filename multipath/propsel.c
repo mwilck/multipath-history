@@ -124,14 +124,11 @@ extern int
 select_checkfn(struct path *pp)
 {
 	char checker_name[CHECKER_NAME_SIZE];
-	struct hwentry * hwe = NULL;
 
-	hwe = find_hw(conf->hwtable, pp->vendor_id, pp->product_id);
-
-	if (hwe && hwe->checker_index > 0) {
-		get_checker_name(checker_name, hwe->checker_index);
+	if (pp->hwe && pp->hwe->checker_index > 0) {
+		get_checker_name(checker_name, pp->hwe->checker_index);
 		dbg("path checker = %s (controler setting)", checker_name);
-		pp->checkfn = get_checker_addr(hwe->checker_index);
+		pp->checkfn = get_checker_addr(pp->hwe->checker_index);
 		return 0;
 	}
 	pp->checkfn = &readsector0;
@@ -143,12 +140,8 @@ select_checkfn(struct path *pp)
 extern int
 select_getuid (struct path * pp)
 {
-	struct hwentry * hwe = NULL;
-
-	hwe = find_hw(conf->hwtable, pp->vendor_id, pp->product_id);
-
-	if (hwe && hwe->getuid) {
-		pp->getuid = hwe->getuid;
+	if (pp->hwe && pp->hwe->getuid) {
+		pp->getuid = pp->hwe->getuid;
 		dbg("getuid = %s (controler setting)", pp->getuid);
 		return 0;
 	}
@@ -160,12 +153,8 @@ select_getuid (struct path * pp)
 extern int
 select_getprio (struct path * pp)
 {
-	struct hwentry * hwe = NULL;
-
-	hwe = find_hw(conf->hwtable, pp->vendor_id, pp->product_id);
-
-	if (hwe && hwe->getprio) {
-		pp->getprio = hwe->getprio;
+	if (pp->hwe && pp->hwe->getprio) {
+		pp->getprio = pp->hwe->getprio;
 		dbg("getprio = %s (controler setting)", pp->getprio);
 		return 0;
 	}
