@@ -17,14 +17,14 @@ $(EXEC): $(OBJS)
 	strip $(EXEC)
 
 install:
-	install -d $(bindir)
-	install -m 755 $(EXEC) $(bindir)
-	install -d $(rcdir)
-	install -m 755 multipathd.init $(rcdir)/$(EXEC)
+	install -d $(DESTDIR)$(bindir)
+	install -m 755 $(EXEC) $(DESTDIR)$(bindir)
+	install -d $(DESTDIR)$(rcdir)
+	install -m 755 multipathd.init $(DESTDIR)$(rcdir)/$(EXEC)
 
 uninstall:
-	rm -f $(bindir)/$(EXEC)
-	rm -f $(rcdir)/$(EXEC)
+	rm -f $(DESTDIR)$(bindir)/$(EXEC)
+	rm -f $(DESTDIR)$(rcdir)/$(EXEC)
 
 clean:
 	rm -f core *.o $(EXEC) *.gz
