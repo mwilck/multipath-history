@@ -246,7 +246,8 @@ waitevent (void * et)
 	mlockall(MCL_CURRENT | MCL_FUTURE);
 	waiter = (struct event_thread *)et;
 
-	if (safe_snprintf(cmd, CMDSIZE, "%s %s", multipath, waiter->mapname)) {
+	if (safe_snprintf(cmd, CMDSIZE, "%s %s",
+			  conf->multipath, waiter->mapname)) {
 		log_safe(LOG_ERR, "command too long, abord reconfigure");
 		return NULL;
 	}
@@ -320,7 +321,7 @@ waiterloop (void *ap)
 	pthread_attr_setstacksize(&attr, 32 * 1024);
 
 	log_safe(LOG_NOTICE, "initial reconfigure multipath maps");
-	execute_program(multipath, buff, 1);
+	execute_program(conf->multipath, buff, 1);
 
 	while (1) {
 		/*
@@ -455,7 +456,7 @@ checkerloop (void *ap)
 				 * reconfigure map now
 				 */
 				if (safe_snprintf(cmd, CMDSIZE, "%s %s",
-						  multipath, pp->dev_t)) {
+						  conf->multipath, pp->dev_t)) {
 					log_safe(LOG_ERR, "command too long,"
 							" abord reconfigure");
 				} else {
@@ -476,7 +477,7 @@ checkerloop (void *ap)
 			pp->state = newstate;
 		}
 		pthread_mutex_unlock(allpaths->lock);
-		sleep(checkint);
+		sleep(conf->checkint);
 	}
 	return (NULL);
 }
@@ -524,7 +525,7 @@ prepare_namespace(void)
 	/*
 	 * create a temp mount point for ramfs
 	 */
-	if (stat (CALLOUT_DIR, buf) < 0) {
+	if (stat(CALLOUT_DIR, buf) < 0) {
 		if (mkdir(CALLOUT_DIR, mode) < 0) {
 			log_safe(LOG_ERR, "cannot create " CALLOUT_DIR);
 			return -1;
@@ -535,7 +536,7 @@ prepare_namespace(void)
 	/*
 	 * compute the optimal ramdisk size
 	 */
-	vector_foreach_slot (binvec, bin,i) {
+	vector_foreach_slot (conf->binvec, bin,i) {
 		if ((fd = open(bin, O_RDONLY)) < 0) {
 			log_safe(LOG_ERR, "cannot open %s", bin);
 			return -1;
@@ -565,14 +566,14 @@ prepare_namespace(void)
 	/*
 	 * populate the ramfs with callout binaries
 	 */
-	vector_foreach_slot (binvec, bin,i) {
+	vector_foreach_slot (conf->binvec, bin,i) {
 		if (copytodir(bin, CALLOUT_DIR) < 0) {
 			log_safe(LOG_ERR, "cannot copy %s in ramfs", bin);
 			exit_daemon(1);
 		}
 		log_safe(LOG_DEBUG, "cp %s in ramfs", bin);
 	}
-	strvec_free(binvec);
+	strvec_free(conf->binvec);
 
 	/*
 	 * bind the ramfs to :
@@ -716,7 +717,8 @@ child (void * param)
 	signal_init();
 	setscheduler();
 	allpaths = initpaths();
-	checkint = CHECKINT;
+	conf = alloc_config();
+	conf->checkint = CHECKINT;
 
 	log_safe(LOG_INFO, "read " DEFAULT_CONFIGFILE);
 	init_data(DEFAULT_CONFIGFILE, init_keywords);
@@ -724,24 +726,21 @@ child (void * param)
 	/*
 	 * fill the voids left in the config file
 	 */
-	if (binvec == NULL) {
-		binvec = vector_alloc();
+	if (conf->binvec == NULL) {
+		conf->binvec = vector_alloc();
 		push_callout("/sbin/scsi_id");
 	}
-
-	if (multipath == NULL) {
-		multipath = MULTIPATH;
-		push_callout(multipath);
+	if (conf->multipath == NULL) {
+		conf->multipath = MULTIPATH;
+		push_callout(conf->multipath);
 	}
-
-	if (hwtable == NULL) {
-		hwtable = vector_alloc();
-		setup_default_hwtable(hwtable);
+	if (conf->hwtable == NULL) {
+		conf->hwtable = vector_alloc();
+		setup_default_hwtable(conf->hwtable);
 	}
-
-	if (blist == NULL) {
-		blist = vector_alloc();
-		setup_default_blist(blist);
+	if (conf->blist == NULL) {
+		conf->blist = vector_alloc();
+		setup_default_blist(conf->blist);
 	}
 
 #ifdef CLONE_NEWNS
