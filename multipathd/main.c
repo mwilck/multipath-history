@@ -49,7 +49,7 @@
 #define MAPNAMESIZE 64
 #define TARGETTYPESIZE 16
 #define PARAMSSIZE 2048
-#define DEV_T_SIZE 2048
+#define DEV_T_SIZE 32
 
 #define PIDFILE "/var/run/multipathd.pid"
 #define CONFIGFILE "/etc/multipath.conf"

@@ -29,6 +29,7 @@
 #define PATH_STR_SIZE   16
 #define PARAMS_SIZE	256
 #define FILE_NAME_SIZE	256
+#define DEV_T_SIZE	32
 #define DEF_TIMEOUT	60000
 #define DM_TARGET	"multipath"
 #define PIDFILE		"/var/run/multipathd.pid"
@@ -72,8 +73,8 @@ struct scsi_dev {
 
 struct path {
 	char dev[FILE_NAME_SIZE];
-	char dev_t[FILE_NAME_SIZE];
-	char sg_dev_t[FILE_NAME_SIZE];
+	char dev_t[DEV_T_SIZE];
+	char sg_dev_t[DEV_T_SIZE];
 	struct scsi_idlun scsi_id;
 	struct sg_id sg_id;
 	char wwid[WWID_SIZE];
