@@ -601,6 +601,21 @@ setup_map (struct multipath * mpp)
 	return 0;
 }
 
+static int
+pathcount (struct multipath * mpp, int state)
+{
+	struct pathgroup *pgp;
+	struct path *pp;
+	int i, j;
+	int count = 0;
+
+	vector_foreach_slot (mpp->pg, pgp, i)
+		vector_foreach_slot (pgp->paths, pp, j)
+			if (pp->state == state)
+				count++;
+	return count;
+}
+
 /*
  * detect if a path is in the map we are about to create but not in the
  * current one (triggers a valid reload)
