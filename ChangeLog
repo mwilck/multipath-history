@@ -1,6 +1,9 @@
-2004-02-21 multipath-018
+	* add the group_by_tur policy
+	* multipath doesn't run twice
+	* massive cleanups
 	* Avoid Kernel Bug when passing too small a buffer in do_inq()
 	* Sync with 2.6.3-udm4 target synthax (no more PG prio)
+2004-02-21 multipath-018
 	* From the Debian SID inclusion review (Philipp Matthias Hahn)
 		* use DESTDIR install prefix in the Makefile
 		* add man pages for devmap_name & multipath

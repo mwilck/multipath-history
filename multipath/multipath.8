@@ -5,6 +5,8 @@ multipath \- Device mapper target autoconfig
 .B multipath
 .RB [\| \-v | \-q \|]
 .RB [\| \-d \|]
+.RB [\| \-i\ \c
+.IR int \|]
 .RB [\| \-m\ \c
 .IR max_devs \|]
 .RB [\| \-p\ \c
@@ -24,10 +26,18 @@ quiet, no output at all
 .B \-d
 dry run, do not create or update devmaps
 .TP
+.BI \-i " int"
+multipath target param: polling interval
+.TP
 .BI \-m " max_devs"
 scan
 .I max_devs
 devices at most
+.TP
+.BI \-D " major minor"
+update only the devmap the path pointed by
+.I major minor
+is in
 .TP
 .BI \-p " policy"
 force maps to specified policy:
@@ -43,11 +53,14 @@ all paths in 1 priority group
 1 priority group per serial
 .RE
 .TP
-.B device
-limit the [re]configuration to the specified device's multipath scope. device is given in its hotplug $DEVPATH form like /devices/pci0000:03/0000:03:01.0/host0/0:0:5:1
+.BI device
+update only the devmap the path pointed by
+.I device
+is in
 .SH "SEE ALSO"
 .BR udev (8),
 .BR dmsetup (8)
+.BR hotplug (8)
 .SH AUTHORS
 .B multipath
 was developed by Christophe Varoqui, <christophe.varoqui@free.fr> and others.
