@@ -4,41 +4,15 @@
 
 EXEC = multipath
 
-prefix      = 
-exec_prefix = ${prefix}
-bindir      = ${exec_prefix}/sbin
-udevdir	    = ../../..
-klibcdir    = $(udevdir)/klibc
-sysfsdir    = $(udevdir)/libsysfs
-mandir      = /usr/share/man/man8
-libdmdir    = ../libdevmapper
-arch        = i386
-klibcarch   = $(klibcdir)/klibc/arch/$(arch)/include
+include ../Makefile.inc
 
-CC = gcc
-GZIP = /bin/gzip -9 -c
-
-GCCINCDIR := ${shell $(CC) -print-search-dirs | sed -ne "s/install: \(.*\)/\1include/gp"}
-KERNEL_DIR = /lib/modules/${shell uname -r}/build
-CFLAGS = -pipe -g -O2 -Wall -Wunused -Wstrict-prototypes -nostdinc \
-         -I$(klibcdir)/klibc/include -I$(klibcdir)/klibc/include/bits32 \
-         -I$(GCCINCDIR) -I$(KERNEL_DIR)/include -I$(sysfsdir) -I. -I$(klibcarch)
+CFLAGS += -I$(klibcdir)/klibc/arch/$(arch)/include
 
 OBJS = pgpolicies.o configfile.o devinfo.o main.o
 
-CRT0 = $(klibcdir)/klibc/crt0.o
-LIB = $(klibcdir)/klibc/libc.a
-LIBGCC := $(shell $(CC) -print-libgcc-file-name )
-
-DMOBJS = $(libdmdir)/libdm-common.o $(libdmdir)/ioctl/libdevmapper.o
-SYSFSOBJS = $(sysfsdir)/dlist.o $(sysfsdir)/sysfs_bus.o \
-	    $(sysfsdir)/sysfs_class.o $(sysfsdir)/sysfs_device.o \
-	    $(sysfsdir)/sysfs_dir.o $(sysfsdir)/sysfs_driver.o \
-	    $(sysfsdir)/sysfs_utils.o
-
 $(EXEC): $(OBJS)
 	$(LD) -o $(EXEC) $(CRT0) $(OBJS) $(SYSFSOBJS) $(DMOBJS) $(LIB) $(LIBGCC)
-	strip $(EXEC)
+	$(STRIP) $(EXEC)
 	$(GZIP) $(EXEC).8 > $(EXEC).8.gz
 
 clean:
