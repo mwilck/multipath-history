@@ -13,7 +13,7 @@
 #define SG_ERR_DRIVER_SENSE     0x08
 
 void basename (char *, char *);
-int get_serial (int, char *);
+int get_serial (char *, char *);
 int get_lun_strings (char *, char *, char *, char *);
 int get_evpd_wwid(char *, char *);
 long get_disk_size (char *);
