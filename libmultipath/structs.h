@@ -109,5 +109,9 @@ struct path * alloc_path (void);
 struct multipath * alloc_multipath (void);
 void free_multipath (struct multipath *);
 struct multipath * find_mp (vector mp, char * alias);
+struct path * find_path_by_devt (vector pathvec, char * devt);
+struct path * find_path_by_dev (vector pathvec, char * dev);
+
+char sysfs_path[FILE_NAME_SIZE];
 
 #endif

@@ -170,6 +170,9 @@ get_devmaps (void)
 
 	devmaps = vector_alloc();
 
+	if (!devmaps)
+		return NULL;
+
 	if (!(dmt = dm_task_create(DM_DEVICE_LIST)))
 		return NULL;
 
@@ -390,7 +393,7 @@ mark_failed_path (struct paths *allpaths, char *mapname)
 			if (pp->dmstate != PSTATE_FAILED)
 				continue;
 
-			app = find_path(allpaths->pathvec, pp->dev_t);
+			app = find_path_by_devt(allpaths->pathvec, pp->dev_t);
 			if (app && app->state != PATH_DOWN) {
 				syslog(LOG_NOTICE, "mark %s as failed",
 					pp->dev_t);

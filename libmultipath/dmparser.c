@@ -20,20 +20,6 @@
 #define dbg(format, arg...) do {} while(0)
 #endif
 
-extern struct path *
-find_path (vector pathvec, char * dev_t)
-{
-	int i;
-	struct path * pp;
-
-	vector_foreach_slot (pathvec, pp, i)
-		if (!strcmp_chomp(pp->dev_t, dev_t))
-			return pp;
-
-	dbg("path %s not found in pathvec\n", dev_t);
-	return NULL;
-}
-
 static int
 get_word (char * sentence, char ** word)
 {
@@ -200,7 +186,7 @@ disassemble_map (vector pathvec, char * params, struct multipath * mpp)
 			pp = NULL;
 			p += get_word(p, &word);
 			if (pathvec)
-				pp = find_path(pathvec, word);
+				pp = find_path_by_devt(pathvec, word);
 
 			if (!pp) {
 				pp = alloc_path();
