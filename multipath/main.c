@@ -943,7 +943,7 @@ setup_map (vector pathvec, struct multipath * mpp)
 	 * last chance to quit before touching the devmaps
 	 */
 	if (conf->dry_run)
-		return 1;
+		return 0;
 
 	/*
 	 * device mapper creation or updating
