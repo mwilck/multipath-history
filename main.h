@@ -102,7 +102,6 @@ struct env {
 	int dry_run;
 	int iopolicy;
 	int with_sysfs;
-	int dm_path_test_int;
 	char sysfs_path[FILE_NAME_SIZE];
 	char hotplugdev[FILE_NAME_SIZE];
 };
