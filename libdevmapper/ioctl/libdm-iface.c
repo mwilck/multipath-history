@@ -1,11 +1,22 @@
 /*
- * Copyright (C) 2001 Sistina Software (UK) Limited.
+ * Copyright (C) 2001-2004 Sistina Software, Inc. All rights reserved.
+ * Copyright (C) 2004 Red Hat, Inc. All rights reserved.
  *
- * This file is released under the LGPL.
+ * This file is part of the device-mapper userspace tools.
+ *
+ * This copyrighted material is made available to anyone wishing to use,
+ * modify, copy, or redistribute it subject to the terms and conditions
+ * of the GNU Lesser General Public License v.2.1.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program; if not, write to the Free Software Foundation,
+ * Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include "libdm-targets.h"
 #include "libdm-common.h"
+#include "log.h"
+#include "kernel/ioctl/dm-ioctl.h"
 
 #ifdef DM_COMPAT
 #  include "libdm-compat.h"
@@ -23,8 +34,8 @@
 #include <limits.h>
 
 #ifdef linux
+#  include "kdev_t.h"
 #  include <linux/limits.h>
-#  include <linux/kdev_t.h>
 #  include <linux/dm-ioctl.h>
 #else
 #  define MAJOR(x) major((x))
@@ -80,6 +91,12 @@ static struct cmd_data _cmd_data_v4[] = {
 	{"names",	DM_LIST_DEVICES,	{4, 0, 0}},
 	{"clear",	DM_TABLE_CLEAR,		{4, 0, 0}},
 	{"mknodes",	DM_DEV_STATUS,		{4, 0, 0}},
+#ifdef DM_LIST_VERSIONS
+	{"versions",	DM_LIST_VERSIONS,	{4, 1, 0}},
+#endif
+#ifdef DM_TARGET_MSG
+	{"message",	DM_TARGET_MSG,		{4, 2, 0}},
+#endif
 };
 /* *INDENT-ON* */
 
@@ -133,6 +150,9 @@ void dm_task_destroy(struct dm_task *dmt)
 	if (dmt->newname)
 		free(dmt->newname);
 
+	if (dmt->message)
+		free(dmt->message);
+
 	if (dmt->dmi.v4)
 		free(dmt->dmi.v4);
 
@@ -177,8 +197,9 @@ static int _unmarshal_status_v1(struct dm_task *dmt, struct dm_ioctl_v1 *dmi)
 		if (!dm_task_add_target(dmt, spec->sector_start,
 					(uint64_t) spec->length,
 					spec->target_type,
-					outptr + sizeof(*spec)))
+					outptr + sizeof(*spec))) {
 			return 0;
+		}
 
 		outptr = outbuf + spec->next;
 	}
@@ -383,6 +404,10 @@ static int _dm_names_v1(struct dm_ioctl_v1 *dmi)
 	void *end = (void *) dmi + dmi->data_size;
 	struct stat buf;
 	char path[PATH_MAX];
+
+	log_print("Warning: Device list may be incomplete with interface "
+		  "version 1.");
+	log_print("Please upgrade your kernel device-mapper driver.");
 
 	if (!(d = opendir(dev_dir))) {
 		log_error("%s: opendir failed: %s", dev_dir, strerror(errno));
@@ -635,8 +660,9 @@ static int _unmarshal_status(struct dm_task *dmt, struct dm_ioctl *dmi)
 		if (!dm_task_add_target(dmt, spec->sector_start,
 					spec->length,
 					spec->target_type,
-					outptr + sizeof(*spec)))
+					outptr + sizeof(*spec))) {
 			return 0;
+		}
 
 		outptr = outbuf + spec->next;
 	}
@@ -736,6 +762,12 @@ struct dm_names *dm_task_get_names(struct dm_task *dmt)
 				    dmt->dmi.v4->data_start);
 }
 
+struct dm_versions *dm_task_get_versions(struct dm_task *dmt)
+{
+	return (struct dm_versions *) (((void *) dmt->dmi.v4) +
+				       dmt->dmi.v4->data_start);
+}
+
 int dm_task_set_ro(struct dm_task *dmt)
 {
 	dmt->read_only = 1;
@@ -748,6 +780,23 @@ int dm_task_set_newname(struct dm_task *dmt, const char *newname)
 		log_error("dm_task_set_newname: strdup(%s) failed", newname);
 		return 0;
 	}
+
+	return 1;
+}
+
+int dm_task_set_message(struct dm_task *dmt, const char *message)
+{
+	if (!(dmt->message = strdup(message))) {
+		log_error("dm_task_set_message: strdup(%s) failed", message);
+		return 0;
+	}
+
+	return 1;
+}
+
+int dm_task_set_sector(struct dm_task *dmt, uint64_t sector)
+{
+	dmt->sector = sector;
 
 	return 1;
 }
@@ -838,6 +887,7 @@ static struct dm_ioctl *_flatten(struct dm_task *dmt)
 
 	struct dm_ioctl *dmi;
 	struct target *t;
+	struct dm_target_msg *tmsg;
 	size_t len = sizeof(struct dm_ioctl);
 	void *b, *e;
 	int count = 0;
@@ -848,13 +898,31 @@ static struct dm_ioctl *_flatten(struct dm_task *dmt)
 		count++;
 	}
 
+	if (count && (dmt->sector || dmt->message)) {
+		log_error("targets and message are incompatible");
+		return NULL;
+	}
+
 	if (count && dmt->newname) {
 		log_error("targets and newname are incompatible");
 		return NULL;
 	}
 
+	if (dmt->newname && (dmt->sector || dmt->message)) {
+		log_error("message and newname are incompatible");
+		return NULL;
+	}
+
+	if (dmt->sector && !dmt->message) {
+		log_error("message is required with sector");
+		return NULL;
+	}
+
 	if (dmt->newname)
 		len += strlen(dmt->newname) + 1;
+
+	if (dmt->message)
+		len += sizeof(struct dm_target_msg) + strlen(dmt->message) + 1;
 
 	/*
 	 * Give len a minimum size so that we have space to store
@@ -910,11 +978,92 @@ static struct dm_ioctl *_flatten(struct dm_task *dmt)
 	if (dmt->newname)
 		strcpy(b, dmt->newname);
 
+	if (dmt->message) {
+		tmsg = (struct dm_target_msg *) b;
+		tmsg->sector = dmt->sector;
+		strcpy(tmsg->message, dmt->message);
+	}
+
 	return dmi;
 
       bad:
 	free(dmi);
 	return NULL;
+}
+
+static int _process_mapper_dir(struct dm_task *dmt)
+{
+	struct dirent *dirent;
+	DIR *d;
+	const char *dir;
+	int r = 1;
+
+	dir = dm_dir();
+	if (!(d = opendir(dir))) {
+		fprintf(stderr, "opendir %s: %s", dir, strerror(errno));
+		return 0;
+	}
+
+	while ((dirent = readdir(d))) {
+		if (!strcmp(dirent->d_name, ".") ||
+		    !strcmp(dirent->d_name, "..") ||
+		    !strcmp(dirent->d_name, "control"))
+			continue;
+		dm_task_set_name(dmt, dirent->d_name);
+		dm_task_run(dmt);
+	}
+
+	if (closedir(d)) {
+		fprintf(stderr, "closedir %s: %s", dir, strerror(errno));
+	}
+
+	return r;
+}
+
+static int _process_all_v4(struct dm_task *dmt)
+{
+	struct dm_task *task;
+	struct dm_names *names;
+	unsigned next = 0;
+	int r = 1;
+
+	if (!(task = dm_task_create(DM_DEVICE_LIST)))
+		return 0;
+
+	if (!dm_task_run(task)) {
+		r = 0;
+		goto out;
+	}
+
+	if (!(names = dm_task_get_names(task))) {
+		r = 0;
+		goto out;
+	}
+
+	if (!names->dev)
+		goto out;
+
+	do {
+		names = (void *) names + next;
+		if (!dm_task_set_name(dmt, names->name)) {
+			r = 0;
+			goto out;
+		}
+		if (!dm_task_run(dmt))
+			r = 0;
+		next = names->next;
+	} while (next);
+
+      out:
+	dm_task_destroy(task);
+	return r;
+}
+
+static int _mknodes_v4(struct dm_task *dmt)
+{
+	(void) _process_mapper_dir(dmt);
+
+	return _process_all_v4(dmt);
 }
 
 static int _create_and_load_v4(struct dm_task *dmt)
@@ -973,8 +1122,8 @@ static int _create_and_load_v4(struct dm_task *dmt)
 
 	/* Use the original structure last so the info will be correct */
 	dmt->type = DM_DEVICE_RESUME;
-	dmt->uuid = NULL;
 	free(dmt->uuid);
+	dmt->uuid = NULL;
 
 	r = dm_task_run(dmt);
 
@@ -1004,6 +1153,9 @@ int dm_task_run(struct dm_task *dmt)
 	if (dmt->type == DM_DEVICE_CREATE && dmt->head)
 		return _create_and_load_v4(dmt);
 
+	if (dmt->type == DM_DEVICE_MKNODES && !dmt->dev_name)
+		return _mknodes_v4(dmt);
+
 	if (!_open_control())
 		return 0;
 
@@ -1017,8 +1169,9 @@ int dm_task_run(struct dm_task *dmt)
 		dmi->flags |= DM_STATUS_TABLE_FLAG;
 
 	dmi->flags |= DM_EXISTS_FLAG;	/* FIXME */
-	log_debug("dm %s %s %s %s", _cmd_data_v4[dmt->type].name, dmi->name,
-		  dmi->uuid, dmt->newname ? dmt->newname : "");
+	log_debug("dm %s %s %s %s%.0llu %s", _cmd_data_v4[dmt->type].name,
+		  dmi->name, dmi->uuid, dmt->newname ? dmt->newname : "",
+		  dmt->sector, dmt->message ? dmt->message : "");
 	if (ioctl(_control_fd, command, dmi) < 0) {
 		if (errno == ENXIO && ((dmt->type == DM_DEVICE_INFO) ||
 				       (dmt->type == DM_DEVICE_MKNODES))) {

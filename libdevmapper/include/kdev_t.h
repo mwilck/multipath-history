@@ -1,5 +1,4 @@
 /*
- * Copyright (C) 2001-2004 Sistina Software, Inc. All rights reserved.
  * Copyright (C) 2004 Red Hat, Inc. All rights reserved.
  *
  * This file is part of the device-mapper userspace tools.
@@ -13,20 +12,11 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#ifndef LIB_DMCOMMON_H
-#define LIB_DMCOMMON_H
+#ifndef _LVM_KDEV_H
+#define _LVM_KDEV_H
 
-#include "libdevmapper.h"
-
-struct target *create_target(uint64_t start,
-			     uint64_t len,
-			     const char *type, const char *params);
-
-int add_dev_node(const char *dev_name, uint32_t minor, uint32_t major);
-int rm_dev_node(const char *dev_name);
-int rename_dev_node(const char *old_name, const char *new_name);
-void update_devs(void);
-
-#define DM_LIB_VERSION "1.00.19-ioctl (2004-07-03)"
+#define MAJOR(dev)      ((dev & 0xfff00) >> 8)
+#define MINOR(dev)      ((dev & 0xff) | ((dev >> 12) & 0xfff00))
+#define MKDEV(ma,mi)    ((mi & 0xff) | (ma << 8) | ((mi & ~0xff) << 12))
 
 #endif

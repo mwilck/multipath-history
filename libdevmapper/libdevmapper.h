@@ -1,7 +1,16 @@
 /*
- * Copyright (C) 2001 Sistina Software (UK) Limited.
+ * Copyright (C) 2001-2004 Sistina Software, Inc. All rights reserved.
+ * Copyright (C) 2004 Red Hat, Inc. All rights reserved.
  *
- * This file is released under the LGPL.
+ * This file is part of the device-mapper userspace tools.
+ *
+ * This copyrighted material is made available to anyone wishing to use,
+ * modify, copy, or redistribute it subject to the terms and conditions
+ * of the GNU Lesser General Public License v.2.1.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program; if not, write to the Free Software Foundation,
+ * Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #ifndef LIB_DEVICE_MAPPER_H
@@ -28,8 +37,8 @@ typedef void (*dm_log_fn) (int level, const char *file, int line,
 
 /*
  * The library user may wish to register their own
- * logging function, by default errors go to
- * stderr.
+ * logging function, by default errors go to stderr.
+ * Use dm_log_init(NULL) to restore the default log fn.
  */
 void dm_log_init(dm_log_fn fn);
 void dm_log_init_verbose(int level);
@@ -57,7 +66,11 @@ enum {
 
 	DM_DEVICE_CLEAR,
 
-	DM_DEVICE_MKNODES
+	DM_DEVICE_MKNODES,
+
+	DM_DEVICE_LIST_VERSIONS,
+	
+	DM_DEVICE_TARGET_MSG
 };
 
 struct dm_task;
@@ -97,6 +110,13 @@ struct dm_names {
 	char name[0];
 };
 
+struct dm_versions {
+        uint32_t next;		/* Offset to next struct from start of this struct */
+        uint32_t version[3];
+
+        char name[0];
+};
+
 int dm_get_library_version(char *version, size_t size);
 int dm_task_get_driver_version(struct dm_task *dmt, char *version, size_t size);
 int dm_task_get_info(struct dm_task *dmt, struct dm_info *dmi);
@@ -105,12 +125,15 @@ const char *dm_task_get_uuid(struct dm_task *dmt);
 
 struct dm_deps *dm_task_get_deps(struct dm_task *dmt);
 struct dm_names *dm_task_get_names(struct dm_task *dmt);
+struct dm_versions *dm_task_get_versions(struct dm_task *dmt);
 
 int dm_task_set_ro(struct dm_task *dmt);
 int dm_task_set_newname(struct dm_task *dmt, const char *newname);
 int dm_task_set_minor(struct dm_task *dmt, int minor);
 int dm_task_set_major(struct dm_task *dmt, int major);
 int dm_task_set_event_nr(struct dm_task *dmt, uint32_t event_nr);
+int dm_task_set_message(struct dm_task *dmt, const char *message);
+int dm_task_set_sector(struct dm_task *dmt, uint64_t sector);
 
 /*
  * Use these to prepare for a create or reload.

@@ -1,12 +1,23 @@
 /*
- * Copyright (C) 2001 Sistina Software (UK) Limited.
+ * Copyright (C) 2001-2004 Sistina Software, Inc. All rights reserved.
+ * Copyright (C) 2004 Red Hat, Inc. All rights reserved.
  *
- * This file is released under the LGPL.
+ * This file is part of the device-mapper userspace tools.
+ *
+ * This copyrighted material is made available to anyone wishing to use,
+ * modify, copy, or redistribute it subject to the terms and conditions
+ * of the GNU Lesser General Public License v.2.1.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program; if not, write to the Free Software Foundation,
+ * Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include "libdm-targets.h"
 #include "libdm-common.h"
 #include "list.h"
+#include "log.h"
+#include "kdev_t.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,7 +28,10 @@
 #include <unistd.h>
 #include <errno.h>
 #include <linux/dm-ioctl.h>
-#include <linux/kdev_t.h>
+
+#ifdef HAVE_SELINUX
+#  include <selinux/selinux.h>
+#endif
 
 #define DEV_DIR "/dev/"
 
@@ -56,7 +70,10 @@ dm_log_fn _log = _default_log;
 
 void dm_log_init(dm_log_fn fn)
 {
-	_log = fn;
+	if (fn)
+		_log = fn;
+	else
+		_log = _default_log;
 }
 
 void dm_log_init_verbose(int level)
@@ -184,6 +201,31 @@ int dm_task_add_target(struct dm_task *dmt, uint64_t start, uint64_t size,
 	return 1;
 }
 
+#ifdef HAVE_SELINUX
+static int _set_selinux_context(const char *path)
+{
+	security_context_t scontext;
+
+	log_debug("Setting SELinux context for %s", path);
+	if (is_selinux_enabled() <= 0)
+		return 1;
+
+	if (matchpathcon(path, 0, &scontext) < 0) {
+		log_error("%s: matchpathcon failed: %s", path, strerror(errno));
+		return 0;
+	}
+
+	if ((lsetfilecon(path, scontext) < 0) && (errno != ENOTSUP)) {
+		log_error("%s: lsetfilecon failed: %s", path, strerror(errno));
+		free(scontext);
+		return 0;
+	}
+
+	free(scontext);
+	return 1;
+}
+#endif
+
 static int _add_dev_node(const char *dev_name, uint32_t major, uint32_t minor)
 {
 	char path[PATH_MAX];
@@ -213,6 +255,10 @@ static int _add_dev_node(const char *dev_name, uint32_t major, uint32_t minor)
 		log_error("Unable to make device node for '%s'", dev_name);
 		return 0;
 	}
+#ifdef HAVE_SELINUX
+	if (!_set_selinux_context(path))
+		return 0;
+#endif
 
 	return 1;
 }
