@@ -8,10 +8,10 @@ KERNEL_BUILD = /lib/modules/$(shell uname -r)/build
 
 ifeq ($(strip $(BUILD)),klibc)
 	BUILDDIRS = libsysfs libdevmapper libcheckers \
-		    libmultipath \
+		    libmultipath path_priority \
 		    devmap_name multipath multipathd kpartx
 else
-	BUILDDIRS = libmultipath libcheckers \
+	BUILDDIRS = libmultipath libcheckers path_priority \
 		    devmap_name multipath multipathd kpartx
 endif
 
@@ -34,6 +34,11 @@ recurse_clean:
 	@for dir in $(BUILDDIRS); do\
 	$(MAKE) -C $$dir clean || exit $?; \
 	done
+
+recurse_clean_klibc:
+	@for dir in $(BUILDDIRS); do\
+	$(MAKE) -C $$dir BUILD=klibc clean || exit $?; \
+	done
 	$(MAKE) -C klibc spotless
 
 recurse_install:
@@ -46,7 +51,7 @@ recurse_uninstall:
 	$(MAKE) -C $$dir uninstall || exit $?; \
 	done
 
-clean:	recurse_clean
+clean:	recurse_clean recurse_clean_klibc
 	rm -f multipath-tools.spec
 	rm -f klibc/linux
 	rm -rf rpms
