@@ -53,6 +53,12 @@ def_prio_callout_handler(vector strvec)
 	conf->default_getprio = set_value(strvec);
 }
 
+static void
+def_features_handler(vector strvec)
+{
+	conf->default_features = set_value(strvec);
+}
+
 /*
  * blacklist block handlers
  */
@@ -158,6 +164,30 @@ hw_path_checker_handler(vector strvec)
 	free(buff);
 }
 
+static void
+hw_features_handler(vector strvec)
+{
+	struct hwentry * hwe = VECTOR_LAST_SLOT(conf->hwtable);
+	
+	hwe->features = set_value(strvec);
+}
+
+static void
+hw_handler_handler(vector strvec)
+{
+	struct hwentry * hwe = VECTOR_LAST_SLOT(conf->hwtable);
+	
+	hwe->hwhandler = set_value(strvec);
+}
+
+static void
+prio_callout_handler(vector strvec)
+{
+	struct hwentry * hwe = VECTOR_LAST_SLOT(conf->hwtable);
+	
+	hwe->getprio = set_value(strvec);
+}
+
 /*
  * multipaths block handlers
  */
@@ -236,6 +266,7 @@ init_keywords(void)
 	install_keyword("default_path_grouping_policy", &def_pgpolicy_handler);
 	install_keyword("default_getuid_callout", &def_getuid_callout_handler);
 	install_keyword("default_prio_callout", &def_prio_callout_handler);
+	install_keyword("default_features", &def_features_handler);
 	
 	install_keyword_root("devnode_blacklist", &blacklist_handler);
 	install_keyword("devnode", &devnode_handler);
@@ -250,6 +281,9 @@ init_keywords(void)
 	install_keyword("path_selector", &hw_selector_handler);
 	install_keyword("path_selector_args", &hw_selector_args_handler);
 	install_keyword("path_checker", &hw_path_checker_handler);
+	install_keyword("features", &hw_features_handler);
+	install_keyword("hardware_handler", &hw_handler_handler);
+	install_keyword("prio_callout", &prio_callout_handler);
 	install_sublevel_end();
 
 	install_keyword_root("multipaths", &multipaths_handler);

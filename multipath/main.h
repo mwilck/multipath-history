@@ -30,6 +30,7 @@
 #define PARAMS_SIZE	256
 #define FILE_NAME_SIZE	256
 #define DEV_T_SIZE	32
+#define CALLOUT_MAX_SIZE	128
 #define DEF_TIMEOUT	60000
 #define DM_TARGET	"multipath"
 #define PIDFILE		"/var/run/multipathd.pid"
@@ -38,6 +39,8 @@
 #define DEFAULT_GETUID	"/sbin/scsi_id -g -u -s"
 #define DEFAULT_UDEVDIR	"/udev"
 #define DEFAULT_SELECTOR	"round-robin"
+#define DEFAULT_FEATURES	"0"
+#define DEFAULT_HWHANDLER	"0"
 
 /*
  * SCSI strings sizes
@@ -84,7 +87,9 @@ struct path {
 	int state;
 	unsigned int priority;
 	int claimed;
-	int (*checkfn) (char *, char *, void *);
+	char * getuid;
+	char * getprio;
+	int (*checkfn) (char *, char *, void **);
 };
 
 struct multipath {
@@ -97,6 +102,8 @@ struct multipath {
 	char params[PARAMS_SIZE];
 	char * selector;
 	int selector_args;
+	char * features;
+	char * hwhandler;
 };
 
 /* Build version */
