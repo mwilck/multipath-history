@@ -668,7 +668,8 @@ dm_get_map(char * name, char * outparams)
 static int
 dm_reinstate(char * mapname, char * path)
 {
-        int r = 0, sz = 1, i;
+        int r = 0;
+	int sz;
         struct dm_task *dmt;
         char *str;
 
@@ -681,7 +682,7 @@ dm_reinstate(char * mapname, char * path)
         if (!dm_task_set_sector(dmt, 0))
                 goto out;
 
-	sz = strlen(path) + 10;
+	sz = strlen(path) + 11;
         str = zalloc(sz);
 
 	snprintf(str, sz, "reinstate %s\n", path);
@@ -964,7 +965,14 @@ setup_map (vector pathvec, vector mp, int slot)
 		if (conf->dev != NULL && filepresent(conf->dev) &&
 		    dm_get_map(mapname, curparams) &&
 		    0 == strncmp(mpp->params, curparams, strlen(mpp->params))) {
-			dm_reinstate(mapname, conf->dev);
+	                pp = zalloc(sizeof(struct path));
+	                basename(conf->dev, pp->dev);
+
+	                if (devinfo(pp))
+	                        return 1;
+
+			dm_reinstate(mapname, pp->dev_t);
+	                free(pp);
 
 			if (conf->verbosity > 1)
 				printf("[reinstate %s in %s]\n",
