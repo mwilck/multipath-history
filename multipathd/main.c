@@ -693,7 +693,7 @@ child (void * param)
 	signal_init();
 	setscheduler();
 	allpaths = initpaths();
-	conf = alloc_config();
+	
 	conf->checkint = CHECKINT;
 
 	setlogmask(LOG_UPTO(conf->verbosity + 3));
@@ -745,8 +745,35 @@ child (void * param)
 int
 main (int argc, char *argv[])
 {
+	extern char *optarg;
+	extern int optind;
+	int arg;
 	int err;
 	void * child_stack = (void *)malloc(CHILD_STACK_SIZE);
+
+	if (!child_stack)
+		exit(1);
+
+	conf = alloc_config();
+
+	if (!conf)
+		exit(1);
+
+	conf->verbosity = 2;
+
+	while ((arg = getopt(argc, argv, ":qdlFSi:v:p:")) != EOF ) {
+	switch(arg) {
+		case 'v':
+			if (sizeof(optarg) > sizeof(char *) ||
+			    !isdigit(optarg[0]))
+				exit(1);
+
+			conf->verbosity = atoi(optarg);
+			break;
+		default:
+			;
+		}
+	}
 
 #ifdef CLONE_NEWNS	/* recent systems have clone() */
 
