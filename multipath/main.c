@@ -455,10 +455,20 @@ print_path (struct path * pp, int style)
 
 	printf ("%s ", pp->dev);
 
-	if (pp->state)
+	switch (pp->state) {
+	case PATH_UP:
 		printf ("[ready ] ");
-	else
+		break;
+	case PATH_DOWN:
 		printf ("[faulty] ");
+		break;
+	case PATH_SHAKY:
+		printf ("[shaky] ");
+		break;
+	default:
+		dbg("undefined path state");
+		break;
+	}
 
 	if (pp->claimed)
 		printf ("[claimed] ");
