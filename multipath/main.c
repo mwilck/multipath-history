@@ -174,27 +174,30 @@ get_pathvec_sysfs (vector pathvec)
 }
 
 /*
- * print_path style
+ * print_path styles
  */
-#define ALL	0
-#define SHORT	1
+#define PRINT_PATH_ALL		0
+#define PRINT_PATH_SHORT	1
 
 static void
 print_path (struct path * pp, int style)
 {
-	if (style != SHORT && pp->wwid)
+	if (style != PRINT_PATH_SHORT && pp->wwid)
 		printf ("%s ", pp->wwid);
 	else
-		printf (" \\_");
+		printf ("  \\_ ");
 
-	printf("(%i %i %i %i) ",
+	printf("%i:%i:%i:%i ",
 	       pp->sg_id.host_no,
 	       pp->sg_id.channel,
 	       pp->sg_id.scsi_id,
 	       pp->sg_id.lun);
 
 	if (pp->dev)
-		printf("%s ", pp->dev);
+		printf("%-4s ", pp->dev);
+
+	if (pp->dev_t)
+		printf("%-7s ", pp->dev_t);
 
 	switch (pp->state) {
 	case PATH_UP:
@@ -210,66 +213,135 @@ print_path (struct path * pp, int style)
 		printf("[undef ]");
 		break;
 	}
-	if (pp->dev_t)
-		printf("[%s]", pp->dev_t);
-
+	switch (pp->dmstate) {
+	case PSTATE_ACTIVE:
+		printf("[active]");
+		break;
+	case PSTATE_FAILED:
+		printf("[failed]");
+		break;
+	default:
+		break;
+	}
 	if (pp->claimed)
 		printf("[claimed]");
 
-	if (style != SHORT && pp->product_id)
+	if (style != PRINT_PATH_SHORT && pp->product_id)
 		printf("[%.16s]", pp->product_id);
 
 	fprintf(stdout, "\n");
 }
 
+#if DEBUG
 static void
-print_all_path (vector pathvec)
+print_map (struct multipath * mpp)
 {
-	int k;
+	if (mpp->size && mpp->params)
+		printf("0 %lu %s %s\n",
+			 mpp->size, DM_TARGET, mpp->params);
+	return;
+}
+
+static void
+print_all_paths (vector pathvec)
+{
+	int i;
 	char empty_buff[WWID_SIZE];
 	struct path * pp;
 
 	/* initialize a cmp 0-filled buffer */
-	memset (empty_buff, 0, WWID_SIZE);
+	memset(empty_buff, 0, WWID_SIZE);
 
-	fprintf (stdout, "#\n# all paths :\n#\n");
-
-	vector_foreach_slot (pathvec, pp, k) {
+	vector_foreach_slot (pathvec, pp, i) {
 		/* leave out paths with incomplete devinfo */
-		if (memcmp (empty_buff, pp->wwid, WWID_SIZE) == 0)
+		if (memcmp(empty_buff, pp->wwid, WWID_SIZE) == 0)
 			continue;
 
-		print_path (pp, ALL);
+		print_path(pp, PRINT_PATH_ALL);
 	}
+}
+
+static void
+print_all_maps (vector mp)
+{
+	int i;
+	struct multipath * mpp;
+
+	vector_foreach_slot (mp, mpp, i)
+		print_map(mpp);
+}
+#endif
+
+static void
+print_mp (struct multipath * mpp)
+{
+	int j, i;
+	struct path * pp = NULL;
+	struct pathgroup * pgp = NULL;
+
+	if (mpp->alias)
+		printf("%s", mpp->alias);
+
+	if (conf->verbosity == 1) {
+		printf("\n");
+		return;
+	}
+	if (strncmp(mpp->alias, mpp->wwid, WWID_SIZE))
+		printf(" (%s)", mpp->wwid);
+
+	printf("\n");
+
+	if (mpp->size)
+		printf("[size=%lu MB]", mpp->size / 2 / 1024);
+
+	if (mpp->features)
+		printf("[features=\"%s\"]", mpp->features);
+
+	if (mpp->hwhandler)
+		printf("[hwhandler=\"%s\"]", mpp->hwhandler);
+
+	fprintf(stdout, "\n");
+
+	if (!mpp->pg)
+		return;
+
+	vector_foreach_slot (mpp->pg, pgp, j) {
+		printf("\\_ ");
+
+		if (mpp->selector)
+			printf("%s ", mpp->selector);
+
+		if (mpp->nextpg && mpp->nextpg == j + 1)
+			printf("[first]");
+
+		switch (pgp->status) {
+		case PGSTATE_ENABLED:
+			printf("[enabled]\n");
+			break;
+		case PGSTATE_DISABLED:
+			printf("[disabled]\n");
+			break;
+		case PGSTATE_ACTIVE:
+			printf("[active]\n");
+			break;
+		default:
+			printf("\n");
+			break;
+		}
+		vector_foreach_slot (pgp->paths, pp, i)
+			print_path(pp, PRINT_PATH_SHORT);
+	}
+	printf("\n");
 }
 
 static void
 print_all_mp (vector mp)
 {
-	int k, i;
+	int k;
 	struct multipath * mpp;
-	struct path * pp = NULL;
 
-	fprintf(stdout, "#\n# all multipaths :\n#\n");
-
-	vector_foreach_slot (mp, mpp, k) {
-		if (mpp->alias)
-			printf("%s (%s)", mpp->alias, mpp->wwid);
-		else
-			printf("%s", mpp->wwid);
-
-		if (!mpp->paths) {
-			printf("\n");
-			continue;
-		}
-		pp = VECTOR_SLOT(mpp->paths, 0);
-
-		if (pp->product_id)
-			printf(" [%.16s]\n", pp->product_id);
-
-		vector_foreach_slot (mpp->paths, pp, i)
-			print_path(pp, SHORT);
-	}
+	vector_foreach_slot (mp, mpp, k) 
+		print_mp(mpp);
 }
 
 static void
