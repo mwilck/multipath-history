@@ -4,6 +4,12 @@
 /* data handlers */
 /* Global def handlers */
 static void
+polling_interval_handler(vector strvec)
+{
+	checkint = atoi(VECTOR_SLOT(strvec, 1));
+}
+
+static void
 blacklist_handler(vector strvec)
 {
 	blist = vector_alloc();
@@ -73,6 +79,8 @@ init_keywords(void)
 {
 	keywords = vector_alloc();
 
+	install_keyword_root("daemon", NULL);
+	install_keyword("polling_interval", &polling_interval_handler);
 	install_keyword_root("devnode_blacklist", &blacklist_handler);
 	install_keyword("devnode", &devnode_handler);
 	install_keyword_root("devices", &devices_handler);
