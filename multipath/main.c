@@ -329,10 +329,76 @@ blacklist (char * dev) {
 	return 0;
 }
 
+static char *
+apply_format (char * string, int maxsize, struct path * pp)
 {
+	char * pos;
+	char * dst;
+	char * p;
+	char c;
+	int len;
+	int free;
 
+	dst = zalloc(maxsize);
 
+	if (!dst)
+		return NULL;
+
+	p = dst;
+	pos = strchr(string, '%');
+	free = maxsize;
+
+	if (!pos)
+		return string;
+
+	len = (int) (pos - string) + 1;
+	free -= len;
+
+	if (free < 2)
+		return NULL;
+
+	snprintf(p, len, "%s", string);
+	p += len - 1;
+	pos++;
+
+	switch (*pos) {
+	case 'n':
+		len = strlen(pp->dev) + 1;
+		free -= len;
+
+		if (free < 2)
+			return NULL;
+
+		snprintf(p, len, "%s", pp->dev);
+		p += len - 1;
+		break;
+	case 'd':
+		len = strlen(pp->dev_t) + 1;
+		free -= len;
+
+		if (free < 2)
+			return NULL;
+
+		snprintf(p, len, "%s", pp->dev_t);
+		p += len - 1;
+		break;
+	default:
+		break;
 	}
+	pos++;
+
+	if (!*pos)
+		return dst;
+
+	len = strlen(pos) + 1;
+	free -= len;
+
+	if (free < 2)
+		return NULL;
+
+	snprintf(p, len, "%s", pos);
+	dbg("reformated callout = %s", dst);
+	return dst;
 }
 
 static int
@@ -340,7 +406,7 @@ devinfo (struct path *pp)
 {
 	int i;
 	struct hwentry * hwe;
-	char buff[100];
+	char * buff;
 	char prio[16];
 
 	dbg("===== path %s =====", pp->dev);
@@ -370,62 +436,43 @@ devinfo (struct path *pp)
 	 * get path prio
 	 */
 	select_getprio(pp);
+	buff = apply_format(pp->getprio, CALLOUT_MAX_SIZE, pp);
 
-	dbg("get prio callout :");
-	dbg("==================");
-
-	if (execute_program(buff, prio, 16) == 0)
-		curpath->priority = atoi(prio);
-	else {
+	if (!buff)
+		pp->priority = 1;
+	else if (execute_program(buff, prio, 16)) {
 		dbg("error calling out %s", buff);
-		curpath->priority = 1;
-	}
-	dbg("devinfo found prio : %u", curpath->priority);
+		pp->priority = 1;
+	} else
+		pp->priority = atoi(prio);
+
+	dbg("prio = %u", pp->priority);
 
 	/*
 	 * get path uid
 	 */
 	select_getuid(pp);
 
-			/*
-			 * fallback
-			 */
-			if (!get_evpd_wwid(curpath->dev_t, curpath->wwid)) {
-				dbg("devinfo found uid : %s", curpath->wwid);
-				return 0;
-			}
-			/*
-			 * no wwid : blank for safety
-			 */
-			dbg("unable to fetch a wwid : set to 0x0");
-			memset(curpath->wwid, 0, WWID_SIZE);
-			return 1;
-		}
-	}
-	dbg("devinfo out : no match ... apply defaults");
+	buff = apply_format(pp->getuid, CALLOUT_MAX_SIZE, pp);
 
-	/*
-	 * chances are we deal directly with disks here (no FC ctlr)
-	 * we need scsi_id for this fallback to work
-	 *
-	 * incidentaly, dealing with this case will make parallel SCSI
-	 * disks treated as 1-path multipaths, which is good : wider audience !
-	 */
-	if(safe_sprintf(buff, "%s /block/%s",
-			conf->default_getuid, curpath->dev)) {
-		fprintf(stderr, "buff too small\n");
-		exit(1);
-	}
+	if (!buff)
+		goto fallback;
 
-	dbg("default get uid callout :");
-	dbg("=========================");
-
-	if (execute_program(buff, curpath->wwid, WWID_SIZE) == 0) {
-		dbg("devinfo found uid : %s", curpath->wwid);
+	if (execute_program(buff, pp->wwid, WWID_SIZE) == 0) {
+		dbg("uid = %s (callout)", pp->wwid);
 		return 0;
 	}
-	dbg("error calling out %s", buff);
-	memset(curpath->wwid, 0, WWID_SIZE);
+
+	fallback:
+	if (!get_evpd_wwid(pp->dev_t, pp->wwid)) {
+		dbg("uid = %s (internal getuid)", pp->wwid);
+		return 0;
+	}
+	/*
+	 * no wwid : blank for safety
+	 */
+	dbg("uid = 0x0 (unable to fetch)");
+	memset(pp->wwid, 0, WWID_SIZE);
 	return 1;
 }
 
