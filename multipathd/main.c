@@ -235,116 +235,83 @@ int checkpath (struct path *path_p)
 				
 	return r;
 }
-		
+
 int updatepaths (struct devmap *devmaps, struct paths *failedpaths)
 {
 	struct path *path_p;
-	struct devmap *devmaps_p;
-	void *next;
-	struct dm_task *dmt;
-	uint64_t start, length;
-	char *target_type = NULL;
-	char *params, *p1, *p2;
-	char word[6];
-	int i;
+	struct sysfs_directory * sdir;
+	struct sysfs_directory * devp;
+	char sysfs_path[FILENAMESIZE];
+	char path[FILENAMESIZE];
+	char attr_path[FILENAMESIZE];
+	char attr_buff[17];
+	char *p1, *p2;
+	char word[5];
 	
-	path_p = failedpaths->paths_h;
-	
-	pthread_mutex_lock (failedpaths->lock);
-	memset (failedpaths->paths_h, 0, MAXPATHS * sizeof (struct path));
-
-	/* first pass */
-	/* ask DM the failed path list */
-
-	devmaps_p = devmaps;
-
-	while (*devmaps_p->mapname != 0x0) {
-		next = NULL;
-		
-		if (!(dmt = dm_task_create(DM_DEVICE_STATUS)))
-			break;
-		
-		if (!dm_task_set_name(dmt, devmaps_p->mapname))
-			goto out;
-		
-		if (!dm_task_run(dmt))
-			goto out;
-
-		do {
-			next = dm_get_next_target(dmt, next, &start, &length,
-						   &target_type, &params);
-
-			/* begin ugly parser */
-			p1 = params;
-			p2 = params;
-			while (*p1) {
-				/* p2 lags at the begining of the word p1 parses */
-				while (*p1 != ' ') {
-					/* if the current word is a path */
-					if (*p1 == ':') {
-						/* p1 jumps to path state */
-						while (*p1 != 'A' && *p1 != 'F')
-							p1++; 
-						
-						/* store path info */
-
-						path_p->checkfn = NULL;
-
-						i = 0;
-						memset (&word, 'O', 6 * sizeof (char));
-						while (*p2 != ':') {
-							word[i++] = *p2;
-							p2++;
-						}
-						path_p->major = atoi (word);
-						
-						p2++;
-						i = 0;
-						memset (&word, 'O', 6 * sizeof (char));
-						while (*p2 != ' ') {
-							word[i++] = *p2;
-							p2++;
-						}
-						path_p->minor = atoi (word);
-
-						strcpy (path_p->mapname, devmaps_p->mapname);
-
-						/* 
-						 * discard active paths
-						 * don't trust the A status flag : double check
-						 */
-						if (*p1 == 'A' &&
-						    !select_checkfn (path_p) &&
-						    checkpath (path_p)) {
-							LOG(2, "[updatepaths] discard %i:%i as valid path",
-							    path_p->major, path_p->minor);
-							p1++;
-							memset (path_p, 0, sizeof(struct path));
-							continue;
-						}
-						
-						path_p++;
-
-						/* test vector overflow */
-						if (path_p - failedpaths->paths_h >= MAXPATHS * sizeof (struct path)) {
-							LOG (1, "[updatepaths] path_h overflow");
-							pthread_mutex_unlock (failedpaths->lock);
-							return 1;
-						}
-					}
-					p1++;
-				}
-				p2 = p1;
-				p1++;
-			}
-		} while (next);
-			
-out:
-		dm_task_destroy(dmt);
-		devmaps_p++;
-		
+	if (sysfs_get_mnt_path (sysfs_path, FILENAMESIZE)) {
+		LOG (2, "[updatepaths] can not find sysfs mount point");
+		return 1;
 	}
 
+	sprintf (path, "%s/block", sysfs_path);
+	sdir = sysfs_open_directory (path);
+	sysfs_read_directory (sdir);
+
+	pthread_mutex_lock (failedpaths->lock);
+	memset (failedpaths->paths_h, 0, MAXPATHS * sizeof (struct path));
+	path_p = failedpaths->paths_h;
+
+	dlist_for_each_data (sdir->subdirs, devp, struct sysfs_directory) {
+		if (blacklist (devp->name)) {
+			LOG (2, "[updatepaths] %s blacklisted", devp->name);
+			continue;
+		}
+
+		sysfs_read_directory (devp);
+
+		if (devp->links == NULL)
+			continue;
+
+		sprintf(attr_path, "%s/block/%s/device/generic/dev",
+			sysfs_path, devp->name);
+
+		if (0 > sysfs_read_attribute_value(attr_path, attr_buff, 11))
+			return 1;
+
+		p1 = &word[0];
+		p2 = &attr_buff[0];
+		memset (&word, 0, 5 * sizeof (char));
+		
+		while (*p2 != ':') {
+			*p1 = *p2;
+			p1++;
+			p2++;
+		}
+		path_p->major = atoi (word);
+
+		p1 = &word[0];
+		p2++;
+		memset (&word, 0, 5 * sizeof (char));
+
+		while (*p2 != ' ') {
+			*p1 = *p2;
+			p1++;
+			p2++;
+		}
+		path_p->minor = atoi (word);
+
+		if (!select_checkfn (path_p, devp->name) &&
+		    checkpath (path_p)) {
+			LOG(2, "[updatepaths] discard %i:%i as valid path",
+			    path_p->major, path_p->minor);
+			memset (path_p, 0, sizeof(struct path));
+			continue;
+		}
+
+		LOG (2, "[updatepaths] %i:%i added to failedpaths",
+		     path_p->major, path_p->minor);
+		path_p++;
+	}
 	pthread_mutex_unlock (failedpaths->lock);
 	return 0;
 }
