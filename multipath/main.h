@@ -28,7 +28,7 @@
 #define ACT_CREATE_STR		"create"
 
 enum actions {
-	ACT_RESERVED,
+	ACT_UNDEF,
 	ACT_NOTHING,
 	ACT_RELOAD,
 	ACT_SWITCHPG,
