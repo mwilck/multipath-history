@@ -784,6 +784,7 @@ dm_get_maps (vector mp, char * type)
 	unsigned next = 0;
 	unsigned long length;
 	char *params;
+	char *status;
 
 	if (!(dmt = dm_task_create (DM_DEVICE_LIST)))
 		return 0;
@@ -800,6 +801,7 @@ dm_get_maps (vector mp, char * type)
 	do {
 		if (dm_type(names->name, DM_TARGET)) {
 			dm_get_map(names->name, &length, &params);
+			dm_get_status(names->name, &status);
 			mpp = zalloc(sizeof(struct multipath));
 
 			if (!mpp) {
@@ -810,6 +812,7 @@ dm_get_maps (vector mp, char * type)
 			mpp->alias = zalloc(strlen(names->name) + 1);
 			strncat(mpp->alias, names->name, strlen(names->name));
 			strncat(mpp->params, params, PARAMS_SIZE);
+			strncat(mpp->status, status, PARAMS_SIZE);
 
 			vector_alloc_slot(mp);
 			vector_set_slot(mp, mpp);
