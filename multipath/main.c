@@ -407,6 +407,38 @@ coalesce_paths (vector mp, vector pathvec)
 }
 
 static int
+dm_switchgroup(char * mapname, int index)
+{
+	int r = 0;
+	struct dm_task *dmt;
+	char str[24];
+
+	if (!(dmt = dm_task_create(DM_DEVICE_TARGET_MSG)))
+		return 0;
+
+	if (!dm_task_set_name(dmt, mapname))
+		goto out;
+
+	if (!dm_task_set_sector(dmt, 0))
+		goto out;
+
+	snprintf(str, 24, "switch_group %i\n", index);
+	dbg("message %s 0 %s", mapname, str);
+
+	if (!dm_task_set_message(dmt, str))
+		goto out;
+
+	if (!dm_task_run(dmt))
+		goto out;
+
+	r = 1;
+
+	out:
+	dm_task_destroy(dmt);
+
+	return r;
+}
+static int
 dm_reinstate(char * mapname, char * path)
 {
         int r = 0;
@@ -597,6 +629,14 @@ setup_map (vector pathvec, struct multipath * mpp)
 	if (conf->dry_run)
 		return 0;
 
+	if (action == ACT_NOTHING)
+		return 0;
+
+	if (action == ACT_SWITCHPG) {
+		dm_switchgroup(mpp->alias, mpp->nextpg);
+		return 0;
+	}
+		
 	/*
 	 * device mapper creation or updating
 	 * here we know we'll have garbage on stderr from
