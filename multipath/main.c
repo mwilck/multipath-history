@@ -157,6 +157,8 @@ get_pathvec_sysfs (vector pathvec)
 			free(curpath);
 			continue;
 		}
+		curpath->hwe = find_hwe(conf->hwtable, curpath->vendor_id,
+						      curpath->product_id);
 		vector_alloc_slot(pathvec);
 		vector_set_slot(pathvec, curpath);
 	}
