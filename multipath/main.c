@@ -950,8 +950,7 @@ setup_map (vector pathvec, struct multipath * mpp)
 	 * here we know we'll have garbage on stderr from
 	 * libdevmapper. so shut it down temporarily.
 	 */
-	fd = dup(2);
-	close(2);
+	dm_log_init_verbose(0);
 
 	if (op == DM_DEVICE_RELOAD) {
 		if (conf->dev && filepresent(conf->dev) &&
@@ -960,9 +959,10 @@ setup_map (vector pathvec, struct multipath * mpp)
 	                pp = zalloc(sizeof(struct path));
 	                basename(conf->dev, pp->dev);
 
-	                if (devinfo(pp))
-	                        return 1;
-
+	                if (devinfo(pp)) {
+				r = 1;
+	                        goto out;
+			}
 			dm_reinstate(mapname, pp->dev_t);
 	                free(pp);
 
@@ -984,12 +984,59 @@ setup_map (vector pathvec, struct multipath * mpp)
 		if (!dm_simplecmd(DM_DEVICE_RESUME, mapname))
 			goto out;
 
-	return 1;
+	out:
+	dm_log_init_verbose(1);
+	free(curparams);
+	return r;
+}
+
+static int
+dm_get_maps (vector mp, char * type)
+{
+	struct multipath * mpp;
+	int r = 0;
+	struct dm_task *dmt;
+	struct dm_names *names;
+	unsigned next = 0;
+	unsigned long length;
+	char *params;
+
+	if (!(dmt = dm_task_create (DM_DEVICE_LIST)))
+		return 0;
+
+	if (!dm_task_run (dmt))
+		goto out;
+
+	if (!(names = dm_task_get_names (dmt)))
+		goto out;
+
+	if (!names->dev)
+		goto out;
+
+	do {
+		if (dm_type(names->name, DM_TARGET)) {
+			dm_get_map(names->name, &length, &params);
+			mpp = zalloc(sizeof(struct multipath));
+
+			if (!mpp) {
+				r = 1;
+				goto out;
+			}
+			mpp->size = length;
+			strncat(mpp->wwid, names->name, WWID_SIZE);
+			strncat(mpp->params, params, PARAMS_SIZE);
+
+			vector_alloc_slot(mp);
+			vector_set_slot(mp, mpp);
+			mpp = NULL;
+		}
+                next = names->next;
+                names = (void *) names + next;
+	} while (next);
 
 	out:
-	dup2(fd, 2);
-	close(fd);
-	return 0;
+	dm_task_destroy (dmt);
+	return r;
 }
 
 static void
