@@ -179,9 +179,6 @@ one_path_per_group (struct multipath * mp)
 	
 	for (i = 0; i < VECTOR_SIZE(mp->paths); i++) {
 		pp = VECTOR_SLOT(mp->paths, i);
-		if (0 != pp->sg_id.scsi_type)
-			continue;
-
 		pathstr = zalloc(PATH_STR_SIZE);
 		if(safe_snprintf(pathstr, PATH_STR_SIZE, "%s", pp->dev_t)) {
 			fprintf(stderr, "one_path_per_group: "
@@ -221,9 +218,6 @@ one_group (struct multipath * mp)
 	for (i = 0; i < VECTOR_SIZE(mp->paths); i++) {
 		pp = VECTOR_SLOT(mp->paths, i);
 
-		if (0 != pp->sg_id.scsi_type)
-			continue;
-
 		pathstr = zalloc(PATH_STR_SIZE);
 		if(safe_snprintf(pathstr, PATH_STR_SIZE, "%s", pp->dev_t)) {
 			fprintf(stderr, "one_group: pathstr too small\n");
@@ -262,9 +256,6 @@ group_by_prio (struct multipath * mp)
 
 	for (i = 0; i < VECTOR_SIZE(mp->paths); i++) {
 		pp = VECTOR_SLOT(mp->paths, i);
-
-		if (0 != pp->sg_id.scsi_type)
-			continue;
 
 		pathstr = zalloc(PATH_STR_SIZE);
 		if(safe_snprintf(pathstr, PATH_STR_SIZE, "%s", pp->dev_t)) {
