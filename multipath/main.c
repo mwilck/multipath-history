@@ -1093,7 +1093,7 @@ usage (char * progname)
 		"\t   1\t\t\tprint created devmap names only\n" \
 		"\t   2\t\t\tprint all paths and multipaths\n" \
 		"\t-d\t\tdry run, do not create or update devmaps\n" \
-		"\t-D maj min\tlimit scope to the device's multipath\n" \
+		"\t-D maj:min\tlimit scope to the device's multipath\n" \
 		"\t\t\t(major:minor device reference)\n"
 		"\t-S\t\tinhibit signal sending to multipathd\n"
 		"\n" \
