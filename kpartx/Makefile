@@ -29,10 +29,12 @@ prepare:
 glibc: prepare $(OBJS)
 	$(CC) $(OBJS) -o $(EXEC) $(LDFLAGS)
 	$(STRIP) $(EXEC)
+	$(GZIP) $(EXEC).8 > $(EXEC).8.gz
 	
 klibc: prepare $(KLIBC) $(OBJS)
 	$(LD) -o $(EXEC) $(CRT0) $(OBJS) $(KLIBC) $(LIBGCC)
 	$(STRIP) $(EXEC)
+	$(GZIP) $(EXEC).8 > $(EXEC).8.gz
 
 $(DMLIB)-$(BUILD).a:
 	make -C $(libdmdir) BUILD=$(BUILD)
@@ -47,10 +49,13 @@ $(KLIBC):
 
 install:
 	install -d $(DESTDIR)$(bindir)
-	install -m 755 $(EXEC) $(DESTDIR)$(bindir)/
+	install -m 755 $(EXEC) $(DESTDIR)$(bindir)
+	install -d $(DESTDIR)$(mandir)
+	install -m 644 $(EXEC).8.gz $(DESTDIR)$(mandir)
 
 uninstall:
-	rm $(DESTDIR)$(bindir)/$(EXEC)
+	rm -f $(DESTDIR)$(bindir)/$(EXEC)
+	rm -f $(DESTDIR)$(mandir)/$(EXEC).8.gz
 
 clean:
 	rm -f core *.o $(EXEC) *.gz

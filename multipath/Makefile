@@ -64,13 +64,13 @@ install:
 	install -d $(DESTDIR)/etc/udev/rules.d
 	install -m 755 multipath.rules $(DESTDIR)/etc/udev/rules.d/
 	install -d $(DESTDIR)$(mandir)
-	install -m 644 multipath.8.gz $(DESTDIR)$(mandir)
+	install -m 644 $(EXEC).8.gz $(DESTDIR)$(mandir)
 
 uninstall:
 	rm $(DESTDIR)/etc/dev.d/block/multipath.dev
 	rm $(DESTDIR)/etc/udev/rules.d/multipath.rules
 	rm $(DESTDIR)$(bindir)/$(EXEC)
-	rm $(DESTDIR)$(mandir)/multipath.8.gz
+	rm $(DESTDIR)$(mandir)/$(EXEC).8.gz
 
 clean:
 	rm -f core *.o $(EXEC) *.gz
