@@ -32,6 +32,7 @@
 #include <sysfs/dlist.h>
 #include <sysfs/libsysfs.h>
 #include <libdevmapper.h>
+#include <devmapper.h>
 #include <checkers.h>
 #include <path_state.h>
 
@@ -537,78 +538,6 @@ coalesce_paths (vector mp, vector pathvec)
 }
 
 static int
-dm_simplecmd (int task, const char *name) {
-	int r = 0;
-	struct dm_task *dmt;
-
-	if (!(dmt = dm_task_create(task)))
-		return 0;
-
-	if (!dm_task_set_name(dmt, name))
-		goto out;
-
-	r = dm_task_run(dmt);
-
-	out:
-		dm_task_destroy(dmt);
-		return r;
-}
-
-static int
-dm_addmap (int task, const char *name, const char *params, unsigned long size) {
-	struct dm_task *dmt;
-
-	if (!(dmt = dm_task_create(task)))
-		return 0;
-
-	if (!dm_task_set_name(dmt, name))
-		goto out;
-
-	if (!dm_task_add_target(dmt, 0, size, DM_TARGET, params))
-		goto out;
-
-	if (dm_task_run(dmt))
-		return 0;
-
-	out:
-	dm_task_destroy(dmt);
-	return 1;
-}
-
-static int
-dm_map_present (char * str)
-{
-        int r = 0;
-	struct dm_task *dmt;
-        struct dm_names *names;
-        unsigned next = 0;
-
-	if (!(dmt = dm_task_create(DM_DEVICE_LIST)))
-		return 0;
-
-	if (!dm_task_run(dmt))
-		goto out;
-
-	if (!(names = dm_task_get_names(dmt)))
-		goto out;
-
-	if (!names->dev) {
-		goto out;
-	}
-
-	do {
-		if (0 == strncmp(names->name, str, strlen(names->name)))
-			r = 1;
-		next = names->next;
-		names = (void *) names + next;
-	} while (next);
-
-	out:
-	dm_task_destroy(dmt);
-	return r;
-}
-
-static int
 dm_get_map(char * name, char * outparams)
 {
 	int r = 0;
@@ -971,7 +900,7 @@ setup_map (vector pathvec, struct multipath * mpp)
 			goto out;
 	}
 
-	if (dm_addmap(op, mapname, mpp->params, mpp->size)) {
+	if (dm_addmap(op, mapname, DM_TARGET, mpp->params, mpp->size)) {
 		dm_simplecmd(DM_DEVICE_REMOVE, mapname);
 		goto out;
 	}
@@ -1154,6 +1083,11 @@ main (int argc, char *argv[])
 	int arg;
 	extern char *optarg;
 	extern int optind;
+
+	if (dm_prereq(DM_TARGET, 0, 0, 0)) {
+		dbg("device mapper prerequisites not met");
+		exit(1);
+	}
 
 	/*
 	 * Don't run in parallel
