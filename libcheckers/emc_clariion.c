@@ -27,7 +27,7 @@ int emc_clariion(char *devt, char *msg, void **context)
 {
 	unsigned char sense_buffer[256];
 	unsigned char sb[128];
-	unsigned char inqCmdBlk[INQUIRY_CMDLEN] = {INQUIRY_CMD, 0, 0xC0, 0,
+	unsigned char inqCmdBlk[INQUIRY_CMDLEN] = {INQUIRY_CMD, 1, 0xC0, 0,
 						sizeof(sb), 0};
 	struct sg_io_hdr io_hdr;
 	struct emc_clariion_checker_context * ctxt = NULL;
@@ -131,7 +131,7 @@ int emc_clariion(char *devt, char *msg, void **context)
 	 * pointing somewhere else.
 	 */
 	if (context && ctxt->wwn_set) {
-		if (memcmp(ctxt->wwn, &sense_buffer[10], 16)) {
+		if (memcmp(ctxt->wwn, &sense_buffer[10], 16) != 0) {
 			MSG("emc_clariion_checker: Logical Unit WWN has changed!");
 			ret = PATH_DOWN;
 			goto out;
