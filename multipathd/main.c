@@ -135,18 +135,6 @@ strvec_free (vector vec)
 	vector_free(vec);
 }
 
-static void
-pathvec_free (vector vec)
-{
-	int i;
-	struct path * pp;
-
-	for (i =0; i < VECTOR_SIZE(vec); i++)
-		if ((pp = VECTOR_SLOT(vec, i)) != NULL)
-			FREE(pp);
-	vector_free(vec);
-}
-
 static int
 select_checkfn(struct path *path_p, char *devname)
 {
