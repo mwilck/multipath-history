@@ -80,9 +80,10 @@ struct path {
 	char product_id[SCSI_PRODUCT_SIZE];
 	char rev[SCSI_REV_SIZE];
 	char serial[SERIAL_SIZE];
-	int tur;
+	int state;
 	unsigned int priority;
 	int claimed;
+	int (*checkfn) (char *);
 };
 
 struct multipath {

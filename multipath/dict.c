@@ -141,6 +141,17 @@ hw_selector_args_handler(vector strvec)
 
 	buff = set_value(strvec);
 	hwe->selector_args = atoi(buff);
+
+static void
+hw_path_checker_handler(vector strvec)
+{
+	char * buff;
+	struct hwentry * hwe = VECTOR_SLOT(conf->hwtable, VECTOR_SIZE(conf->hwtable) - 1);
+
+	buff = set_value(strvec);
+	hwe->checker_index = get_checker_id(buff);
+
+	free(buff);
 }
 
 /*
@@ -232,6 +243,7 @@ init_keywords(void)
 	install_keyword("getuid_callout", &hw_getuid_callout_handler);
 	install_keyword("path_selector", &hw_selector_handler);
 	install_keyword("path_selector_args", &hw_selector_args_handler);
+	install_keyword("path_checker", &hw_path_checker_handler);
 	install_sublevel_end();
 
 	install_keyword_root("multipaths", &multipaths_handler);
