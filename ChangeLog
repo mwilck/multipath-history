@@ -1,6 +1,7 @@
 2004-05-15 multipath-tools-0.1.8
 	* Makefiles cleanup and factorisation
 	* Compilation fixes for non-ix86 archs, tested on x86_64
+	* dmadm works with sysfs nodes with '!' (cciss for ex)
 2004-05-10 multipath-tools-0.1.7
 	* bugfixes from	Andy <genanr@emsphone.com> :
 		* read the last line of the config file
