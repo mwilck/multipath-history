@@ -1,0 +1,14 @@
+Source: multipath-tools
+Section: admin
+Priority: extra
+Maintainer: Christophe Varoqui <christophe.varoqui@free.fr>
+Build-Depends: debhelper (>> 4.0.0), po-debconf, bzip2, libnewt-dev, libdevmapper-dev
+Standards-Version: 3.6.1
+
+Package: multipath-tools
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, hotplug, udev, scsi_id (>= 0.6), initscripts (>= 2.85-16), makedev (>= 2.3.1-70), libdevmapper
+Conflicts:
+Description: multipathed devices management tools and daemon
+ feed me
+ feed me
