@@ -1257,12 +1257,5 @@ out:
 	if (conf->signal)
 		signal_daemon();
 	
-	/*
-	 * free allocs : FIXME, need a freemp() or nothing
-	 */
-	free(mp);
-	free(curmp);
-	free(pathvec);
-
 	exit(0);
 }
