@@ -5,7 +5,7 @@
 #define SERIAL_SIZE		17
 #define NODE_NAME_SIZE		19
 #define PATH_STR_SIZE  		16
-#define PARAMS_SIZE		256
+#define PARAMS_SIZE		1024
 #define FILE_NAME_SIZE		256
 #define CALLOUT_MAX_SIZE	128
 #define BLK_DEV_SIZE		33
