@@ -2,7 +2,7 @@
 #
 # Copyright (C) 2003 Christophe Varoqui, <christophe.varoqui@free.fr>
 
-BUILD = klibc
+BUILD = glibc
 
 KERNEL_BUILD = /lib/modules/$(shell uname -r)/build
 

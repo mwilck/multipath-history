@@ -1,7 +1,7 @@
 # Makefile
 #
 # Copyright (C) 2003 Christophe Varoqui, <christophe.varoqui@free.fr>
-BUILD = klibc
+BUILD = glibc
 DEBUG = 0
 
 include ../Makefile.inc
@@ -20,7 +20,7 @@ endif
 
 EXEC = pp_balance_units
 
-all: klibc
+all: $(BUILD)
 
 prepare:
 	rm -f core *.o *.gz

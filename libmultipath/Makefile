@@ -2,19 +2,19 @@
 #
 # Copyright (C) 2003 Christophe Varoqui, <christophe.varoqui@free.fr>
 #
-BUILD = klibc
+BUILD = glibc
 
 include ../Makefile.inc
 
-OBJS = memory.o parser.o vector.o
+OBJS = memory.o parser.o vector.o devmapper.o callout.o
 
 ifeq ($(strip $(BUILD)),klibc)
-	CFLAGS = ${REQFLAGS} ${OPTFLAGS}
+	CFLAGS = ${REQFLAGS} ${OPTFLAGS} -I$(libdmdir)
 else
 	CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes
 endif
 
-all: klibc
+all: $(BUILD)
 
 prepare:
 	rm -f core *.o *.gz
@@ -29,8 +29,6 @@ $(KLIBC):
 	rm -f $(klibcdir)/linux
 	ln -s $(KERNEL_BUILD) $(klibcdir)/linux
 	make -C $(klibcdir)
-
-all: klibc
 
 install:
 
