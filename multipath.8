@@ -5,12 +5,11 @@ multipath \- Device mapper target autoconfig
 .B multipath
 .RB [\| \-v | \-q \|]
 .RB [\| \-d \|]
-.RB [\| \-i\ \c
-.IR int \|]
 .RB [\| \-m\ \c
 .IR max_devs \|]
 .RB [\| \-p\ \c
 .BR failover | multibus | group_by_serial \|]
+.RB [\| device \|]
 .SH DESCRIPTION
 .B multipath
 is used to detect multiple paths to devices for fail-over or performance reasons and coalesces them.
@@ -24,9 +23,6 @@ quiet, no output at all
 .TP
 .B \-d
 dry run, do not create or update devmaps
-.TP
-.BI \-i " int"
-multipath target param: polling interval
 .TP
 .BI \-m " max_devs"
 scan
@@ -46,6 +42,9 @@ all paths in 1 priority group
 .B group_by_serial
 1 priority group per serial
 .RE
+.TP
+.B device
+limit the [re]configuration to the specified device's multipath scope. device is given in its hotplug $DEVPATH form like /devices/pci0000:03/0000:03:01.0/host0/0:0:5:1
 .SH "SEE ALSO"
 .BR udev (8),
 .BR dmsetup (8)
