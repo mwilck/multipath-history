@@ -31,7 +31,7 @@
 #include "../libdevmapper/libdevmapper.h"
 #include "main.h"
 #include "devinfo.h"
-#include "global.h"
+#include "config.h"
 #include "pgpolicies.h"
 #include "parser.h"
 #include "dict.h"

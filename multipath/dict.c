@@ -1,5 +1,6 @@
 #include "parser.h"
-#include "global.h"
+#include "config.h"
+#include "pgpolicies.h"
 #include "debug.h"
 
 /*

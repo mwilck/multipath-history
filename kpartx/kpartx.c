@@ -10,6 +10,7 @@
  * cva, 2002-10-26
  */
 
+#include "kpartx.h"
 #include <stdio.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -21,7 +22,6 @@
 #include <ctype.h>
 
 #include "../libdevmapper/libdevmapper.h"
-#include "kpartx.h"
 #include "crc32.h"
 
 /* loop devices */

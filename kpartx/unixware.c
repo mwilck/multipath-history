@@ -1,5 +1,5 @@
-#include <stdio.h>
 #include "kpartx.h"
+#include <stdio.h>
 
 #define UNIXWARE_FS_UNUSED     0
 #define UNIXWARE_NUMSLICE      16

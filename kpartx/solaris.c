@@ -1,6 +1,6 @@
+#include "kpartx.h"
 #include <stdio.h>
 #include <time.h>		/* time_t */
-#include "kpartx.h"
 
 #define SOLARIS_X86_NUMSLICE	8
 #define SOLARIS_X86_VTOC_SANE	(0x600DDEEEUL)
