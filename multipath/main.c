@@ -850,7 +850,6 @@ setup_map (vector pathvec, vector mp, int slot)
 	int op;
 
 	mpp = VECTOR_SLOT(mp, slot);
-	pp = VECTOR_SLOT(mpp->paths, 0);
 
 	/*
 	 * don't bother if devmap size is unknown
@@ -868,6 +867,7 @@ setup_map (vector pathvec, vector mp, int slot)
 		if (pp->claimed)
 			return 0;
 	}
+	pp = VECTOR_SLOT(mpp->paths, 0);
 
 	/*
 	 * iopolicy selection logic :
