@@ -95,7 +95,7 @@ devt2devname (char *devname, int major, int minor)
 
 	dlist_for_each_data (sdir->subdirs, devp, struct sysfs_directory) {
 		sprintf (attr_path, "%s/%s/dev", block_path, devp->name);
-		sysfs_read_attribute_value (attr_path, attr_value, 16);
+		sysfs_read_attribute_value (attr_path, attr_value, sizeof(attr_value));
 
 		if (!strcmp (attr_value, attr_ref_value)) {
 			sprintf (attr_path, "%s/%s", block_path, devp->name);
@@ -195,8 +195,8 @@ get_all_paths_sysfs (struct env * conf, struct path * all_paths)
 		if (devinfo (&curpath, conf->hwtable))
 			return 0;
 
-		strcpy (refwwid, curpath.wwid);
-		memset (&curpath, 0, sizeof (path));
+		memcpy (refwwid, curpath.wwid, WWID_SIZE);
+		memset (&curpath, 0, sizeof (struct path));
 	}
 
 	/* if major/minor specified on the cmd line,
@@ -211,8 +211,8 @@ get_all_paths_sysfs (struct env * conf, struct path * all_paths)
 		if (devinfo (&curpath, conf->hwtable))
 			return 0;
 
-		strcpy (refwwid, curpath.wwid);
-		memset (&curpath, 0, sizeof (path));
+		memcpy (refwwid, curpath.wwid, WWID_SIZE);
+		memset (&curpath, 0, sizeof (struct path));
 	}
 		
 
@@ -242,26 +242,26 @@ get_all_paths_sysfs (struct env * conf, struct path * all_paths)
 		sprintf (curpath.sg_dev, "/dev/%s", buff);
 
 		if (devinfo (&curpath, conf->hwtable)) {
-			memset (&curpath, 0, sizeof (path));
+			memset (&curpath, 0, sizeof (struct path));
 			continue;
 		}
 
 		if (memcmp (empty_buff, refwwid, WWID_SIZE) != 0 && 
 		    strncmp (curpath.wwid, refwwid, WWID_SIZE) != 0) {
-			memset (&curpath, 0, sizeof (path));
+			memset (&curpath, 0, sizeof (struct path));
 			continue;
 		}
 
 		strcpy (all_paths[k].sg_dev, curpath.sg_dev);
 		strcpy (all_paths[k].dev, curpath.sg_dev);
 		strcpy (all_paths[k].wwid, curpath.wwid);
-		strcpy (all_paths[k].vendor_id, curpath.vendor_id);
-		strcpy (all_paths[k].product_id, curpath.product_id);
+		memcpy (all_paths[k].vendor_id, curpath.vendor_id, 8);
+		memcpy (all_paths[k].product_id, curpath.product_id, 16);
 		all_paths[k].iopolicy = curpath.iopolicy;
 		all_paths[k].tur = curpath.tur;
 
 		/* done with curpath, zero for reuse */
-		memset (&curpath, 0, sizeof (path));
+		memset (&curpath, 0, sizeof (struct path));
 
 		basename (linkp->target, buff);
 		sscanf (buff, "%i:%i:%i:%i",

@@ -102,7 +102,7 @@ extern void * read_config (void ** getuid)
 		if (linep == NULL)
 			return NULL;
 		
-		strncpy (hwe->vendor, word, 16);
+		strncpy (hwe->vendor, word, 8);
 
 		linep = getword (word, linep);
 		if (linep == NULL)
