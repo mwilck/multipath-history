@@ -207,7 +207,7 @@ disassemble_map (vector pathvec, char * params, struct multipath * mpp)
 			if (pp) {
 				vector_alloc_slot(pgp->paths);
 				vector_set_slot(pgp->paths, pp);
-				pgp->id ^= (int)pp;
+				pgp->id ^= (long)pp;
 			}
 			if (pp && !strlen(mpp->wwid))
 				strncpy(mpp->wwid, pp->wwid, WWID_SIZE);
