@@ -42,11 +42,15 @@
 #define EBUFF_SZ	256
 #define TUR_CMD_LEN	6
 #define DM_TARGET	"multipath"
+#define PIDFILE		"/var/run/multipathd.pid"
+#define RUN		"/var/run/multipath.run"
+#define MAXTRY		50
 
 /* Storage controlers cpabilities */
 #define FAILOVER	0
 #define MULTIBUS	1
 #define GROUP_BY_SERIAL	2
+#define GROUP_BY_TUR	4
 
 #define PINDEX(x,y)	mp[(x)].pindex[(y)]
 
@@ -86,6 +90,7 @@ struct path {
 	char rev[4];
 	char serial[SERIAL_SIZE];
 	int iopolicy;
+	int tur;
 };
 
 struct multipath {
@@ -102,6 +107,8 @@ struct env {
 	int dry_run;
 	int iopolicy;
 	int with_sysfs;
+	int major;
+	int minor;
 	char sysfs_path[FILE_NAME_SIZE];
 	char hotplugdev[FILE_NAME_SIZE];
 };

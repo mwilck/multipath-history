@@ -24,6 +24,7 @@
 #include <sys/stat.h>
 #include <linux/kdev_t.h>
 #include <string.h>
+#include <signal.h>
 #include <sys/ioctl.h>
 #include <sysfs/libsysfs.h>
 #include "../libdevmapper/libdevmapper.h"
@@ -41,11 +42,11 @@ get_unique_id(struct path * mypath)
 		int iopolicy;
 		int (*getuid) (char *, char *);
 	} wlist[] = {
-		{"COMPAQ  ", "HSV110 (C)COMPAQ", GROUP_BY_SERIAL, &get_evpd_wwid},
-		{"COMPAQ  ", "MSA1000         ", GROUP_BY_SERIAL, &get_evpd_wwid},
-		{"COMPAQ  ", "MSA1000 VOLUME  ", GROUP_BY_SERIAL, &get_evpd_wwid},
-		{"DEC     ", "HSG80           ", GROUP_BY_SERIAL, &get_evpd_wwid},
-		{"HP      ", "HSV100          ", GROUP_BY_SERIAL, &get_evpd_wwid},
+		{"COMPAQ  ", "HSV110 (C)COMPAQ", GROUP_BY_TUR, &get_evpd_wwid},
+		{"COMPAQ  ", "MSA1000         ", GROUP_BY_TUR, &get_evpd_wwid},
+		{"COMPAQ  ", "MSA1000 VOLUME  ", GROUP_BY_TUR, &get_evpd_wwid},
+		{"DEC     ", "HSG80           ", GROUP_BY_TUR, &get_evpd_wwid},
+		{"HP      ", "HSV100          ", GROUP_BY_TUR, &get_evpd_wwid},
 		{"HP      ", "A6189A          ", MULTIBUS, &get_evpd_wwid},
 		{"HP      ", "OPEN-           ", MULTIBUS, &get_evpd_wwid},
 		{"DDN     ", "SAN DataDirector", MULTIBUS, &get_evpd_wwid},
@@ -70,6 +71,69 @@ get_unique_id(struct path * mypath)
 		}
 	}
 	return 1;
+}
+
+static int
+sysfsdevice2devname (char *devname, char *device)
+{
+	char sysfs_path[FILE_NAME_SIZE];
+	char block_path[FILE_NAME_SIZE];
+	char link_path[FILE_NAME_SIZE];
+	int r;
+
+	if (sysfs_get_mnt_path(sysfs_path, FILE_NAME_SIZE)) {
+		fprintf(stderr, "[device] feature available with sysfs only\n");
+		exit (1);
+	}
+	
+	sprintf(link_path, "%s%s/block", sysfs_path, device);
+	
+	r = sysfs_get_link(link_path, block_path, FILE_NAME_SIZE);
+
+	if (r != 0)
+		return 1;
+
+	sysfs_get_name_from_path(block_path, devname, FILE_NAME_SIZE);
+
+	return 0;
+}
+
+	
+static int
+devt2devname (char *devname, int major, int minor)
+{
+	struct sysfs_directory * sdir;
+	struct sysfs_directory * devp;
+	char sysfs_path[FILE_NAME_SIZE];
+	char block_path[FILE_NAME_SIZE];
+	char attr_path[FILE_NAME_SIZE];
+	char attr_value[16];
+	char attr_ref_value[16];
+
+	if (sysfs_get_mnt_path(sysfs_path, FILE_NAME_SIZE)) {
+		fprintf(stderr, "-D feature available with sysfs only\n");
+		exit (1);
+	}
+		
+	sprintf(attr_ref_value, "%i:%i\n", major, minor);
+	sprintf(block_path, "%s/block", sysfs_path);
+	sdir = sysfs_open_directory(block_path);
+	sysfs_read_directory(sdir);
+
+	dlist_for_each_data(sdir->subdirs, devp, struct sysfs_directory) {
+		sprintf(attr_path, "%s/%s/dev", block_path, devp->name);
+		sysfs_read_attribute_value(attr_path, attr_value, 16);
+
+		if (!strcmp(attr_value, attr_ref_value)) {
+			sprintf(attr_path, "%s/%s", block_path, devp->name);
+			sysfs_get_name_from_path(attr_path, devname, FILE_NAME_SIZE);
+			break;
+		}
+	}
+
+	sysfs_close_directory(sdir);
+	
+	return 0;
 }
 
 static int
@@ -98,6 +162,22 @@ blacklist (char * dev) {
 }
 
 static int
+devinfo (struct path *curpath)
+{
+	get_lun_strings(curpath->vendor_id,
+			curpath->product_id,
+			curpath->rev,
+			curpath->sg_dev);
+	get_serial(curpath->serial, curpath->sg_dev);
+	curpath->tur = do_tur(curpath->sg_dev);
+	if (!get_unique_id(curpath))
+		return 1;
+
+	return 0;
+}
+
+
+static int
 get_all_paths_sysfs(struct env * conf, struct path * all_paths)
 {
 	int k=0;
@@ -110,32 +190,41 @@ get_all_paths_sysfs(struct env * conf, struct path * all_paths)
 	char path[FILE_NAME_SIZE];
 	struct path curpath;
 
-	/* if called from hotplug, only consider the paths that relate */
-	/* to the device pointed by conf.hotplugdev */
 	memset(empty_buff, 0, WWID_SIZE);
 	memset(refwwid, 0, WWID_SIZE);
-	if (strncmp("/devices", conf->hotplugdev, 8) == 0) {
-		sprintf(buff, "%s%s/block",
-			conf->sysfs_path, conf->hotplugdev);
-		memset(conf->hotplugdev, 0, FILE_NAME_SIZE);
 
-		/* if called from hotplug but with no block, leave */
-		if (0 > readlink(buff, conf->hotplugdev, FILE_NAME_SIZE))
+	/* if called from hotplug, only consider the paths that relate
+	   to the device pointed by conf.hotplugdev */
+
+	if (strncmp("/devices", conf->hotplugdev, 8) == 0) {
+		if (sysfsdevice2devname (buff, conf->hotplugdev))
 			return 0;
 
-		basename(conf->hotplugdev, buff);
 		sprintf(curpath.sg_dev, "/dev/%s", buff);
 
-		get_lun_strings(curpath.vendor_id,
-				curpath.product_id,
-				curpath.rev,
-				curpath.sg_dev);
-		get_serial(curpath.serial, curpath.sg_dev);
-		if (!get_unique_id(&curpath))
+		if (devinfo(&curpath))
 			return 0;
+
 		strcpy(refwwid, curpath.wwid);
 		memset(&curpath, 0, sizeof(path));
 	}
+
+	/* if major/minor specified on the cmd line,
+	   only consider affiliated paths */
+
+	if (conf->major >= 0 && conf->minor >= 0) {
+		if (devt2devname(buff, conf->major, conf->minor))
+			return 0;
+		
+		sprintf(curpath.sg_dev, "/dev/%s", buff);
+
+		if (devinfo(&curpath))
+			return 0;
+
+		strcpy(refwwid, curpath.wwid);
+		memset(&curpath, 0, sizeof(path));
+	}
+		
 
 	sprintf(path, "%s/block", conf->sysfs_path);
 	sdir = sysfs_open_directory(path);
@@ -162,12 +251,7 @@ get_all_paths_sysfs(struct env * conf, struct path * all_paths)
 		basename(devp->path, buff);
 		sprintf(curpath.sg_dev, "/dev/%s", buff);
 
-		get_lun_strings(curpath.vendor_id,
-				curpath.product_id,
-				curpath.rev,
-				curpath.sg_dev);
-		get_serial(curpath.serial, curpath.sg_dev);
-		if(!get_unique_id(&curpath)) {
+		if(devinfo(&curpath)) {
 			memset(&curpath, 0, sizeof(path));
 			continue;
 		}
@@ -184,6 +268,7 @@ get_all_paths_sysfs(struct env * conf, struct path * all_paths)
 		strcpy(all_paths[k].vendor_id, curpath.vendor_id);
 		strcpy(all_paths[k].product_id, curpath.product_id);
 		all_paths[k].iopolicy = curpath.iopolicy;
+		all_paths[k].tur = curpath.tur;
 
 		/* done with curpath, zero for reuse */
 		memset(&curpath, 0, sizeof(path));
@@ -402,6 +487,34 @@ coalesce_paths(struct env * conf, struct multipath * mp,
 }
 
 static void
+group_by_tur(struct multipath * mp, struct path * all_paths, char * str) {
+	int left_path_count = 0;
+	int right_path_count = 0;
+	int i;
+	char left_path_buff[FILE_NAME_SIZE], right_path_buff[FILE_NAME_SIZE];
+	char * left_path_buff_p = &left_path_buff[0];
+	char * right_path_buff_p = &right_path_buff[0];
+
+	for (i = 0; i <= mp->npaths; i++) {
+		if (all_paths[mp->pindex[i]].tur) {
+			left_path_buff_p += sprintf(left_path_buff_p, " %s", all_paths[mp->pindex[i]].dev);
+			left_path_count++;
+		} else {
+			right_path_buff_p += sprintf(right_path_buff_p, " %s", all_paths[mp->pindex[i]].dev);
+			right_path_count++;
+		}
+	}
+	if (!left_path_count)
+		sprintf(str, " 1 round-robin %i 0 %s", right_path_count, right_path_buff);
+	else if (!right_path_count)
+		sprintf(str, " 1 round-robin %i 0 %s", left_path_count, left_path_buff);
+	else
+		sprintf(str, " 2 round-robin %i 0 %s round-robin %i 0 %s",
+			left_path_count, left_path_buff,
+			right_path_count, right_path_buff);
+}
+
+static void
 group_by_serial(struct multipath * mp, struct path * all_paths, char * str) {
 	int path_count, pg_count = 0;
 	int i, k;
@@ -540,6 +653,11 @@ setup_map(struct env * conf, struct path * all_paths,
 		group_by_serial(&mp[index], all_paths, params_p);
 	}
 
+	if ((all_paths[PINDEX(index,0)].iopolicy == GROUP_BY_TUR &&
+	     conf->iopolicy == -1) || conf->iopolicy == GROUP_BY_TUR) {
+		group_by_tur(&mp[index], all_paths, params_p);
+	}
+
 	if (mp[index].size < 0)
 		return 0;
 
@@ -597,22 +715,64 @@ map_present(char * str)
 }
 
 static void
+signal_daemon (void)
+{
+	FILE *file;
+	pid_t pid;
+	char *buf;
+
+	buf = malloc (8);
+
+	file = fopen (PIDFILE, "r");
+
+	if (!file) {
+		fprintf(stderr, "cannot signal daemon, pidfile not found\n");
+		return;
+	}
+
+	buf = fgets (buf, 8, file);
+	fclose (file);
+
+	pid = (pid_t) atol (buf);
+	free (buf);
+
+	kill(pid, SIGHUP);
+}
+
+static int
+filepresent(char * run) {
+	struct stat buf;
+
+	if(!stat(run, &buf))
+		return 1;
+	return 0;
+}
+
+static void
 usage(char * progname)
 {
 	fprintf(stderr, VERSION_STRING);
-	fprintf(stderr, "Usage: %s [-v|-q] [-d] [-m max_devs]",
+	fprintf(stderr, "Usage: %s [-v|-q] [-d] [-m max_devs]\n",
 		progname);
-	fprintf(stderr,	"[-p failover|multibus|group_by_serial] [device]\n");
-	fprintf(stderr, "\t-v\t\tverbose, print all paths and multipaths\n");
-	fprintf(stderr, "\t-q\t\tquiet, no output at all\n");
-	fprintf(stderr, "\t-d\t\tdry run, do not create or update devmaps\n");
-	fprintf(stderr, "\t-m max_devs\tscan {max_devs} devices at most\n");
-	fprintf(stderr, "\t-p policy\tforce maps to specified policy :\n");
-	fprintf(stderr, "\t   failover\t\t- 1 path per priority group\n");
-	fprintf(stderr, "\t   multibus\t\t- all paths in 1 priority group\n");
-	fprintf(stderr, "\t   group_by_serial\t- 1 priority group per serial\n");
-	fprintf(stderr, "\tdevice\t\tlimit scope to the device's multipath\n");
-	fprintf(stderr, "\t\t\t(hotplug-style $DEVPATH reference)\n");
+	fprintf(stderr,	"                   [-p failover|multibus|group_by_serial]\n" \
+			"                   [device]\n" \
+			"\n" \
+			"\t-v\t\tverbose, print all paths and multipaths\n" \
+			"\t-q\t\tquiet, no output at all\n" \
+			"\t-d\t\tdry run, do not create or update devmaps\n" \
+			"\t-m max_devs\tscan {max_devs} devices at most\n" \
+			"\n" \
+			"\t-p policy\tforce maps to specified policy :\n" \
+			"\t   failover\t\t- 1 path per priority group\n" \
+			"\t   multibus\t\t- all paths in 1 priority group\n" \
+			"\t   group_by_serial\t- 1 priority group per serial\n" \
+			"\t   group_by_tur\t\t- 1 priority group per TUR state\n" \
+			"\n" \
+			"\t-D maj min\tlimit scope to the device's multipath\n" \
+			"\t\t\t(major minor device reference)\n"
+			"\tdevice\t\tlimit scope to the device's multipath\n" \
+			"\t\t\t(hotplug-style $DEVPATH reference)\n"
+		);
 	exit(1);
 }
 
@@ -624,13 +784,31 @@ main(int argc, char *argv[])
 	struct scsi_dev * all_scsi_ids;
 	struct env conf;
 	int i, k, nmp;
+	int try = 0;
 
+	/* Don't run in parallel */
+	while (filepresent(RUN) && try++ < MAXTRY)
+		usleep(100000);
+
+	if (filepresent(RUN)) {
+		fprintf(stderr, "waited for to long. exiting\n");
+		exit (1);
+	}
+	
+	/* Our turn */
+	if (!open(RUN, O_CREAT)) {
+		fprintf(stderr, "can't create runfile\n");
+		exit (1);
+	}
+		
 	/* Default behaviour */
 	conf.max_devs = MAX_DEVS;
 	conf.dry_run = 0;	/* 1 == Do not Create/Update devmaps */
 	conf.verbose = 0;	/* 1 == Print all_paths and mp */
 	conf.quiet = 0;		/* 1 == Do not even print devmaps */
 	conf.iopolicy = -1;	/* Apply the defaults in get_unique_id() */
+	conf.major = -1;
+	conf.minor = -1;
 
 	for (i = 1; i < argc; ++i) {
 		if (0 == strcmp("-v", argv[i])) {
@@ -641,6 +819,9 @@ main(int argc, char *argv[])
 			conf.max_devs = atoi(argv[++i]);
 			if (conf.max_devs < 2)
 				usage(argv[0]);
+		} else if (0 == strcmp("-D", argv[i])) {
+			conf.major = atoi(argv[++i]);
+			conf.minor = atoi(argv[++i]);
 		} else if (0 == strcmp("-q", argv[i])) {
 			if (conf.verbose == 1)
 				usage(argv[0]);
@@ -655,6 +836,8 @@ main(int argc, char *argv[])
 				conf.iopolicy = MULTIBUS;
 			if (!strcmp(argv[i], "group_by_serial"))
 				conf.iopolicy = GROUP_BY_SERIAL;
+			if (!strcmp(argv[i], "group_by_tur"))
+				conf.iopolicy = GROUP_BY_TUR;
 		} else if (*argv[i] == '-') {
 			fprintf(stderr, "Unknown switch: %s\n", argv[i]);
 			usage(argv[0]);
@@ -696,10 +879,16 @@ main(int argc, char *argv[])
 		}
 	}
 
+	/* signal multipathd that new devmaps may have come up */
+	signal_daemon();
+	
 	/* free allocs */
 	free(mp);
 	free(all_paths);
 	free(all_scsi_ids);
+
+	/* release runfile */
+	unlink(RUN);
 
 	exit(0);
 }

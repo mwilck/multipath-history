@@ -6,6 +6,7 @@
 #define MX_ALLOC_LEN    255
 #define WWID_SIZE       33
 #define BLKGETSIZE      _IO(0x12,96)
+#define TUR_CMD_LEN     6
 
 /* exerpt from "sg_err.h" */
 #define SCSI_CHECK_CONDITION    0x2
@@ -17,3 +18,4 @@ int get_serial (char *, char *);
 int get_lun_strings (char *, char *, char *, char *);
 int get_evpd_wwid(char *, char *);
 long get_disk_size (char *);
+int do_tur (char *);
