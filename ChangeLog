@@ -1,3 +1,24 @@
+2004-07-16 multipath-tools-0.2.6
+	* [multipathd] implement the system-disk-on-SAN safety net
+	* [multipathd] add exit_daemon() wrapper function
+	* [multipathd] mlockall() all daemon threads
+	* [multipath] fix a bug in the mp_iopolicy_handler that kept
+	  the iopolicy per LUN override from working
+	* [multipath] display the tur bit value in print_path
+	  as requested by SUN
+	* try to open /$udev/reverse/$major:$minor before falling back
+	  to mknod
+	* add "udev_dir" to the defaults block in the config file
+	* merge "daemon" & "device_maps" config blocks into a new
+	  "defaults" block
+	* [multipath] properly comment the config file
+	* [multipath] generalize the dbg() macro usage
+	  Makefile now has a DEBUG flag
+	* [multipath] move to callout based WWID fetching. Default to
+	  scsi_id callout. I merged execute_program from udev for that
+	  (so credit goes to GregKH)
+	* [multipath] get rid of "devnodes in /dev" assumption
+	  ie move to "maj:min" device mapper target synthax
 2004-07-10 multipath-tools-0.2.5
 	* [multipathd] fix misbehaviour noted by <genanr@emsphone.com>
 	  improper tar directive in Makefile on some systems

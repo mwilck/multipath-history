@@ -5,7 +5,7 @@
 #define RECOVERED_ERROR 0x01
 #define MX_ALLOC_LEN    255
 #define WWID_SIZE       33
-#define BLKGETSIZE      _IO(0x12,96)
+//#define BLKGETSIZE      _IO(0x12,96)
 
 /* exerpt from "sg_err.h" */
 #define SCSI_CHECK_CONDITION    0x2

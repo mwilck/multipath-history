@@ -34,7 +34,7 @@
 #define SCSI_IOCTL_GET_BUS_NUMBER       0x5386
 
 /* global defs */
-#define WWID_SIZE	33
+#define WWID_SIZE	36
 #define SERIAL_SIZE	14
 #define MAX_MP_PATHS	32
 #define FILE_NAME_SIZE	256
@@ -74,7 +74,7 @@ struct scsi_dev {
 
 struct path {
 	char dev[FILE_NAME_SIZE];
-	char sg_dev[FILE_NAME_SIZE];
+	char dev_t[FILE_NAME_SIZE];
 	struct scsi_idlun scsi_id;
 	struct sg_id sg_id;
 	char wwid[WWID_SIZE];

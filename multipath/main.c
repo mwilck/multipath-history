@@ -37,6 +37,7 @@
 #include "dict.h"
 #include "vector.h"
 #include "memory.h"
+#include "callout.h"
 #include "debug.h"
 
 /* helpers */
@@ -125,24 +126,46 @@ devinfo (struct path *curpath)
 {
 	int i;
 	struct hwentry * hwe;
+	char buff[100];
 
-	get_lun_strings (curpath->vendor_id,
-			curpath->product_id,
-			curpath->rev,
-			curpath->sg_dev);
-	
-	get_serial (curpath->serial, curpath->sg_dev);
-	curpath->tur = do_tur (curpath->sg_dev);
+	sysfs_devinfo(curpath);
+	get_serial(curpath->serial, curpath->dev);
+	curpath->tur = do_tur (curpath->dev_t);
 
 	for (i = 0; i < VECTOR_SIZE(conf->hwtable); i++) {
 		hwe = VECTOR_SLOT(conf->hwtable, i);
+		sprintf (buff, "%s /block/%s", hwe->getuid, curpath->dev);
 
 		if (MATCH (curpath->vendor_id, hwe->vendor) &&
-		    MATCH (curpath->product_id, hwe->product) &&
-		    hwe->getuid (curpath->sg_dev, curpath->wwid))
-				return 1;
+		    MATCH (curpath->product_id, hwe->product)) {
+			/*
+			 * callout program
+			 */
+			if (execute_program(buff, curpath->wwid,
+			    WWID_SIZE) == 0) {
+				dbg("devinfo found uid : %s", curpath->wwid);
+				return 0;
+			}
+			dbg("error calling out %s", buff);
+			dbg("falling back to internal getuid function");
+
+			/*
+			 * fallback
+			 */
+			if (!get_evpd_wwid(curpath->dev_t, curpath->wwid)) {
+				dbg("devinfo found uid : %s", curpath->wwid);
+				return 0;
+			}
+			/*
+			 * no wwid : blank for safety
+			 */
+			dbg("unable to fetch a wwid : set to 0x0");
+			memset(curpath->wwid, 0, WWID_SIZE);
+			return 0;
+		}
 	}
-	return 0;
+	dbg("devinfo out : no match");
+	return 1;
 }
 
 static int
@@ -161,15 +184,16 @@ get_pathvec_sysfs (vector pathvec)
 	memset (empty_buff, 0, WWID_SIZE);
 	memset (refwwid, 0, WWID_SIZE);
 
-	/* if called from hotplug, only consider the paths that relate
-	   to the device pointed by conf.hotplugdev */
-
+	/*
+	 * if called from hotplug, only consider the paths that relate
+	 * to the device pointed by conf.hotplugdev
+	 */
 	if (strncmp ("/devices", conf->hotplugdev, 8) == 0) {
 		if (sysfsdevice2devname (buff, conf->hotplugdev))
 			return 1;
 
 		curpath = zalloc (sizeof (struct path));
-		sprintf (curpath->sg_dev, "/dev/%s", buff);
+		sprintf (curpath->dev, "%s", buff);
 
 		if (devinfo (curpath))
 			return 1;
@@ -178,15 +202,16 @@ get_pathvec_sysfs (vector pathvec)
 		free (curpath);
 	}
 
-	/* if major/minor specified on the cmd line,
-	   only consider affiliated paths */
-
+	/*
+	 * if major/minor specified on the cmd line,
+	 * only consider affiliated paths
+	 */
 	if (conf->major >= 0 && conf->minor >= 0) {
 		if (devt2devname (buff, conf->major, conf->minor))
 			return 1;
 		
 		curpath = zalloc (sizeof (struct path));
-		sprintf (curpath->sg_dev, "/dev/%s", buff);
+		sprintf (curpath->dev, "%s", buff);
 
 		if (devinfo (curpath))
 			return 1;
@@ -197,6 +222,7 @@ get_pathvec_sysfs (vector pathvec)
 		
 	if (sysfs_get_mnt_path (sysfs_path, FILE_NAME_SIZE)) {
 		fprintf (stderr, "[device] feature needs sysfs\n");
+		unlink(RUN);
 		exit (1);
 	}
 	
@@ -224,8 +250,7 @@ get_pathvec_sysfs (vector pathvec)
 
 		basename (devp->path, buff);
 		curpath = zalloc (sizeof (struct path));
-		sprintf (curpath->sg_dev, "/dev/%s", buff);
-		sprintf (curpath->dev, "/dev/%s", buff);
+		sprintf (curpath->dev, "%s", buff);
 
 		if (devinfo (curpath)) {
 			free (curpath);
@@ -252,7 +277,9 @@ get_pathvec_sysfs (vector pathvec)
 	return 0;
 }
 
-/* print_path style */
+/*
+ * print_path style
+ */
 #define ALL	0
 #define NOWWID	1
 
@@ -270,11 +297,8 @@ print_path (struct path * pp, int style)
 	       pp->sg_id.scsi_id,
 	       pp->sg_id.lun);
 
-	/* for 2.4 kernels, sg_dev should be printed */
-	if (0 != strcmp (pp->sg_dev, pp->dev))
-		printf ("%s ", pp->sg_dev);
-
 	printf ("%s ", pp->dev);
+	printf ("[tur:%i] ", 1 - pp->tur);
 	printf ("[%.16s]\n", pp->product_id);
 }
 
@@ -414,12 +438,6 @@ dm_addmap (int task, const char *name, const char *params, long size) {
 	return 1;
 }
 
-/* helper for grouping policy selection */
-
-#define policyis(x) params_p == &params[0] && \
-		    (conf->iopolicy == x || \
-		    (mpp->iopolicy == x && conf->iopolicy == -1))
-
 static int
 setup_map (vector pathvec, vector mp, int slot,  int op)
 {
@@ -427,49 +445,64 @@ setup_map (vector pathvec, vector mp, int slot,  int op)
 	char * params_p;
 	struct path * pp;
 	struct multipath * mpp;
-	int i;
-	struct hwentry * hwe;
+	int i, iopolicy;
+	struct hwentry * hwe = NULL;
 	struct mpentry * mpe;
 
 	mpp = VECTOR_SLOT(mp, slot);
 	pp = VECTOR_SLOT(mpp->paths, 0);
 	params_p = &params[0];
 
-	/* get iopolicy for this mp */
+	/*
+	 * iopolicy selection logic
+	 */
 
 	/* conservative setting */
-	mpp->iopolicy = FAILOVER;
+	iopolicy = FAILOVER;
+	dbg("default) iopolicy = %i", iopolicy);
 	
 	/* override by controler wide setting */
 	for (i = 0; i < VECTOR_SIZE(conf->hwtable); i++) {
 		hwe = VECTOR_SLOT(conf->hwtable, i);
 
-		if (strcmp(hwe->vendor, pp->vendor_id) == 0 &&
-		    strcmp(hwe->product, pp->product_id) == 0)
-			mpp->iopolicy = hwe->iopolicy;
+		if (MATCH (pp->vendor_id, hwe->vendor) &&
+		    MATCH (pp->product_id, hwe->product)) {
+			iopolicy = hwe->iopolicy;
+			dbg("controler override) iopolicy = %i", iopolicy);
+		}
 	}
 
 	/* override by LUN specific setting */
 	for (i = 0; i < VECTOR_SIZE(conf->mptable); i++) {
 		mpe = VECTOR_SLOT(conf->mptable, i);
 
-		if (strcmp(mpe->wwid, mpp->wwid) == 0)
-			mpp->iopolicy = hwe->iopolicy;
+		if (strcmp(mpe->wwid, mpp->wwid) == 0) {
+			iopolicy = mpe->iopolicy;
+			dbg("lun override) iopolicy = %i", iopolicy);
+		}
 	}
 
-	/* paths grouping policy selector */
-	/* implementations in pgpolicies.c */
+	/* cmd line flag has the last word */
+	if (conf->iopolicy >= 0) {
+		iopolicy = conf->iopolicy;
+		dbg("cmd flag override) iopolicy = %i", iopolicy);
+	}
 
-	if (policyis (MULTIBUS))
+	/*
+	 * feed params_p to the right pgpolicy
+	 * implementations in pgpolicies.c
+	 */
+
+	if (iopolicy == MULTIBUS)
 		one_group (mpp, params_p);
 
-	if (policyis (FAILOVER))
+	if (iopolicy == FAILOVER)
 		one_path_per_group (mpp, params_p);
 
-	if (policyis (GROUP_BY_SERIAL))
+	if (iopolicy == GROUP_BY_SERIAL)
 		group_by_serial (mpp, slot, params_p);
 
-	if (policyis (GROUP_BY_TUR))
+	if (iopolicy == GROUP_BY_TUR)
 		group_by_tur (mpp, params_p);
 
 	if (mpp->size < 0)
@@ -605,27 +638,27 @@ setup_default_hwtable (vector hwtable)
 {
 	struct hwentry * hwe;
 	
-	VECTOR_ADDHWE(hwtable, "COMPAQ", "HSV110 (C)COMPAQ", GROUP_BY_TUR, &get_evpd_wwid);
-	VECTOR_ADDHWE(hwtable, "COMPAQ", "MSA1000", GROUP_BY_TUR, &get_evpd_wwid);
-	VECTOR_ADDHWE(hwtable, "COMPAQ", "MSA1000 VOLUME", GROUP_BY_TUR, &get_evpd_wwid);
-	VECTOR_ADDHWE(hwtable, "DEC", "HSG80", GROUP_BY_TUR, &get_evpd_wwid);
-	VECTOR_ADDHWE(hwtable, "HP", "HSV110", GROUP_BY_TUR, &get_evpd_wwid);
-	VECTOR_ADDHWE(hwtable, "HP", "A6189A", GROUP_BY_TUR, &get_evpd_wwid);
-	VECTOR_ADDHWE(hwtable, "HP", "OPEN-", GROUP_BY_TUR, &get_evpd_wwid);
-	VECTOR_ADDHWE(hwtable, "DDN", "SAN DataDirector", GROUP_BY_TUR, &get_evpd_wwid);
-	VECTOR_ADDHWE(hwtable, "FSC", "CentricStor", GROUP_BY_TUR, &get_evpd_wwid);
-	VECTOR_ADDHWE(hwtable, "HITACHI", "DF400", GROUP_BY_TUR, &get_evpd_wwid);
-	VECTOR_ADDHWE(hwtable, "HITACHI", "DF500", GROUP_BY_TUR, &get_evpd_wwid);
-	VECTOR_ADDHWE(hwtable, "HITACHI", "DF600", GROUP_BY_TUR, &get_evpd_wwid);
-	VECTOR_ADDHWE(hwtable, "IBM", "ProFibre 4000R", GROUP_BY_TUR, &get_evpd_wwid);
-	VECTOR_ADDHWE(hwtable, "SGI", "TP9100", GROUP_BY_TUR, &get_evpd_wwid);
-	VECTOR_ADDHWE(hwtable, "SGI", "TP9300", GROUP_BY_TUR, &get_evpd_wwid);
-	VECTOR_ADDHWE(hwtable, "SGI", "TP9400", GROUP_BY_TUR, &get_evpd_wwid);
-	VECTOR_ADDHWE(hwtable, "SGI", "TP9500", GROUP_BY_TUR, &get_evpd_wwid);
-	VECTOR_ADDHWE(hwtable, "3PARdata", "VV", GROUP_BY_TUR, &get_evpd_wwid);
-	VECTOR_ADDHWE(hwtable, "STK", "OPENstorage D280", GROUP_BY_SERIAL, &get_evpd_wwid);
-	VECTOR_ADDHWE(hwtable, "SUN", "StorEdge 3510", GROUP_BY_TUR, &get_evpd_wwid);
-	VECTOR_ADDHWE(hwtable, "SUN", "T4", MULTIBUS, &get_evpd_wwid);
+	VECTOR_ADDHWE(hwtable, "COMPAQ", "HSV110 (C)COMPAQ", GROUP_BY_TUR, "/bin/scsi_id -g -s");
+	VECTOR_ADDHWE(hwtable, "COMPAQ", "MSA1000", GROUP_BY_TUR, "/bin/scsi_id -g -s");
+	VECTOR_ADDHWE(hwtable, "COMPAQ", "MSA1000 VOLUME", GROUP_BY_TUR, "/bin/scsi_id -g -s");
+	VECTOR_ADDHWE(hwtable, "DEC", "HSG80", GROUP_BY_TUR, "/bin/scsi_id -g -s");
+	VECTOR_ADDHWE(hwtable, "HP", "HSV110", GROUP_BY_TUR, "/bin/scsi_id -g -s");
+	VECTOR_ADDHWE(hwtable, "HP", "A6189A", GROUP_BY_TUR, "/bin/scsi_id -g -s");
+	VECTOR_ADDHWE(hwtable, "HP", "OPEN-", GROUP_BY_TUR, "/bin/scsi_id -g -s");
+	VECTOR_ADDHWE(hwtable, "DDN", "SAN DataDirector", GROUP_BY_TUR, "/bin/scsi_id -g -s");
+	VECTOR_ADDHWE(hwtable, "FSC", "CentricStor", GROUP_BY_TUR, "/bin/scsi_id -g -s");
+	VECTOR_ADDHWE(hwtable, "HITACHI", "DF400", GROUP_BY_TUR, "/bin/scsi_id -g -s");
+	VECTOR_ADDHWE(hwtable, "HITACHI", "DF500", GROUP_BY_TUR, "/bin/scsi_id -g -s");
+	VECTOR_ADDHWE(hwtable, "HITACHI", "DF600", GROUP_BY_TUR, "/bin/scsi_id -g -s");
+	VECTOR_ADDHWE(hwtable, "IBM", "ProFibre 4000R", GROUP_BY_TUR, "/bin/scsi_id -g -s");
+	VECTOR_ADDHWE(hwtable, "SGI", "TP9100", GROUP_BY_TUR, "/bin/scsi_id -g -s");
+	VECTOR_ADDHWE(hwtable, "SGI", "TP9300", GROUP_BY_TUR, "/bin/scsi_id -g -s");
+	VECTOR_ADDHWE(hwtable, "SGI", "TP9400", GROUP_BY_TUR, "/bin/scsi_id -g -s");
+	VECTOR_ADDHWE(hwtable, "SGI", "TP9500", GROUP_BY_TUR, "/bin/scsi_id -g -s");
+	VECTOR_ADDHWE(hwtable, "3PARdata", "VV", GROUP_BY_TUR, "/bin/scsi_id -g -s");
+	VECTOR_ADDHWE(hwtable, "STK", "OPENstorage D280", GROUP_BY_SERIAL, "/bin/scsi_id -g -s");
+	VECTOR_ADDHWE(hwtable, "SUN", "StorEdge 3510", GROUP_BY_TUR, "/bin/scsi_id -g -s");
+	VECTOR_ADDHWE(hwtable, "SUN", "T4", MULTIBUS, "/bin/scsi_id -g -s");
 }
 
 static void
@@ -771,10 +804,16 @@ main (int argc, char *argv[])
 	}
 
 	if (conf->default_selector == NULL) {
-		conf->default_selector = malloc(sizeof(char) * FILE_NAME_SIZE);
+		conf->default_selector = malloc(sizeof(char) * 12);
 		sprintf (conf->default_selector, "round-robin");
 	}
 
+	if (conf->udev_dir == NULL) {
+		conf->udev_dir = malloc(sizeof(char) * 6);
+		sprintf (conf->udev_dir, "/udev");
+	}
+
+	dbg("conf->udev_dir = %s", conf->udev_dir);
 	/* allocate the two core vectors to store paths and multipaths*/
 	mp = vector_alloc();
 	pathvec = vector_alloc();

@@ -22,21 +22,12 @@ static struct {
 	{NULL, -1},
 };
 
-static struct {
-	char * name;
-	int (*getuid) (char *, char *);
-} getuid_list[] = {
-	{"get_null_uid", &get_null_uid},
-	{"get_evpd_wwid", &get_evpd_wwid},
-	{NULL, NULL},
-};
-
 struct mpentry {
 	char * wwid;
 	char * selector;
 	int selector_args;
 	int iopolicy;
-	int (*getuid) (char *, char *);
+	char * getuid;
 };
 
 struct hwentry {
@@ -45,7 +36,7 @@ struct hwentry {
 	char * selector;
 	int selector_args;
 	int iopolicy;
-	int (*getuid) (char *, char *);
+	char * getuid;
 };
 
 /* Global vars */ 
@@ -60,6 +51,7 @@ struct config {
 	char * hotplugdev;
 	int signal;
 
+	char * udev_dir;
 	char * default_selector;
 	int default_selector_args;
 

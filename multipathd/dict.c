@@ -73,13 +73,49 @@ path_checker_handler(vector strvec)
 	}
 	free(buff);
 }
+static void
+hw_getuid_callout_handler(vector strvec)
+{
+	int i;
+	char * bin;
+	char * curbin;
+	char * p;
+
+	/*
+	 * purge command line arguments
+	 */
+	curbin = set_value(strvec);
+	p = curbin;
+
+	while (*p != ' ' && *p != '\0')
+		p++;
+
+	*p = '\0';
+
+	if (binvec == NULL)
+		binvec = vector_alloc();
+	/*
+	 * if this callout is already stored in binvec, don't store it twice
+	 */
+	for (i = 0; i < VECTOR_SIZE(binvec); i++) {
+		bin = VECTOR_SLOT(binvec, i);
+
+		if (memcmp (bin, curbin, sizeof(curbin)) == 0)
+			return;
+	}
+	/*
+	 * else, store it
+	 */
+	vector_alloc_slot(binvec);
+	vector_set_slot(binvec, curbin);
+}
 
 vector
 init_keywords(void)
 {
 	keywords = vector_alloc();
 
-	install_keyword_root("daemon", NULL);
+	install_keyword_root("defaults", NULL);
 	install_keyword("polling_interval", &polling_interval_handler);
 	install_keyword_root("devnode_blacklist", &blacklist_handler);
 	install_keyword("devnode", &devnode_handler);
@@ -89,6 +125,7 @@ init_keywords(void)
 	install_keyword("vendor", &vendor_handler);
 	install_keyword("product", &product_handler);
 	install_keyword("path_checker", &path_checker_handler);
+	install_keyword("getuid_callout", &hw_getuid_callout_handler);
 	install_sublevel_end();
 
 	return keywords;

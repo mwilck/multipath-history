@@ -23,6 +23,52 @@ basename(char * str1, char * str2)
 }
 
 static int
+opennode (char * devt)
+{
+	char devpath[FILE_NAME_SIZE];
+	uint32_t major;
+	uint32_t minor;
+	int fd;
+
+	sscanf(devt, "%u:%u", &major, &minor);
+
+	/* first, try with udev reverse mappings */
+	sprintf(devpath, "%s/reverse/%u:%u", conf->udev_dir, major, minor);
+	fd = open(devpath, O_RDONLY);
+
+	if (fd >= 0)
+		return fd;
+
+	/* fallback to temp devnode creation */
+	memset(devpath, 0, FILE_NAME_SIZE);
+	sprintf(devpath, "/tmp/.multipath.%u.%u.devnode", major, minor);
+	unlink (devpath);
+	mknod(devpath, S_IFBLK|S_IRUSR|S_IWUSR, makedev(major, minor));
+	fd = open(devpath, O_RDONLY);
+	
+	if (fd < 0)
+		unlink(devpath);
+
+	return fd;
+
+}
+
+static void
+closenode (char * devt, int fd)
+{
+	char devpath[FILE_NAME_SIZE];
+	uint32_t major;
+	uint32_t minor;
+
+	if (fd >= 0)		/* as it should always be */
+		close(fd);
+
+	sscanf(devt, "%u:%u", &major, &minor);
+	sprintf(devpath, "/tmp/.multipath.%u.%u.devnode", major, minor);
+	unlink(devpath);
+}
+
+static int
 do_inq(int sg_fd, int cmddt, int evpd, unsigned int pg_op,
        void *resp, int mx_resp_len, int noisy)
 {
@@ -80,8 +126,11 @@ get_serial (char * str, char * devname)
 	int fd;
         int len;
         char buff[MX_ALLOC_LEN + 1];
+	char devpath[100];
 
-	if ((fd = open(devname, O_RDONLY)) < 0)
+	sprintf(devpath, "/dev/%s", devname);
+
+	if ((fd = open(devpath, O_RDONLY)) < 0)
                 return 0;
 
 	if (0 == do_inq(fd, 0, 1, 0x80, buff, MX_ALLOC_LEN, 0)) {
@@ -98,47 +147,40 @@ get_serial (char * str, char * devname)
 }
 
 int
-get_lun_strings(char * vendor_id, char * product_id, char * rev, char * devname)
+sysfs_devinfo(struct path * curpath)
 {
-	int fd;
-	char buff[36];
 	char attr_path[FILE_NAME_SIZE];
 	char attr_buff[17];
 	char sysfs_path[FILE_NAME_SIZE];
-	char basedev[FILE_NAME_SIZE];
-                                                                                                                 
+
 	if (0 == sysfs_get_mnt_path(sysfs_path, FILE_NAME_SIZE)) {
 		/* sysfs style */
-		basename(devname, basedev);
- 
 		sprintf(attr_path, "%s/block/%s/device/vendor",
-			sysfs_path, basedev);
+			sysfs_path, curpath->dev);
 		if (0 > sysfs_read_attribute_value(attr_path,
 			attr_buff, 17)) return 0;
-		memcpy (vendor_id, attr_buff, 8);
+		memcpy(curpath->vendor_id, attr_buff, 8);
  
 		sprintf(attr_path, "%s/block/%s/device/model",
-			sysfs_path, basedev);
+			sysfs_path, curpath->dev);
 		if (0 > sysfs_read_attribute_value(attr_path,
 			attr_buff, 17)) return 0;
-		memcpy (product_id, attr_buff, 16);
+		memcpy(curpath->product_id, attr_buff, 16);
  
 		sprintf(attr_path, "%s/block/%s/device/rev",
-			sysfs_path, basedev);
+			sysfs_path, curpath->dev);
 		if (0 > sysfs_read_attribute_value(attr_path,
 			attr_buff, 17)) return 0;
-		memcpy (rev, attr_buff, 4);
+		memcpy(curpath->rev, attr_buff, 4);
+ 
+		sprintf(attr_path, "%s/block/%s/dev",
+			sysfs_path, curpath->dev);
+		if (0 > sysfs_read_attribute_value(attr_path,
+			attr_buff, 17)) return 0;
+		strncpy(curpath->dev_t, attr_buff, strlen(attr_buff));
 	} else {
-		/* ioctl style */
-		if ((fd = open(devname, O_RDONLY)) < 0)
-			return 0;
-		if (0 != do_inq(fd, 0, 0, 0, buff, 36, 1))
-			return 0;
-		memcpy(vendor_id, &buff[8], 8);
-		memcpy(product_id, &buff[16], 16);
-		memcpy(rev, &buff[32], 4);
-		close(fd);
-		return 1;
+		printf("need sysfs mounted : out\n");
+		exit(1);
 	}
 	return 0;
 }
@@ -162,18 +204,13 @@ static int check_0x83_id(char *scsi_dev, char *page_83, int max_len)
 	/*
 	 * ASSOCIATION must be with the device (value 0)
 	 */
-#ifdef DEBUG
-	fprintf(stdout,"%s: Association: %X\n", scsi_dev, page_83[1] & 0x30);
-#endif
 	if ((page_83[1] & 0x30) != 0)
 		return -1;
 
 	/*
 	 * Check for code set - ASCII or BINARY.
 	 */
-#ifdef DEBUG
-	fprintf(stdout,"%s: Codeset: %X\n", scsi_dev, page_83[0] & 0x0f);
-#endif
+	dbg("%s: Codeset: %X", scsi_dev, page_83[0] & 0x0f);
 	if (((page_83[0] & 0x0f) != CODESET_ASCII) &&
 	    ((page_83[0] & 0x0f) != CODESET_BINARY))
 		return -1;
@@ -183,7 +220,7 @@ static int check_0x83_id(char *scsi_dev, char *page_83, int max_len)
 	 */
 	idweight = page_83[1] & 0x0f;
 	
-#ifdef DEBUG
+#if DEBUG
 	fprintf(stdout,"%s: ID type: ", scsi_dev);
 	switch (page_83[1] & 0x0f) {
 	case 0x0:
@@ -276,18 +313,18 @@ static int check_0x83_id(char *scsi_dev, char *page_83, int max_len)
 		 * Check whether the descriptor contains anything useful
 		 * i.e. anything apart from ' ' or '0'.
 		 */
-#ifdef DEBUG
+#if DEBUG
 		fprintf(stdout,"%s: string '", scsi_dev);
 #endif
 		while (i < (4 + page_83[3])) {
 			if (page_83[i] == ' ' || page_83[i] == '0')
 				len--;
-#ifdef DEBUG
+#if DEBUG
 			fputc(page_83[i],stdout);
 #endif
 			i++;
 		}
-#ifdef DEBUG
+#if DEBUG
 		fprintf(stdout,"'");
 #endif
 	} else {
@@ -298,22 +335,20 @@ static int check_0x83_id(char *scsi_dev, char *page_83, int max_len)
 		 * Again, check whether the descriptor contains anything
 		 * useful; in this case, anything > 0.
 		 */
-#ifdef DEBUG
+#if DEBUG
 		fprintf(stdout,"%s: binary ", scsi_dev);
 #endif
 		while (i < (4 + page_83[3])) {
 			if (page_83[i] == 0)
 				len-=2;
-#ifdef DEBUG
+#if DEBUG
 			fputc(hex_str[(page_83[i] & 0xf0) >> 4],stdout);
 			fputc(hex_str[page_83[i] & 0x0f],stdout);
 #endif
 			i++;
 		}
 	}
-#ifdef DEBUG
-	fprintf(stdout," (len %d)\n", len);
-#endif
+	dbg(" (len %d)", len);
 
 	if (len <= 0)
 		return -1;
@@ -375,39 +410,32 @@ static int fill_0x83_id(char *page_83, char *serial)
 long
 get_disk_size (char * devname) {
 	long size;
-	int fd;
 	char attr_path[FILE_NAME_SIZE];
 	char sysfs_path[FILE_NAME_SIZE];
 	char buff[FILE_NAME_SIZE];
-	char basedev[FILE_NAME_SIZE];
-                                                                                                                 
+
 	if (0 == sysfs_get_mnt_path(sysfs_path, FILE_NAME_SIZE)) {
-		basename(devname, basedev);
 		sprintf(attr_path, "%s/block/%s/size",
-			sysfs_path, basedev);
+			sysfs_path, devname);
 		if (0 > sysfs_read_attribute_value(attr_path, buff,
 			FILE_NAME_SIZE * sizeof(char)))
 			return -1;
 		size = atoi(buff);
 		return size;
-	} else {
-		if ((fd = open(devname, O_RDONLY)) < 0)
-			return -1;
-		if(!ioctl(fd, BLKGETSIZE, &size))
-			return size;
 	}
+	dbg("get_disk_size need sysfs");
 	return -1;
 }
 
 int
-do_tur(char *dev)
+do_tur(char *devt)
 {
 	unsigned char turCmdBlk[TUR_CMD_LEN] = { 0x00, 0, 0, 0, 0, 0 };
 	struct sg_io_hdr io_hdr;
 	unsigned char sense_buffer[32];
 	int fd;
 
-	fd = open(dev, O_RDONLY);
+	fd = opennode(devt);
 	
 	if (fd < 0)
 		return 0;
@@ -423,11 +451,11 @@ do_tur(char *dev)
 	io_hdr.pack_id = 0;
 
 	if (ioctl(fd, SG_IO, &io_hdr) < 0) {
-		close(fd);
+		closenode(devt, fd);
 		return 0;
 	}
 
-	close(fd);
+	closenode(devt, fd);
 	
 	if (io_hdr.info & SG_INFO_OK_MASK)
 		return 0;
@@ -438,28 +466,19 @@ do_tur(char *dev)
 /* getuid functions */
 
 /*
- * returns a 128 bits uid filled with zeroes
- * used to ignore devices
- */
-int
-get_null_uid (char * devname, char * wwid)
-{
-	memset (wwid, 0, WWID_SIZE);
-	return 0;
-}
-
-/*
  * get EVPD page 0x83 off 8
  * tested ok with StorageWorks
  */
 int
-get_evpd_wwid (char * devname, char * wwid)
+get_evpd_wwid (char * dev_t, char * wwid)
 {
         int fd, j, weight, weight_cur, offset_cur, retval = 0;
         char buff[MX_ALLOC_LEN + 1];
 
-        if ((fd = open(devname, O_RDONLY)) < 0)
-                        return 1;
+	fd = opennode(dev_t);
+
+        if (fd < 0)
+		return 1;
 
 	weight_cur = -1;
 	offset_cur = -1;
@@ -470,11 +489,11 @@ get_evpd_wwid (char * devname, char * wwid)
 		 * one or a small number of descriptors.
 		 */
 		for (j = 4; j <= buff[3] + 3; j += buff[j + 3] + 4) {
-#ifdef DEBUG
+#if DEBUG
 			fprintf(stdout,"%s: ID descriptor at %d:\n", 
-				devname, j);
+				dev_t, j);
 #endif
-			weight = check_0x83_id(devname, &buff[j], 
+			weight = check_0x83_id(dev_t, &buff[j], 
 					       MX_ALLOC_LEN);
 			if (weight >= 0 && weight > weight_cur) {
 				weight_cur = weight;
@@ -489,6 +508,6 @@ get_evpd_wwid (char * devname, char * wwid)
 	} else
 		retval = 1;
 
-        close(fd);
+	closenode(dev_t, fd);
         return retval;
 }

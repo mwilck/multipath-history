@@ -3,12 +3,13 @@
 # Copyright (C) 2003 Christophe Varoqui, <christophe.varoqui@free.fr>
 
 EXEC = multipath
+DEBUG = 0
 
 include ../Makefile.inc
 
-CFLAGS += -I$(klibcdir)/klibc/arch/$(arch)/include
+CFLAGS += -I$(klibcdir)/klibc/arch/$(arch)/include -DDEBUG=${DEBUG}
 
-OBJS = pgpolicies.o devinfo.o main.o \
+OBJS = pgpolicies.o devinfo.o main.o callout.o \
        vector.o parser.o dict.o memory.o
 
 $(EXEC): $(OBJS)

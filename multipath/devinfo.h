@@ -4,7 +4,6 @@
 #define DEF_TIMEOUT     60000
 #define RECOVERED_ERROR 0x01
 #define MX_ALLOC_LEN    255
-#define WWID_SIZE       33
 #define BLKGETSIZE      _IO(0x12,96)
 #define TUR_CMD_LEN     6
 
@@ -13,9 +12,11 @@
 #define SCSI_COMMAND_TERMINATED 0x22
 #define SG_ERR_DRIVER_SENSE     0x08
 
+#include "main.h"
+
 void basename (char *, char *);
 int get_serial (char *, char *);
-int get_lun_strings (char *, char *, char *, char *);
+int sysfs_devinfo (struct path *);
 long get_disk_size (char *);
 int do_tur (char *);
 
