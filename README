@@ -85,11 +85,6 @@ o The kernel does NOT manage properly ghosts paths
 o 2.4.21 version of DM does not like even segment size.
   if you enconter pbs with this, upgrade DM.
 
-o RedHat kernels may have an #error in
-  include/linux/config.h preventing kernel headers
-  inclusion from userspace, which you should erase to
-  compile klibc.
-
 Credits :
 =========
 

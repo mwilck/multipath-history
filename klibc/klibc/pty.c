@@ -1,7 +1,7 @@
 /*
  * pty.c
  *
- * Basic Unix98 PTY functionality; assumes devpts mounted on /dev/pts
+ * Basic Unix98 PTY functionality; assumes devpts
  */
 
 #include <stdio.h>
