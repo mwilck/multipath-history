@@ -38,7 +38,7 @@
 #define CONFIGFILE	"/etc/multipath.conf"
 #define DEFAULT_GETUID	"/sbin/scsi_id -g -u -s"
 #define DEFAULT_UDEVDIR	"/udev"
-#define DEFAULT_SELECTOR	"round-robin"
+#define DEFAULT_SELECTOR	"round-robin 0"
 #define DEFAULT_FEATURES	"0"
 #define DEFAULT_HWHANDLER	"0"
 

@@ -31,9 +31,10 @@ defaults {
 	# scope   : multipath
 	# desc    : the default path selector algorithm to use
 	#           these algorithms are offered by the kernel multipath target
-	# values  : round-robin
-	# default : round-robin
+	# values  : "round-robin 0"
+	# default : "round-robin 0"
 	#
+	default_selector	"round-robin 0"
 
 	#
 	# name    : default_path_grouping_policy
@@ -135,6 +136,7 @@ multipaths {
 		# values  : "round-robin 0"
 		# default : "round-robin 0"
 		#
+		path_selector		"round-robin 0"
 	}
 	multipath {
 		wwid	1DEC_____321816758474
@@ -210,10 +212,10 @@ devices {
 		# name    : path_selector
 		# desc    : the path selector algorithm to use for this mpath
 		#           these algo are offered by the kernel mpath target
-		# values  : round-robin
-		# default : round-robin
+		# values  : "round-robin 0"
+		# default : "round-robin 0"
 		#
-		path_selector		round-robin
+		path_selector		"round-robin 0"
 	}
 	device {
 		vendor			"COMPAQ  "
