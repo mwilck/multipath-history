@@ -1,9 +1,11 @@
 #include <syslog.h>
 #include <checkers.h>
+#include <vector.h>
+#include <hwtable.h>
 
+#include "main.h"
 #include "parser.h"
 #include "memory.h"
-#include "hwtable.h"
 
 /*
  * helper function to draw a list of callout binaries found in the config file

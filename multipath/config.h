@@ -15,20 +15,6 @@ struct mpentry {
 	char * alias;
 };
 
-struct hwentry {
-	int selector_args;
-	int pgpolicy;
-	int checker_index;
-
-	char * vendor;
-	char * product;
-	char * selector;
-	char * getuid;
-	char * getprio;
-	char * features;
-	char * hwhandler;
-};
-
 struct config {
 	int verbosity;
 	int dry_run;
