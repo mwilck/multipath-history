@@ -1,3 +1,5 @@
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <libdevmapper.h>
 
@@ -58,6 +60,7 @@ dm_simplecmd (int task, const char *name) {
 extern int
 dm_addmap (int task, const char *name, const char *target,
 	   const char *params, unsigned long size) {
+	int r = 0;
 	struct dm_task *dmt;
 
 	if (!(dmt = dm_task_create (task)))
@@ -69,12 +72,11 @@ dm_addmap (int task, const char *name, const char *target,
 	if (!dm_task_add_target (dmt, 0, size, target, params))
 		goto addout;
 
-	if (!dm_task_run (dmt))
-		goto addout;
+	r = dm_task_run (dmt);
 
 	addout:
 	dm_task_destroy (dmt);
-	return 1;
+	return r;
 }
 
 extern int
@@ -100,6 +102,120 @@ dm_map_present (char * str)
 	do {
 		if (0 == strcmp (names->name, str))
 			r = 1;
+
+		next = names->next;
+		names = (void *) names + next;
+	} while (next);
+
+	out:
+	dm_task_destroy (dmt);
+	return r;
+}
+
+extern int
+dm_get_map(char * name, unsigned long * size, char ** outparams)
+{
+	int r = 0;
+	struct dm_task *dmt;
+	void *next = NULL;
+	uint64_t start, length;
+	char *target_type = NULL;
+	char *params;
+	int cmd;
+
+	cmd = DM_DEVICE_TABLE;
+
+	if (!(dmt = dm_task_create(cmd)))
+		return 0;
+
+	if (!dm_task_set_name(dmt, name))
+		goto out;
+
+	if (!dm_task_run(dmt))
+		goto out;
+
+	/* Fetch 1st target */
+	next = dm_get_next_target(dmt, next, &start, &length,
+				  &target_type, &params);
+
+	if (size)
+		*size = length;
+
+	*outparams = malloc(strlen(params) + 1);
+
+	if (!*outparams)
+		goto out;
+
+	if (sprintf(*outparams, params))
+		goto out;
+
+	r = 1;
+
+	out:
+	dm_task_destroy(dmt);
+	return r;
+}
+
+extern int
+dm_type(char * name, char * type)
+{
+	int r = 0;
+	struct dm_task *dmt;
+	void *next = NULL;
+	uint64_t start, length;
+	char *target_type = NULL;
+	char *params;
+	int cmd;
+
+	cmd = DM_DEVICE_TABLE;
+
+	if (!(dmt = dm_task_create(cmd)))
+		return 0;
+
+	if (!dm_task_set_name(dmt, name))
+		goto out;
+
+	if (!dm_task_run(dmt))
+		goto out;
+
+	/* Fetch 1st target */
+	next = dm_get_next_target(dmt, next, &start, &length,
+				  &target_type, &params);
+
+	if (0 == strcmp(target_type, type)) {
+		r = 1;
+		goto out;
+	}
+
+	out:
+	dm_task_destroy(dmt);
+	return r;
+}
+
+extern int
+dm_flush_maps (char * type)
+{
+	int r = 0;
+	struct dm_task *dmt;
+	struct dm_names *names;
+	unsigned next = 0;
+
+	if (!(dmt = dm_task_create (DM_DEVICE_LIST)))
+		return 0;
+
+	if (!dm_task_run (dmt))
+		goto out;
+
+	if (!(names = dm_task_get_names (dmt)))
+		goto out;
+
+	if (!names->dev)
+		goto out;
+
+	do {
+		if (dm_type(names->name, type) &&
+		    !dm_simplecmd(DM_DEVICE_REMOVE, names->name))
+			r++;
 
 		next = names->next;
 		names = (void *) names + next;
