@@ -189,7 +189,6 @@ print_path (struct path * pp, int style)
 	fprintf(stdout, "\n");
 }
 
-#if DEBUG
 static void
 print_map (struct multipath * mpp)
 {
@@ -208,7 +207,6 @@ print_all_paths (vector pathvec)
 	vector_foreach_slot (pathvec, pp, i)
 		print_path(pp, PRINT_PATH_ALL);
 }
-#endif
 
 static void
 print_mp (struct multipath * mpp)
@@ -390,16 +388,21 @@ setup_map (struct multipath * mpp)
 	/*
 	 * don't bother if devmap size is unknown
 	 */
-	if (mpp->size <= 0)
+	if (mpp->size <= 0) {
+		condlog(3, "%s devmap size is unknown", mpp->alias);
 		return 1;
+	}
 
 	/*
 	 * don't bother if a constituant path is claimed
 	 * FIXME : claimed detection broken, always unclaimed for now
 	 */
-	vector_foreach_slot (mpp->paths, pp, i)
-		if (pp->claimed)
+	vector_foreach_slot (mpp->paths, pp, i) {
+		if (pp->claimed) {
+			condlog(3, "%s claimed", pp->dev);
 			return 1;
+		}
+	}
 
 	/*
 	 * properties selectors
@@ -431,8 +434,9 @@ setup_map (struct multipath * mpp)
 	default:
 		break;
 	}
+
 	if (mpp->pg == NULL) {
-		condlog(3, "pgpolicy failed to produce a ->pg vector");
+		condlog(3, "pgpolicy failed to produce a pg vector");
 		return 1;
 	}
 
@@ -456,7 +460,10 @@ setup_map (struct multipath * mpp)
 	 * transform the mp->pg vector of vectors of paths
 	 * into a mp->params strings to feed the device-mapper
 	 */
-	assemble_map(mpp);
+	if (assemble_map(mpp)) {
+		condlog(3, "problem assembing map");
+		return 1;
+	}
 	return 0;
 }
 
@@ -713,8 +720,12 @@ coalesce_paths (vector curmp, vector pathvec)
 				free_multipath(mpp);
 				continue;
 			}
+			condlog(3, "action preset to %i", mpp->action);
+
 			if (mpp->action == ACT_UNDEF)
 				select_action(mpp, curmp);
+
+			condlog(3, "action set to %i", mpp->action);
 
 			domap(mpp);
 			free_multipath(mpp);
