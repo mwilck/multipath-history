@@ -85,9 +85,7 @@ pthread_cond_t *event;
  * structs
  */
 struct path {
-	int major;
-	int minor;
-	char sg_dev_t[DEV_T_SIZE];
+	char dev_t[DEV_T_SIZE];
 	int state;
 	int (*checkfn) (char *, char *, void *);
 	void * checker_context;
@@ -325,13 +323,13 @@ updatepaths (struct paths *failedpaths)
 		for (i = 0; i < VECTOR_SIZE(failedpaths->pathvec); i++) {
 			pp = VECTOR_SLOT(failedpaths->pathvec, i);
 
-			if (0 == strncmp(pp->sg_dev_t, attr_buff,
-					strlen(pp->sg_dev_t)))
+			if (0 == strncmp(pp->dev_t, attr_buff,
+					strlen(pp->dev_t)))
 				break;
 		}
 		if (i < VECTOR_SIZE(failedpaths->pathvec)) {
 			syslog(LOG_INFO, "path checker already active : %s",
-				pp->sg_dev_t);
+				pp->dev_t);
 			continue;
 		}
 
@@ -340,9 +338,9 @@ updatepaths (struct paths *failedpaths)
 		 */
 		pp = MALLOC(sizeof(struct path));
 
-		if (safe_snprintf(pp->sg_dev_t, DEV_T_SIZE, "%s",
+		if (safe_snprintf(pp->dev_t, DEV_T_SIZE, "%s",
 				  attr_buff)) {
-			fprintf(stderr, "sg_dev_t too small\n");
+			fprintf(stderr, "dev_t too small\n");
 			FREE(pp);
 			continue;
 		}
@@ -353,7 +351,7 @@ updatepaths (struct paths *failedpaths)
 			FREE(pp);
 			continue;
 		}
-		pp->state = checkpath(pp->sg_dev_t, pp->checkfn, NULL,
+		pp->state = checkpath(pp->dev_t, pp->checkfn, NULL,
 					pp->checker_context);
 
 		if (safe_sprintf(attr_path, "%s/block/%s/dev",
@@ -371,7 +369,7 @@ updatepaths (struct paths *failedpaths)
 		vector_alloc_slot(failedpaths->pathvec);
 		vector_set_slot(failedpaths->pathvec, pp);
 
-		syslog(LOG_NOTICE, "path checker startup : %s", pp->sg_dev_t);
+		syslog(LOG_NOTICE, "path checker startup : %s", pp->dev_t);
 	}
 	pthread_mutex_unlock(failedpaths->lock);
 	sysfs_close_directory(sdir);
@@ -599,14 +597,14 @@ checkerloop (void *ap)
 		pthread_mutex_lock(failedpaths->lock);
 		syslog(LOG_DEBUG, "checking paths");
 
-		for (i = 0; i < VECTOR_SIZE(failedpaths->pathvec); i++) {
-			pp = VECTOR_SLOT(failedpaths->pathvec, i);
-			newstate = checkpath(pp->sg_dev_t, pp->checkfn,
+		for (i = 0; i < VECTOR_SIZE(allpaths->pathvec); i++) {
+			pp = VECTOR_SLOT(allpaths->pathvec, i);
+			newstate = checkpath(pp->dev_t, pp->checkfn,
 				      checker_msg, pp->checker_context);
 			
 			if (newstate != pp->state) {
 				pp->state = newstate;
-				LOG_MSG(checker_msg, pp->sg_dev_t);
+				LOG_MSG(checker_msg, pp->dev_t);
 
 				/*
 				 * don't trigger map reconfiguration for
@@ -620,8 +618,7 @@ checkerloop (void *ap)
 				 * reconfigure map now
 				 */
 				bin = MALLOC(strlen(multipath) + DEV_T_SIZE);
-				sprintf(bin, "%s -D %i %i", multipath,
-						pp->major, pp->minor);
+				sprintf(bin, "%s -D %s", multipath, pp->dev_t);
 
 				syslog(LOG_DEBUG, "%s", bin);
 				syslog(LOG_INFO, "reconfigure multipath map");

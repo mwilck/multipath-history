@@ -29,8 +29,7 @@ struct config {
 	int dry_run;
 	int iopolicy_flag;
 	int with_sysfs;
-	int major;
-	int minor;
+	char * devt;
 	char * dev;
 	int signal;
 
