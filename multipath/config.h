@@ -39,7 +39,6 @@ struct config {
 	int default_selector_args;
 	int default_pgpolicy;
 
-	char * devt;
 	char * dev;
 	char * udev_dir;
 	char * default_selector;
