@@ -1,5 +1,6 @@
 #include <string.h>
 #include <stdio.h>
+#include <ctype.h>
 
 #include "memory.h"
 #include "vector.h"
@@ -32,14 +33,24 @@ int
 blacklist (vector blist, char * dev)
 {
 	int i;
+	int ref_dev_len, blist_dev_len;
 	char *p;
 	char buff[BLIST_ENTRY_SIZE];
 
 	basename(dev, buff);
+	ref_dev_len = strlen(buff);
 
 	vector_foreach_slot (blist, p, i) {
-		if (memcmp(buff, p, strlen(p)) == 0)
+		blist_dev_len = strlen(p);
+
+		if (blist_dev_len > ref_dev_len)
+			continue;
+
+		if (memcmp(buff, p, blist_dev_len) == 0 &&
+		    (blist_dev_len == ref_dev_len ||
+		    isdigit(buff[blist_dev_len]))) {
 			return 1;
+		}
 	}
 	return 0;
 }
