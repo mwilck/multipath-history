@@ -16,7 +16,7 @@ else
 endif
 
 VERSION = $(shell basename ${PWD} | cut -d'-' -f3)
-INSTALLDIRS = devmap_name multipath multipathd kpartx
+INSTALLDIRS = devmap_name multipath multipathd kpartx path_priority
 
 all: recurse
 
