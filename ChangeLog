@@ -1,5 +1,29 @@
 2005-03-19 multipath-tools-0.4.4
 
+	* [kpartx] give kpartx a private, slim copy of devmap.[ch]
+	* [multipath] allow wwid in blacklist{} config section.
+	  Kiyoshi Ueda, NEC.
+	* [multipathd] set mode value before use (S_IRWXU). Fixes
+	  RedHat Bugzilla Bug 150665.
+	* [all] add ->fd to "struct path *". remove fd from all
+	  checker context declaration. remove lots of duplicate
+	  logic. Now a fd is opened only once for path. It should
+	  also bring a bit safety in contended memory scenarii
+	* [libcheckers] remove redundant sg_include.h
+	* [libmultipath] merge multipath:dict.[ch] with
+	  multipathd:dict.[ch] into libmultipath/. move config.h
+	  there too, add some helper functions to alloc/free
+	  "struct config *" in a new config.c. Start using a
+	  config in the daemon.
+	* [libmultipath] move dm_geteventnr(), dm_get_maps() and
+	  dm_switchgroup() in devmapper.[ch]
+	* [libmultipath] move path discovery logic in
+	  libmultipath. merge devinfo.[ch] and sysfs_devinfo.[ch]
+	  into discovery.[ch]
+	* [libmultipath] move config.h in libmultipath. Move
+	  find_[mp|hw]e in a new config.c. Move "struct hwtable"
+	  declaration in config.h. Move propsel.[ch] in the
+	  lib too.
 	* [multipathd] use libmultipath:dm_type() instead of
 	  duplacate and bogus devmap discovery code.
 	* [multipathd] asynchronous & non-blocking logger
