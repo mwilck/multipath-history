@@ -655,7 +655,7 @@ dm_get_map(char * name, char * outparams)
 	next = dm_get_next_target(dmt, next, &start, &length,
 				  &target_type, &params);
 
-	if (snprintf(outparams, PARAMS_SIZE, params) >= PARAMS_SIZE)
+	if (safe_snprintf(outparams, PARAMS_SIZE, params))
 		goto out;
 
 	r = 1;

@@ -11,5 +11,7 @@
 #define LOG(x, y, z...) if (DEBUG>=x) syslog(x, "[%lu] " y, pthread_self(), ##z)
 #define safe_sprintf(var, format, args...)	\
 	snprintf(var, sizeof(var), format, ##args) >= sizeof(var)
+#define safe_snprintf(var, size, format, args...)      \
+	snprintf(var, size, format, ##args) >= size
 
 #endif /* _LOG_H */
