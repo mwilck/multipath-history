@@ -24,11 +24,13 @@ include $(klibcdir)/klibc/arch/$(arch)/MCONFIG
 
 # compilation params
 GCCINCDIR := ${shell unset LANG;$(CC) -print-search-dirs | sed -ne "s/install: \(.*\)/\1include/gp"}
-KERNEL_DIR = /lib/modules/${shell uname -r}/build
+KERNEL_BUILD = /lib/modules/${shell uname -r}/build
+KERNEL_SOURCE = /lib/modules/${shell uname -r}/source
 CFLAGS = -pipe -g -O2 -Wall -Wunused -Wstrict-prototypes -nostdinc \
          -I$(klibcdir)/klibc/include \
 	 -I$(klibcdir)/klibc/include/bits$(BITSIZE) \
-         -I$(GCCINCDIR) -I$(KERNEL_DIR)/include -I$(sysfsdir) -I.
+         -I$(GCCINCDIR) -I$(KERNEL_BUILD)/include -I$(sysfsdir) -I. \
+         -I$(KERNEL_SOURCE)/include
 
 CRT0 = $(klibcdir)/klibc/crt0.o
 LIB = $(klibcdir)/klibc/libc.a
