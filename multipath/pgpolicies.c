@@ -1,8 +1,35 @@
+/*
+ * Here we define the path grouping policies
+ *
+ * These policies are of several  type :
+ * 	- intermediate or layerable policies
+ * 	  ex: group_by_status
+ * 	  these match certain paths in the multipath and group them
+ * 	  leaving non-matching paths to following policies
+ * 	  
+ * 	- leaf policies
+ * 	  ex: multibus | failover | group_by_serial | group_by_prio
+ * 	  these take all available paths left and group them
+ * 	  according to their policy, leaving no paths to subsequent
+ * 	  policies
+ * 	  
+ * 	- path groups sorter
+ * 	  ex: sort_pg_by_summed_prio
+ * 	  these are used to reorder paths groups according to their
+ * 	  policy. they are executed after path grouping proper. I
+ * 	  guess it's clear only one can be used at a time.
+ *
+ * At least one leaf policy must be traversed, other are optional
+ *
+ */
 #include <stdio.h>
 #include <stdlib.h>
+
 #include <string.h>
+#include <path_state.h>
+
+#include <memory.h>
 #include "main.h"
-#include "memory.h"
 #include "pgpolicies.h"
 #include "debug.h"
 
@@ -49,28 +76,60 @@ get_pgpolicy_name (char * buff, int id)
 	}
 }
 
+extern void
+group_by_status (struct multipath * mp, int status)
+{
+	int i;
+	struct path * pp;
+	vector failedpaths;
+	vector pathsleft;
+
+	if (mp->pg == NULL)
+		mp->pg = vector_alloc();
+
+	failedpaths = vector_alloc();
+	pathsleft = vector_alloc();
+
+	for (i = 0; i < VECTOR_SIZE(mp->paths); i++) {
+		pp = VECTOR_SLOT(mp->paths, i);
+
+		if (pp->state & PATH_DOWN) {
+			vector_alloc_slot(failedpaths);
+			vector_set_slot(failedpaths, pp);
+		} else {
+			vector_alloc_slot(pathsleft);
+			vector_set_slot(pathsleft, pp);
+		}
+	}
+	if (VECTOR_SIZE(failedpaths) > 0) {
+		vector_alloc_slot(mp->pg);
+		vector_set_slot(mp->pg, failedpaths);
+		vector_free(mp->paths);
+		mp->paths = pathsleft;
+		return;
+	}
+	vector_free(pathsleft);
+	vector_free(failedpaths);
+	return;
+}
 /*
  * One path group per unique serial number present in the path vector
  * Simple rotation logic for the head pg's serial
  */
 extern void
-group_by_serial (struct multipath * mp, int slot) {
+group_by_serial (struct multipath * mp) {
 	int i, k;
 	int * bitmap;
 	struct path * pp;
 	struct path * pp2;
 	vector pgpaths;
-	char * pathstr;
 	
-	mp->pg = vector_alloc();
+	if (mp->pg == NULL)
+		mp->pg = vector_alloc();
 
 	/* init the bitmap */
 	bitmap = zalloc(VECTOR_SIZE(mp->paths) * sizeof (int));
 
-	if (slot % 2)
-		goto even;
-	
-	/* scan paths bottom up */
 	for (i = 0; i < VECTOR_SIZE(mp->paths); i++) {
 		if (bitmap[i])
 			continue;
@@ -83,13 +142,8 @@ group_by_serial (struct multipath * mp, int slot) {
 		vector_set_slot(mp->pg, pgpaths);
 
 		/* feed the first path */
-		pathstr = zalloc(PATH_STR_SIZE);
-		if(safe_snprintf(pathstr, PATH_STR_SIZE, "%s", pp->dev_t)) {
-			fprintf(stderr, "group_by_serial: pathstr too small\n");
-			exit(1);
-		}
 		vector_alloc_slot(pgpaths);
-		vector_set_slot(pgpaths, pathstr);
+		vector_set_slot(pgpaths, pp);
 				
 		bitmap[i] = 1;
 
@@ -101,143 +155,61 @@ group_by_serial (struct multipath * mp, int slot) {
 			pp2 = VECTOR_SLOT(mp->paths, k);
 			
 			if (0 == strcmp(pp->serial, pp2->serial)) {
-				pathstr = zalloc(PATH_STR_SIZE);
-				if(safe_snprintf(pathstr, PATH_STR_SIZE, "%s",
-						 pp2->dev_t)) {
-					fprintf(stderr, "group_by_serial: "
-							"pathstr too small\n");
-					exit(1);
-				}
 				vector_alloc_slot(pgpaths);
-				vector_set_slot(pgpaths, pathstr);
-
-				bitmap[k] = 1;
-			}
-		}
-	}
-
-even:
-	/* scan paths top down */
-	for (i = VECTOR_SIZE(mp->paths) - 1; i >= 0; i--) {
-		if (bitmap[i])
-			continue;
-
-		pp = VECTOR_SLOT(mp->paths, i);
-
-		/* here, we really got a new pg */
-		pgpaths = vector_alloc();
-		vector_alloc_slot(mp->pg);
-		vector_set_slot(mp->pg, pgpaths);
-
-		/* feed the first path */
-		pathstr = zalloc(PATH_STR_SIZE);
-		if(safe_snprintf(pathstr, PATH_STR_SIZE, "%s", pp->dev_t)) {
-			fprintf(stderr, "group_by_serial: pathstr too small\n");
-			exit(1);
-		}
-		vector_alloc_slot(pgpaths);
-		vector_set_slot(pgpaths, pathstr);
-				
-		bitmap[i] = 1;
-
-		for (k = i - 1; k >= 0; k--) {
-			
-			if (bitmap[k])
-				continue;
-
-			pp2 = VECTOR_SLOT(mp->paths, k);
-			
-			if (0 == strcmp(pp->serial, pp2->serial)) {
-				pathstr = zalloc(PATH_STR_SIZE);
-				if(safe_snprintf(pathstr, PATH_STR_SIZE, "%s",
-						 pp2->dev_t)) {
-					fprintf(stderr, "group_by_serial: "
-							"pathstr too small\n");
-					exit(1);
-				}
-				vector_alloc_slot(pgpaths);
-				vector_set_slot(pgpaths, pathstr);
-
+				vector_set_slot(pgpaths, pp);
 				bitmap[k] = 1;
 			}
 		}
 	}
 	free(bitmap);
+	vector_free(mp->paths);
+	mp->paths = NULL;
 }
 
 extern void
 one_path_per_group (struct multipath * mp)
 {
 	int i;
-	char * pathstr;
 	struct path * pp;
 	vector pgpaths;
-	vector failedpaths;
 
-	mp->pg = vector_alloc();
-	failedpaths = vector_alloc();
+	if (mp->pg == NULL)
+		mp->pg = vector_alloc();
 	
 	for (i = 0; i < VECTOR_SIZE(mp->paths); i++) {
 		pp = VECTOR_SLOT(mp->paths, i);
-		pathstr = zalloc(PATH_STR_SIZE);
-		if(safe_snprintf(pathstr, PATH_STR_SIZE, "%s", pp->dev_t)) {
-			fprintf(stderr, "one_path_per_group: "
-					"pathstr too small\n");
-			exit(1);
-		}
-		if (!pp->state) {
-			vector_alloc_slot(failedpaths);
-			vector_set_slot(failedpaths, pathstr);
-		} else {
-			pgpaths = vector_alloc();
-			vector_alloc_slot(pgpaths);
-			vector_set_slot(pgpaths, pathstr);
-			vector_alloc_slot(mp->pg);
-			vector_set_slot(mp->pg, pgpaths);
-		}
-	}
-	if (VECTOR_SIZE(failedpaths) > 0) {
+		pgpaths = vector_alloc();
+		vector_alloc_slot(pgpaths);
+		vector_set_slot(pgpaths, pp);
 		vector_alloc_slot(mp->pg);
-		vector_set_slot(mp->pg, failedpaths);
+		vector_set_slot(mp->pg, pgpaths);
 	}
+	vector_free(mp->paths);
+	mp->paths = NULL;
 }
 
 extern void
-one_group (struct multipath * mp)
+one_group (struct multipath * mp)	/* aka multibus */
 {
 	int i;
-	char * pathstr;
 	struct path * pp;
-	vector pgvalidpaths;
-	vector pgfailedpaths;
+	vector pgpaths;
 
-	pgvalidpaths = vector_alloc();
-	pgfailedpaths = vector_alloc();
-	mp->pg = vector_alloc();
+	pgpaths = vector_alloc();
+
+	if (mp->pg == NULL)
+		mp->pg = vector_alloc();
 
 	for (i = 0; i < VECTOR_SIZE(mp->paths); i++) {
 		pp = VECTOR_SLOT(mp->paths, i);
-
-		pathstr = zalloc(PATH_STR_SIZE);
-		if(safe_snprintf(pathstr, PATH_STR_SIZE, "%s", pp->dev_t)) {
-			fprintf(stderr, "one_group: pathstr too small\n");
-			exit(1);
-		}
-		if (!pp->state) {
-			vector_alloc_slot(pgfailedpaths);
-			vector_set_slot(pgfailedpaths, pathstr);
-		} else {
-			vector_alloc_slot(pgvalidpaths);
-			vector_set_slot(pgvalidpaths, pathstr);
-		}
+		vector_alloc_slot(pgpaths);
+		vector_set_slot(pgpaths, pp);
 	}
-	if (VECTOR_SIZE(pgvalidpaths) > 0) {
+	if (VECTOR_SIZE(pgpaths) > 0) {
 		vector_alloc_slot(mp->pg);
-		vector_set_slot(mp->pg, pgvalidpaths);
-	}
-	if (VECTOR_SIZE(pgfailedpaths) > 0) {
-		vector_alloc_slot(mp->pg);
-		vector_set_slot(mp->pg, pgfailedpaths);
+		vector_set_slot(mp->pg, pgpaths);
+		vector_free(mp->paths);
+		mp->paths = NULL;
 	}
 }
 
@@ -246,38 +218,73 @@ group_by_prio (struct multipath * mp)
 {
 	int i;
 	unsigned int prio = -1;
-	char * pathstr;
 	struct path * pp;
 	vector pgpaths = NULL;
-	vector pgfailedpaths;
 
-	mp->pg = vector_alloc();
-	pgfailedpaths = vector_alloc();
+	if (mp->pg == NULL)
+		mp->pg = vector_alloc();
 
 	for (i = 0; i < VECTOR_SIZE(mp->paths); i++) {
 		pp = VECTOR_SLOT(mp->paths, i);
+		if (pp->priority != prio || pgpaths == NULL) {
+			pgpaths = vector_alloc();
+			vector_alloc_slot(mp->pg);
+			vector_set_slot(mp->pg, pgpaths);
+			prio = pp->priority;
+		}
+		vector_alloc_slot(pgpaths);
+		vector_set_slot(pgpaths, pp);
+	}
+	vector_free(mp->paths);
+	mp->paths = NULL;
+}
 
-		pathstr = zalloc(PATH_STR_SIZE);
-		if(safe_snprintf(pathstr, PATH_STR_SIZE, "%s", pp->dev_t)) {
-			fprintf(stderr, "group_by_prio: pathstr too small\n");
-			exit(1);
+extern void
+sort_pg_by_summed_prio (struct multipath * mp)
+{
+	int i, j, k;
+	int sum = 0, ref_sum = 0;
+	vector sortedpg;
+	vector pgpaths;
+	struct path * pp;
+	
+	if (mp->pg == NULL)
+		return;
+	
+	if (VECTOR_SIZE(mp->pg) < 2)
+		return;
+
+	/*
+	 * fill first slot of the orederd vector
+	 */
+	pgpaths = VECTOR_SLOT(mp->pg, 0);
+	sortedpg = vector_alloc();
+	vector_alloc_slot(sortedpg);
+	vector_set_slot(sortedpg, pgpaths);
+	
+	for (i = 1; i < VECTOR_SIZE(mp->pg); i++) {
+		pgpaths = VECTOR_SLOT(mp->pg, i);
+		for (j = 0; j < VECTOR_SIZE(pgpaths); j++) {
+			pp = VECTOR_SLOT(pgpaths, j);
+			ref_sum += pp->priority;
 		}
-		if (!pp->state) {
-			vector_alloc_slot(pgfailedpaths);
-			vector_set_slot(pgfailedpaths, pathstr);
-		} else {
-			if (pp->priority != prio || pgpaths == NULL) {
-				pgpaths = vector_alloc();
-				vector_alloc_slot(mp->pg);
-				vector_set_slot(mp->pg, pgpaths);
-				prio = pp->priority;
+		for (j = 0; j < VECTOR_SIZE(sortedpg); j++) {
+			pgpaths = VECTOR_SLOT(sortedpg, j);
+			for (k = 0; k < VECTOR_SIZE(pgpaths); k++) {
+				pp = VECTOR_SLOT(pgpaths, k);
+				sum += pp->priority;
 			}
-			vector_alloc_slot(pgpaths);
-			vector_set_slot(pgpaths, pathstr);
+			if (sum < ref_sum) {
+				vector_insert_slot(sortedpg, j, pgpaths);
+				break;
+			}
+		}
+		if (j == VECTOR_SIZE(sortedpg)) {
+			pgpaths = VECTOR_SLOT(mp->pg, i);
+			vector_alloc_slot(sortedpg);
+			vector_set_slot(sortedpg, pgpaths);
 		}
 	}
-	if (VECTOR_SIZE(pgfailedpaths) > 0) {
-		vector_alloc_slot(mp->pg);
-		vector_set_slot(mp->pg, pgfailedpaths);
-	}
+	vector_free(mp->pg);
+	mp->pg = sortedpg;
 }

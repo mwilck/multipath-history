@@ -957,7 +957,7 @@ setup_map (vector pathvec, vector mp, int slot)
 		one_path_per_group (mpp);
 
 	if (iopolicy == GROUP_BY_SERIAL)
-		group_by_serial (mpp, slot);
+		group_by_serial (mpp);
 
 	if (iopolicy == GROUP_BY_PRIO)
 		group_by_prio (mpp);
