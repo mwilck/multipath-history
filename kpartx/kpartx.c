@@ -30,6 +30,7 @@
 
 #define SIZE(a) (sizeof(a)/sizeof((a)[0]))
 
+#define READ_SIZE	1024
 #define MAXTYPES	64
 #define MAXSLICES	256
 #define DM_TARGET	"linear"
@@ -438,9 +439,9 @@ getblock (int fd, unsigned int secnr) {
 	bp->secnr = secnr;
 	bp->next = blockhead;
 	blockhead = bp;
-	bp->block = (char *) xmalloc(1024);
+	bp->block = (char *) xmalloc(READ_SIZE);
 	
-	if (read(fd, bp->block, 1024) != 1024) {
+	if (read(fd, bp->block, READ_SIZE) != READ_SIZE) {
 		fprintf(stderr, "read error, sector %d\n", secnr);
 		bp->block = NULL;
 	}
