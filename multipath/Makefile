@@ -9,19 +9,20 @@ ifeq ($(strip $(BUILD)),klibc)
 	CFLAGS = ${REQFLAGS} ${OPTFLAGS} -DDEBUG=${DEBUG} \
 		 -DVERSION=$(VERSION) -I$(multipathdir) \
 		 -I$(libdmdir) -I$(sysfsdir) -I$(checkersdir)
+	OBJS = pgpolicies.o devinfo.o main.o callout.o dict.o \
+	       $(MULTIPATHLIB)-$(BUILD).a $(CHECKERSLIB)-$(BUILD).a \
+	       $(SYSFSLIB)-$(BUILD).a $(DMLIB)-$(BUILD).a
 else
 	CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes \
 		 -DDEBUG=$(DEBUG) -I$(multipathdir) -I$(checkersdir) \
 		 -DVERSION=$(VERSION)
 	LDFLAGS = -ldevmapper -lsysfs
+	OBJS = pgpolicies.o devinfo.o main.o callout.o dict.o \
+	       $(MULTIPATHLIB)-$(BUILD).a $(CHECKERSLIB)-$(BUILD).a
 endif
 
 EXEC = multipath
 DEBUG = 0
-
-OBJS = pgpolicies.o devinfo.o main.o callout.o dict.o \
-       $(MULTIPATHLIB)-$(BUILD).a \
-       $(CHECKERSLIB)-$(BUILD).a
 
 all: klibc
 
@@ -30,12 +31,11 @@ prepare:
 
 glibc: prepare $(OBJS)
 	$(CC) $(OBJS) -o $(EXEC) $(LDFLAGS)
-	$(STRIP) $(EXEC)
+#	$(STRIP) $(EXEC)
 	$(GZIP) $(EXEC).8 > $(EXEC).8.gz
 	
-klibc: prepare $(OBJS)
-	$(LD) -o $(EXEC) $(CRT0) $(OBJS) $(SYSFSLIB)-$(BUILD).a \
-	$(DMLIB)-$(BUILD).a $(CHECKERSLIB)-$(BUILD).a $(KLIBC) $(LIBGCC)
+klibc: prepare $(KLIBC) $(OBJS)
+	$(LD) -o $(EXEC) $(CRT0) $(OBJS) $(KLIBC) $(LIBGCC)
 	$(STRIP) $(EXEC)
 	$(GZIP) $(EXEC).8 > $(EXEC).8.gz
 
@@ -44,6 +44,17 @@ $(CHECKERSLIB)-$(BUILD).a:
 
 $(MULTIPATHLIB)-$(BUILD).a:
 	make -C $(multipathdir) BUILD=$(BUILD) $(BUILD)
+
+$(SYSFSLIB)-$(BUILD).a:
+	make -C $(sysfsdir) BUILD=$(BUILD) $(BUILD)
+
+$(DMLIB)-$(BUILD).a:
+	make -C $(libdmdir) BUILD=$(BUILD) $(BUILD)
+
+$(KLIBC):
+	rm -f $(klibcdir)/linux
+	ln -s $(KERNEL_BUILD) $(klibcdir)/linux
+	make -C $(klibcdir)
 
 install:
 	install -d $(DESTDIR)$(bindir)

@@ -19,14 +19,8 @@ rcdir = /etc/init.d
 # basic flags setting
 #
 CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes -DLOGLEVEL=$(LOGLEVEL) \
-	 -DFLOATING_STACKS -I$(multipathdir) -I$(checkersdir) -I$(sysfsdir)
+	 -I$(multipathdir) -I$(checkersdir) -I$(sysfsdir)
 LDFLAGS = -lpthread -ldevmapper
-
-#
-# detect arch
-#
-ARCH = $(shell uname -m | sed -e s/i.86/i386/ -e s/sun4u/sparc64/ -e s/arm.*/arm/ -e s/sa110/arm/)
-CFLAGS += -D${ARCH}
 
 #
 # object files
@@ -70,6 +64,4 @@ uninstall:
 
 clean:
 	rm -f core *.o $(EXEC) *.gz
-	rm -rf libsysfs
-	rm -rf libcheckers
 

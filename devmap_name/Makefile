@@ -6,15 +6,16 @@ BUILD = klibc
 include ../Makefile.inc
 
 ifeq ($(strip $(BUILD)),klibc)
-	CFLAGS = ${REQFLAGS} ${OPTFLAGS} -I../libdevmapper
+	CFLAGS = ${REQFLAGS} ${OPTFLAGS} -I$(libdmdir)
+	OBJS = devmap_name.o $(DMLIB)-$(BUILD).a
 else
 	CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes \
 		 -DDEBUG=$(DEBUG)
 	LDFLAGS = -ldevmapper
+	OBJS = devmap_name.o
 endif
 
 EXEC = devmap_name
-OBJS = devmap_name.o
 
 all: klibc
 
@@ -26,11 +27,18 @@ glibc: prepare $(OBJS)
 	$(STRIP) $(EXEC)
 	$(GZIP) $(EXEC).8 > $(EXEC).8.gz
 	
-klibc: prepare $(OBJS)
-	$(LD) -o $(EXEC) $(CRT0) $(OBJS) $(DMLIB)-$(BUILD).a \
-	$(KLIBC) $(LIBGCC)
+klibc: prepare $(KLIBC) $(OBJS)
+	$(LD) -o $(EXEC) $(CRT0) $(OBJS) $(KLIBC) $(LIBGCC)
 	$(STRIP) $(EXEC)
 	$(GZIP) $(EXEC).8 > $(EXEC).8.gz
+
+$(DMLIB)-$(BUILD).a:
+	make -C $(libdmdir) BUILD=$(BUILD) $(BUILD)
+
+$(KLIBC):
+	rm -f $(klibcdir)/linux
+	ln -s $(KERNEL_BUILD) $(klibcdir)/linux
+	make -C $(klibcdir)
 
 install:
 	install -d $(DESTDIR)$(bindir)
