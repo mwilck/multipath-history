@@ -255,6 +255,7 @@ waitevent (void * et)
 	char buff[1];
 	char cmd[CMDSIZE];
 	struct dm_task *dmt;
+	int event_nr;
 
 	mlockall(MCL_CURRENT | MCL_FUTURE);
 	waiter = (struct event_thread *)et;
@@ -264,11 +265,12 @@ waitevent (void * et)
 		log_safe(LOG_ERR, "command too long, abord reconfigure");
 		return NULL;
 	}
-	pthread_mutex_lock (waiter->waiter_lock);
+	pthread_mutex_lock(waiter->waiter_lock);
 
-	waiter->event_nr = dm_geteventnr(waiter->mapname);
+	log_safe(LOG_DEBUG, "event number %i on %s", event_nr, waiter->mapname);
 
-	log_safe(LOG_DEBUG, "waiter->event_nr = %i", waiter->event_nr);
+	if (!waiter->event_nr)
+		waiter->event_nr = dm_geteventnr(waiter->mapname);
 
 	if (!(dmt = dm_task_create(DM_DEVICE_WAITEVENT)))
 		return 0;
@@ -282,14 +284,23 @@ waitevent (void * et)
 	dm_task_no_open_count(dmt);
 
 	dm_task_run(dmt);
-
 out:
 	dm_task_destroy(dmt);
 
-	log_safe(LOG_DEBUG, "%s", cmd);
-	log_safe(LOG_NOTICE, "devmap event on %s", waiter->mapname);
-	mark_failed_path(waiter->allpaths, waiter->mapname);
-	execute_program(cmd, buff, 1);
+	while (1) {
+		log_safe(LOG_DEBUG, "%s", cmd);
+		log_safe(LOG_NOTICE, "devmap event (%i) on %s",
+				waiter->event_nr, waiter->mapname);
+		mark_failed_path(waiter->allpaths, waiter->mapname);
+		execute_program(cmd, buff, 1);
+
+		event_nr = dm_geteventnr(waiter->mapname);
+
+		if (waiter->event_nr == event_nr)
+			break;
+
+		waiter->event_nr = event_nr;
+	}
 
 	/*
 	 * tell waiterloop we have an event
@@ -304,7 +315,46 @@ out:
 	pthread_mutex_unlock(waiter->waiter_lock);
 	pthread_exit(waiter->thread);
 
-	return (NULL);
+	return NULL;
+}
+
+static void *
+alloc_waiter (void)
+{
+
+	struct event_thread * wp;
+
+	wp = MALLOC(sizeof(struct event_thread));
+
+	if (!wp)
+		return NULL;
+
+	wp->thread = MALLOC(sizeof(pthread_t));
+
+	if (!wp->thread)
+		goto out;
+		
+	wp->waiter_lock = (pthread_mutex_t *)MALLOC(sizeof(pthread_mutex_t));
+
+	if (!wp->waiter_lock)
+		goto out1;
+
+	pthread_mutex_init(wp->waiter_lock, NULL);
+	return wp;
+
+out1:
+	free(wp->thread);
+out:
+	free(wp);
+	return NULL;
+}
+
+static void
+free_waiter (struct event_thread * wp)
+{
+	pthread_mutex_destroy(wp->waiter_lock);
+	free(wp->thread);
+	free(wp);
 }
 
 static void *
@@ -333,7 +383,13 @@ waiterloop (void *ap)
 	 */
 	allpaths = (struct paths *)ap;
 	waiters = vector_alloc();
-	pthread_attr_init(&attr);
+
+	if (!waiters)
+		return;
+
+	if (pthread_attr_init(&attr))
+		return;
+
 	pthread_attr_setstacksize(&attr, 32 * 1024);
 
 	log_safe(LOG_NOTICE, "initial reconfigure multipath maps");
@@ -344,7 +400,8 @@ waiterloop (void *ap)
 		 * update devmap list
 		 */
 		log_safe(LOG_INFO, "refresh devmaps list");
-		if (devmaps != NULL)
+
+		if (devmaps)
 			strvec_free(devmaps);
 
 		while ((devmaps = get_devmaps()) == NULL) {
@@ -383,14 +440,18 @@ waiterloop (void *ap)
 			 * no event_thread struct : init it
 			 */
 			if (j == VECTOR_SIZE(waiters)) {
-				wp = MALLOC (sizeof (struct event_thread));
+				wp = alloc_waiter();
+
+				if (!wp)
+					continue;
+
 				strncpy (wp->mapname, devmap, WWID_SIZE);
-				wp->thread = MALLOC (sizeof (pthread_t));
-				wp->waiter_lock = (pthread_mutex_t *) 
-					MALLOC (sizeof (pthread_mutex_t));
-				pthread_mutex_init (wp->waiter_lock, NULL);
 				wp->allpaths = allpaths;
-				vector_alloc_slot (waiters);
+
+				if (!vector_alloc_slot(waiters)) {
+					free_waiter(wp);
+					continue;
+				}
 				vector_set_slot (waiters, wp);
 			}
 			
@@ -398,7 +459,7 @@ waiterloop (void *ap)
 			 * event_thread struct found
 			 */
 			if (j < VECTOR_SIZE(waiters)) {
-				r = pthread_mutex_trylock (wp->waiter_lock);
+				r = pthread_mutex_trylock(wp->waiter_lock);
 
 				/*
 				 * thread already running : next devmap
@@ -406,13 +467,16 @@ waiterloop (void *ap)
 				if (r)
 					continue;
 				
-				pthread_mutex_unlock (wp->waiter_lock);
+				pthread_mutex_unlock(wp->waiter_lock);
 			}
 			
 			log_safe(LOG_NOTICE, "event checker startup : %s",
 					wp->mapname);
-			pthread_create (wp->thread, &attr, waitevent, wp);
-			pthread_detach (*wp->thread);
+			if (pthread_create(wp->thread, &attr, waitevent, wp)) {
+				free_waiter(wp);
+				continue;
+			}
+			pthread_detach(*wp->thread);
 		}
 		/*
 		 * wait event condition
@@ -421,7 +485,6 @@ waiterloop (void *ap)
 		pthread_cond_wait(event, event_lock);
 		pthread_mutex_unlock (event_lock);
 	}
-
 	return (NULL);
 }
 
