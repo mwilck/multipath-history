@@ -33,7 +33,7 @@
 
 #if !defined (__alpha__) && !defined (__ia64__) && !defined (__x86_64__) \
         && !defined (__s390x__)
-#define int2ptr(x)	(x)
+#define int2ptr(x)	((void *) ((int) x))
 #else
 #define int2ptr(x)	((void *) ((long) x))
 #endif
