@@ -714,7 +714,7 @@ prepare_namespace(void)
 	size_t size = 10;
 	struct stat statbuf;
 	
-	buf = MALLOC (sizeof (struct stat));
+	buf = MALLOC(sizeof(struct stat));
 
 	/*
 	 * create a temp mount point for ramfs
@@ -805,26 +805,26 @@ pidfile (pid_t pid)
 	FILE *file;
 	struct stat *buf;
 
-	buf = MALLOC (sizeof (struct stat));
+	buf = MALLOC(sizeof(struct stat));
 
-	if (!stat (PIDFILE, buf)) {
-		LOG(1, "already running : out");
-		FREE (buf);
-		exit (1);
+	if (!stat(PIDFILE, buf)) {
+		syslog(LOG_ERR, "already running : out");
+		FREE(buf);
+		exit(1);
 	}
 		
-	umask (022);
-	pid = setsid ();
+	umask(022);
+	pid = setsid();
 
 	if (pid < -1) {
-		LOG(1, "setsid() error");
-		exit (1);
+		syslog(LOG_ERR, "setsid() error");
+		exit(1);
 	}
 	
-	file = fopen (PIDFILE, "w");
-	fprintf (file, "%d\n", pid);
-	fclose (file);
-	FREE (buf);
+	file = fopen(PIDFILE, "w");
+	fprintf(file, "%d\n", pid);
+	fclose(file);
+	FREE(buf);
 }
 
 static void *
@@ -909,6 +909,7 @@ child (void * param)
 	signal_init();
 	setscheduler();
 	failedpaths = initpaths();
+	checkint = CHECKINT;
 
 	syslog(LOG_INFO, "read " CONFIGFILE);
 	init_data(CONFIGFILE, init_keywords);
