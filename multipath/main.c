@@ -433,7 +433,6 @@ setup_map (struct multipath * mpp)
 	select_selector(mpp);
 	select_features(mpp);
 	select_hwhandler(mpp);
-	select_alias(mpp);
 
 	/*
 	 * apply selected grouping policy to valid paths
