@@ -130,72 +130,6 @@ get_refwwid (vector pathvec)
 	return NULL;
 }
 
-static int
-filter_pathvec (vector pathvec, char * refwwid)
-{
-	int i;
-	struct path * pp;
-
-	if (!refwwid || !strlen(refwwid))
-		return 0;
-
-	vector_foreach_slot (pathvec, pp, i) {
-		if (memcmp(pp->wwid, refwwid, WWID_SIZE) != 0) {
-			dbg("skip path %s : out of scope", pp->dev);
-			free(pp);
-			vector_del_slot(pathvec, i);
-			i--;
-		}
-	}
-	return 0;
-}
-
-static int
-get_pathvec_sysfs (vector pathvec)
-{
-	struct sysfs_directory * sdir;
-	struct sysfs_directory * devp;
-	char path[FILE_NAME_SIZE];
-	struct path * curpath;
-
-	if(safe_sprintf(path, "%s/block", sysfs_path)) {
-		fprintf(stderr, "path too small\n");
-		exit(1);
-	}
-	sdir = sysfs_open_directory(path);
-	sysfs_read_directory(sdir);
-
-	dlist_for_each_data(sdir->subdirs, devp, struct sysfs_directory) {
-		if (blacklist(conf->blist, devp->name))
-			continue;
-
-		if(safe_sprintf(path, "%s/block/%s/device", sysfs_path,
-				devp->name)) {
-			fprintf(stderr, "path too small\n");
-			exit(1);
-		}
-				
-		if (!filepresent(path))
-			continue;
-
-		curpath = find_path_by_dev(pathvec, devp->name);
-
-		if (!curpath) {
-			curpath = zalloc(sizeof(struct path));
-			vector_alloc_slot(pathvec);
-			vector_set_slot(pathvec, curpath);
-
-			if(safe_sprintf(curpath->dev, "%s", devp->name)) {
-				fprintf(stderr, "curpath->dev too small\n");
-				exit(1);
-			}
-			devinfo(curpath);
-		}
-	}
-	sysfs_close_directory(sdir);
-	return 0;
-}
-
 /*
  * print_path styles
  */
@@ -365,6 +299,26 @@ print_mp (struct multipath * mpp)
 			print_path(pp, PRINT_PATH_SHORT);
 	}
 	printf("\n");
+}
+
+static int
+filter_pathvec (vector pathvec, char * refwwid)
+{
+	int i;
+	struct path * pp;
+
+	if (!refwwid || !strlen(refwwid))
+		return 0;
+
+	vector_foreach_slot (pathvec, pp, i) {
+		if (memcmp(pp->wwid, refwwid, WWID_SIZE) != 0) {
+			dbg("skip path %s : out of scope", pp->dev);
+			free_path(pp);
+			vector_del_slot(pathvec, i);
+			i--;
+		}
+	}
+	return 0;
 }
 
 /*
@@ -1038,7 +992,7 @@ main (int argc, char *argv[])
 	/*
 	 * get a path list
 	 */
-	if (get_pathvec_sysfs(pathvec) || VECTOR_SIZE(pathvec) == 0)
+	if (path_discovery(pathvec, conf) || VECTOR_SIZE(pathvec) == 0)
 		exit(1);
 
 #if DEBUG
