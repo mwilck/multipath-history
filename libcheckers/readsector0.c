@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -14,8 +15,12 @@
 #define SENSE_BUFF_LEN 32
 #define DEF_TIMEOUT 60000
 
-#define MSG_READSECTOR0_UP	"readsector0 checker report path is up"
-#define MSG_READSECTOR0_DOWN	"readsector0 checker report path is down"
+#define MSG_READSECTOR0_UP	"readsector0 checker reports path is up"
+#define MSG_READSECTOR0_DOWN	"readsector0 checker reports path is down"
+
+struct readsector0_checker_context {
+	int fd;
+};
 
 static int
 sg_read (int sg_fd, unsigned char * buff)
@@ -76,21 +81,44 @@ sg_read (int sg_fd, unsigned char * buff)
 	}
 }
 
-int readsector0 (char *devnode, char *msg, void *context)
+extern int
+readsector0 (char *devt, char *msg, void **context)
 {
-	int fd, r;
 	char buf[512];
+	struct readsector0_checker_context * ctxt = NULL;
+	int ret;
 
-	fd = open(devnode, O_RDONLY);
+	/*
+	 * caller passed in a context : use its address
+	 */
+	if (context)
+		ctxt = (struct readsector0_checker_context *) (*context);
 
-	if (fd <= 0) {
-		MSG(MSG_READSECTOR0_DOWN);
-		return PATH_DOWN;
+	/*
+	 * passed in context is uninitialized or volatile context :
+	 * initialize it
+	 */
+	if (!ctxt) {
+		ctxt = malloc(sizeof(struct readsector0_checker_context *));
+		memset(ctxt, 0, sizeof(struct readsector0_checker_context *));
 	}
-	r = sg_read(fd, &buf[0]);
-	close(fd);
+	if (!ctxt) {
+		MSG("cannot allocate context");
+		return -1;
+	}
+	if (!ctxt->fd) {
+		if (devnode(CREATE_NODE, devt)) {
+			MSG("cannot create node");
+			ret = -1;
+			goto out;
+		}
+		ctxt->fd = devnode(OPEN_NODE, devt);
+		devnode(UNLINK_NODE, devt);
+	}
+	ret = sg_read(ctxt->fd, &buf[0]);
 
-	switch (r) {
+	switch (ret)
+	{
 	case PATH_DOWN:
 		MSG(MSG_READSECTOR0_DOWN);
 		break;
@@ -100,5 +128,14 @@ int readsector0 (char *devnode, char *msg, void *context)
 	default:
 		break;
 	}
-	return r;
+out:
+	/*
+	 * caller told us he doesn't want to keep the context :
+	 * free it
+	 */
+	if (!context) {
+		close(ctxt->fd);
+		free(ctxt);
+	}
+	return ret;
 }

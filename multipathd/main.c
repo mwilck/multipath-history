@@ -79,7 +79,7 @@ pthread_cond_t *event;
 struct path {
 	char dev_t[DEV_T_SIZE];
 	int state;
-	int (*checkfn) (char *, char *, void *);
+	int (*checkfn) (char *, char *, void **);
 	void * checker_context;
 };
 
@@ -330,19 +330,13 @@ updatepaths (struct paths *allpaths)
 			FREE(pp);
 			continue;
 		}
-		pp->checker_context = MALLOC(MAX_CHECKER_CONTEXT_SIZE);
-
 		if (select_checkfn(pp, devp->name)) {
-			FREE(pp->checker_context);
 			FREE(pp);
 			continue;
 		}
-		pp->state = checkpath(pp->dev_t, pp->checkfn, NULL,
-					pp->checker_context);
-
+		pp->state = pp->checkfn(pp->dev_t, NULL, &pp->checker_context);
 		vector_alloc_slot(allpaths->pathvec);
 		vector_set_slot(allpaths->pathvec, pp);
-
 		syslog(LOG_NOTICE, "path checker startup : %s", pp->dev_t);
 	}
 	pthread_mutex_unlock(allpaths->lock);
@@ -567,8 +561,8 @@ checkerloop (void *ap)
 		syslog(LOG_DEBUG, "checking paths");
 
 		vector_foreach_slot (allpaths->pathvec, pp, i) {
-			newstate = checkpath(pp->dev_t, pp->checkfn,
-				      checker_msg, pp->checker_context);
+			newstate = pp->checkfn(pp->dev_t, checker_msg,
+					       &pp->checker_context);
 			
 			if (newstate != pp->state) {
 				pp->state = newstate;

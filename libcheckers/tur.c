@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -14,34 +15,57 @@
 #define TUR_CMD_LEN 6
 #define HEAVY_CHECK_COUNT       10
 
-#define MSG_TUR_UP	"tur checker report path is up"
-#define MSG_TUR_DOWN	"tur checker report path is down"
+#define MSG_TUR_UP	"tur checker reports path is up"
+#define MSG_TUR_DOWN	"tur checker reports path is down"
 
 struct tur_checker_context {
+	int fd;
 	int run_count;
-	char wwn[64];
 };
 
-int tur(char *devnode, char *msg, void *context)
+
+extern int
+tur (char *devt, char *msg, void **context)
 {
         unsigned char turCmdBlk[TUR_CMD_LEN] = { 0x00, 0, 0, 0, 0, 0 };
         struct sg_io_hdr io_hdr;
         unsigned char sense_buffer[32];
-	int fd;
-	struct tur_checker_context * ctxt;
+	struct tur_checker_context * ctxt = NULL;
+	int ret;
 
-	if (context != NULL) {
-		ctxt = (struct tur_checker_context *)context;
-		ctxt->run_count += 1;
+	/*
+	 * caller passed in a context : use its address
+	 */
+	if (context)
+		ctxt = (struct tur_checker_context *) (*context);
 
-		if (ctxt->run_count % HEAVY_CHECK_COUNT) {
-			ctxt->run_count = 0;
-			/* do stuff */
-		}
+	/*
+	 * passed in context is uninitialized or volatile context :
+	 * initialize it
+	 */
+	if (!ctxt) {
+		ctxt = malloc(sizeof(struct tur_checker_context *));
+		memset(ctxt, 0, sizeof(struct tur_checker_context *));
 	}
+	if (!ctxt) {
+		MSG("cannot allocate context");
+		return -1;
+	}
+	ctxt->run_count++;
 
-	fd = open (devnode, O_RDONLY);
-
+	if (ctxt->run_count % HEAVY_CHECK_COUNT) {
+		ctxt->run_count = 0;
+		/* do stuff */
+	}
+	if (!ctxt->fd) {
+		if (devnode(CREATE_NODE, devt)) {
+			MSG("cannot create node");
+			ret = -1;
+			goto out;
+		}
+		ctxt->fd = devnode(OPEN_NODE, devt);
+		devnode(UNLINK_NODE, devt);
+	}
         memset(&io_hdr, 0, sizeof (struct sg_io_hdr));
         io_hdr.interface_id = 'S';
         io_hdr.cmd_len = sizeof (turCmdBlk);
@@ -51,20 +75,27 @@ int tur(char *devnode, char *msg, void *context)
         io_hdr.sbp = sense_buffer;
         io_hdr.timeout = 20000;
         io_hdr.pack_id = 0;
-        if (ioctl(fd, SG_IO, &io_hdr) < 0) {
-                close (fd);
+        if (ioctl(ctxt->fd, SG_IO, &io_hdr) < 0) {
 		MSG(MSG_TUR_DOWN);
-                return PATH_DOWN;
+                ret = PATH_DOWN;
+		goto out;
         }
         if (io_hdr.info & SG_INFO_OK_MASK) {
-		close (fd);
 		MSG(MSG_TUR_DOWN);
-                return PATH_DOWN;
+                ret = PATH_DOWN;
+		goto out;
         }
-        close (fd);
-	if (msg != NULL)
-		snprintf(msg, MAX_CHECKER_MSG_SIZE, "%s\n", MSG_TUR_UP);
-	
 	MSG(MSG_TUR_UP);
-        return PATH_UP;
+        ret = PATH_UP;
+
+out:
+	/*
+	 * caller told us he doesn't want to keep the context :
+	 * free it
+	 */
+	if (!context) {
+		close(ctxt->fd);
+		free(ctxt);
+	}
+	return(ret);
 }

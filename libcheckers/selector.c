@@ -17,7 +17,7 @@ get_checker_id (char * str)
 extern void * 
 get_checker_addr (int id)
 {
-	int (*checker) (char *, char *, void *);
+	int (*checker) (char *, char *, void **);
 
 	switch (id) {
 	case TUR:
