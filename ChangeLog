@@ -1,6 +1,22 @@
 2004-06-20 multipath-tools-0.2.4
 	* [multipathd] break free from system's libsysfs for now
 	  as it is not that common these days
+	* [multipath] introduce per LUN policies in the config
+	  file : path_grouping_policy, path_selector and
+	  path_selector_args are supported.
+	  See updated sample config file.
+	* [multipath] move ->iopolicy to multipath struct (from
+	  path struct)
+	* [multipath] fill the voids left in the config file with
+	  defaults
+	* [multipath] group config & flags in a global struct *
+	* [multipath] fix segfault when no config file (was a 
+	  regression since hwtable vectorisation in 0.2.2)
+	* [multipath] default path selector override in config file
+	* [multipath] don't play with strings in pgpolicies, leave
+	  that to a new assemble_map fn. policies now use vector
+	* [multipathd] compilation fix for gentoo (Franck Denis)
+	* [multipath] strcmp fix (Franck Denis)
 2004-06-14 multipath-tools-0.2.3
 	* [multipath] group_by_serial try to be smart with LUN
 	  balancing across controlers (for STK / LSI) :

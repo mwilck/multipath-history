@@ -41,7 +41,7 @@
 
 /* helpers */
 #define argis(x) if (0 == strcmp (x, argv[i]))
-#define MATCH(x,y) 0 == strncmp (x, y, sizeof (y))
+#define MATCH(x,y) 0 == strncmp (x, y, strlen(y))
 
 static int
 sysfsdevice2devname (char *devname, char *device)
@@ -111,8 +111,8 @@ blacklist (char * dev) {
 	int i;
 	char *p;
 
-	for (i = 0; i < VECTOR_SIZE(blist); i++) {
-		p = VECTOR_SLOT(blist, i);
+	for (i = 0; i < VECTOR_SIZE(conf->blist); i++) {
+		p = VECTOR_SLOT(conf->blist, i);
 
 		if (memcmp(dev, p, strlen(p)) == 0)
 			return 1;
@@ -134,23 +134,19 @@ devinfo (struct path *curpath)
 	get_serial (curpath->serial, curpath->sg_dev);
 	curpath->tur = do_tur (curpath->sg_dev);
 
-	for (i = 0; i < VECTOR_SIZE(hwtable); i++) {
-		hwe = VECTOR_SLOT(hwtable, i);
+	for (i = 0; i < VECTOR_SIZE(conf->hwtable); i++) {
+		hwe = VECTOR_SLOT(conf->hwtable, i);
 
 		if (MATCH (curpath->vendor_id, hwe->vendor) &&
-		    MATCH (curpath->product_id, hwe->product)) {
-			curpath->iopolicy = hwe->iopolicy;
-
-			if (hwe->getuid (curpath->sg_dev, curpath->wwid))
+		    MATCH (curpath->product_id, hwe->product) &&
+		    hwe->getuid (curpath->sg_dev, curpath->wwid))
 				return 1;
-		}
 	}
-
 	return 0;
 }
 
 static int
-get_pathvec_sysfs (struct env * conf, vector pathvec)
+get_pathvec_sysfs (vector pathvec)
 {
 	struct sysfs_directory * sdir;
 	struct sysfs_directory * devp;
@@ -283,7 +279,7 @@ print_path (struct path * pp, int style)
 }
 
 static void
-print_all_path (struct env * conf, vector pathvec)
+print_all_path (vector pathvec)
 {
 	int k;
 	char empty_buff[WWID_SIZE];
@@ -326,7 +322,7 @@ print_all_mp (vector mp)
 }
 
 static void
-coalesce_paths (struct env * conf, vector mp, vector pathvec)
+coalesce_paths (vector mp, vector pathvec)
 {
 	int k, i, already_done;
 	char empty_buff[WWID_SIZE];
@@ -422,19 +418,44 @@ dm_addmap (int task, const char *name, const char *params, long size) {
 
 #define policyis(x) params_p == &params[0] && \
 		    (conf->iopolicy == x || \
-		    (pp->iopolicy == x && conf->iopolicy == -1))
+		    (mpp->iopolicy == x && conf->iopolicy == -1))
 
 static int
-setup_map (struct env * conf, vector pathvec, vector mp, int slot,  int op)
+setup_map (vector pathvec, vector mp, int slot,  int op)
 {
 	char params[255];
 	char * params_p;
 	struct path * pp;
 	struct multipath * mpp;
+	int i;
+	struct hwentry * hwe;
+	struct mpentry * mpe;
 
 	mpp = VECTOR_SLOT(mp, slot);
 	pp = VECTOR_SLOT(mpp->paths, 0);
 	params_p = &params[0];
+
+	/* get iopolicy for this mp */
+
+	/* conservative setting */
+	mpp->iopolicy = FAILOVER;
+	
+	/* override by controler wide setting */
+	for (i = 0; i < VECTOR_SIZE(conf->hwtable); i++) {
+		hwe = VECTOR_SLOT(conf->hwtable, i);
+
+		if (strcmp(hwe->vendor, pp->vendor_id) == 0 &&
+		    strcmp(hwe->product, pp->product_id) == 0)
+			mpp->iopolicy = hwe->iopolicy;
+	}
+
+	/* override by LUN specific setting */
+	for (i = 0; i < VECTOR_SIZE(conf->mptable); i++) {
+		mpe = VECTOR_SLOT(conf->mptable, i);
+
+		if (strcmp(mpe->wwid, mpp->wwid) == 0)
+			mpp->iopolicy = hwe->iopolicy;
+	}
 
 	/* paths grouping policy selector */
 	/* implementations in pgpolicies.c */
@@ -544,6 +565,69 @@ filepresent (char * run) {
 	return 0;
 }
 
+#define VECTOR_ADDSTR(a, b) \
+	str = zalloc (6 * sizeof(char)); \
+	sprintf (str, b); \
+	vector_alloc_slot(a); \
+	vector_set_slot(a, str);
+
+static void
+setup_default_blist (vector blist)
+{
+	char * str;
+	
+	VECTOR_ADDSTR(blist, "cciss");
+	VECTOR_ADDSTR(blist, "fd");
+	VECTOR_ADDSTR(blist, "hd");
+	VECTOR_ADDSTR(blist, "md");
+	VECTOR_ADDSTR(blist, "dm");
+	VECTOR_ADDSTR(blist, "sr");
+	VECTOR_ADDSTR(blist, "scd");
+	VECTOR_ADDSTR(blist, "st");
+	VECTOR_ADDSTR(blist, "ram");
+	VECTOR_ADDSTR(blist, "raw");
+	VECTOR_ADDSTR(blist, "loop");
+}
+
+#define VECTOR_ADDHWE(a, b, c, d, e) \
+	hwe = zalloc (sizeof(struct hwentry)); \
+	hwe->vendor = zalloc (9 * sizeof(char)); \
+	sprintf (hwe->vendor, b); \
+	hwe->product = zalloc (17 * sizeof(char)); \
+	sprintf (hwe->product, c); \
+	hwe->iopolicy = d; \
+	hwe->getuid = e; \
+	vector_alloc_slot(a); \
+	vector_set_slot(a, hwe);
+	
+static void
+setup_default_hwtable (vector hwtable)
+{
+	struct hwentry * hwe;
+	
+	VECTOR_ADDHWE(hwtable, "COMPAQ", "HSV110 (C)COMPAQ", GROUP_BY_TUR, &get_evpd_wwid);
+	VECTOR_ADDHWE(hwtable, "COMPAQ", "MSA1000", GROUP_BY_TUR, &get_evpd_wwid);
+	VECTOR_ADDHWE(hwtable, "COMPAQ", "MSA1000 VOLUME", GROUP_BY_TUR, &get_evpd_wwid);
+	VECTOR_ADDHWE(hwtable, "DEC", "HSG80", GROUP_BY_TUR, &get_evpd_wwid);
+	VECTOR_ADDHWE(hwtable, "HP", "HSV110", GROUP_BY_TUR, &get_evpd_wwid);
+	VECTOR_ADDHWE(hwtable, "HP", "A6189A", GROUP_BY_TUR, &get_evpd_wwid);
+	VECTOR_ADDHWE(hwtable, "HP", "OPEN-", GROUP_BY_TUR, &get_evpd_wwid);
+	VECTOR_ADDHWE(hwtable, "DDN", "SAN DataDirector", GROUP_BY_TUR, &get_evpd_wwid);
+	VECTOR_ADDHWE(hwtable, "FSC", "CentricStor", GROUP_BY_TUR, &get_evpd_wwid);
+	VECTOR_ADDHWE(hwtable, "HITACHI", "DF400", GROUP_BY_TUR, &get_evpd_wwid);
+	VECTOR_ADDHWE(hwtable, "HITACHI", "DF500", GROUP_BY_TUR, &get_evpd_wwid);
+	VECTOR_ADDHWE(hwtable, "HITACHI", "DF600", GROUP_BY_TUR, &get_evpd_wwid);
+	VECTOR_ADDHWE(hwtable, "IBM", "ProFibre 4000R", GROUP_BY_TUR, &get_evpd_wwid);
+	VECTOR_ADDHWE(hwtable, "SGI", "TP9100", GROUP_BY_TUR, &get_evpd_wwid);
+	VECTOR_ADDHWE(hwtable, "SGI", "TP9300", GROUP_BY_TUR, &get_evpd_wwid);
+	VECTOR_ADDHWE(hwtable, "SGI", "TP9400", GROUP_BY_TUR, &get_evpd_wwid);
+	VECTOR_ADDHWE(hwtable, "SGI", "TP9500", GROUP_BY_TUR, &get_evpd_wwid);
+	VECTOR_ADDHWE(hwtable, "3PARdata", "VV", GROUP_BY_TUR, &get_evpd_wwid);
+	VECTOR_ADDHWE(hwtable, "STK", "OPENstorage D280", GROUP_BY_SERIAL, &get_evpd_wwid);
+	VECTOR_ADDHWE(hwtable, "SUN", "StorEdge 3510", GROUP_BY_TUR, &get_evpd_wwid);
+	VECTOR_ADDHWE(hwtable, "SUN", "T4", MULTIBUS, &get_evpd_wwid);
+}
+
 static void
 usage (char * progname)
 {
@@ -581,7 +665,6 @@ main (int argc, char *argv[])
 	vector mp;
 	struct multipath * mpp;
 	vector pathvec;
-	struct env conf;
 	int i, k;
 	int try = 0;
 
@@ -600,68 +683,99 @@ main (int argc, char *argv[])
 		exit (1);
 	}
 		
-	/* Default behaviour */
-	conf.dry_run = 0;	/* 1 == Do not Create/Update devmaps */
-	conf.verbose = 0;	/* 1 == Print pathvec and mp */
-	conf.quiet = 0;		/* 1 == Do not even print devmaps */
-	conf.iopolicy = -1;	/* do not override defaults */
-	conf.major = -1;
-	conf.minor = -1;
-	conf.signal = 1;	/* 1 == Do send a signal to multipathd */
+	/* alloc config struct */
+	conf = malloc(sizeof(struct config));
+				
+	/* Default conf */
+	conf->dry_run = 0;	/* 1 == Do not Create/Update devmaps */
+	conf->verbose = 0;	/* 1 == Print pathvec and mp */
+	conf->quiet = 0;	/* 1 == Do not even print devmaps */
+	conf->iopolicy = -1;	/* do not override defaults */
+	conf->major = -1;
+	conf->minor = -1;
+	conf->signal = 1;	/* 1 == Do send a signal to multipathd */
+	conf->hotplugdev = malloc(sizeof(char) * FILE_NAME_SIZE);
+	conf->default_selector = NULL;
+	conf->default_selector_args = 0;
+	conf->mptable = NULL;
+	conf->hwtable = NULL;
+	conf->blist = NULL;
 
 	/* argv parser */
 	for (i = 1; i < argc; ++i) {
 
 		argis ("-v") {
-			if (conf.quiet == 1)
+			if (conf->quiet == 1)
 				usage (argv[0]);
-			conf.verbose = 1;
+			conf->verbose = 1;
 		}
 		
 		else argis ("-D") {
-			conf.major = atoi (argv[++i]);
-			conf.minor = atoi (argv[++i]);
+			conf->major = atoi (argv[++i]);
+			conf->minor = atoi (argv[++i]);
 		}
 		
 		else argis ("-q") {
-			if (conf.verbose == 1)
+			if (conf->verbose == 1)
 				usage (argv[0]);
-			conf.quiet = 1;
+			conf->quiet = 1;
 		}
 		
 		else argis ("-d") {
-			conf.dry_run = 1;
-			conf.signal = 0;
+			conf->dry_run = 1;
+			conf->signal = 0;
 		}
 		
 		else argis ("-S")
-			conf.signal = 0;
+			conf->signal = 0;
 		
 		else argis ("-p") {
 			i++;
 			argis ("failover")
-				conf.iopolicy = FAILOVER;
+				conf->iopolicy = FAILOVER;
 			
 			argis ("multibus")
-				conf.iopolicy = MULTIBUS;
+				conf->iopolicy = MULTIBUS;
 
 			argis ("group_by_serial")
-				conf.iopolicy = GROUP_BY_SERIAL;
+				conf->iopolicy = GROUP_BY_SERIAL;
 
 			argis ("group_by_tur")
-				conf.iopolicy = GROUP_BY_TUR;
+				conf->iopolicy = GROUP_BY_TUR;
 		}
 		
 		else if (*argv[i] == '-') {
 			fprintf (stderr, "Unknown switch: %s\n", argv[i]);
 			usage (argv[0]);
 		} else
-			strncpy (conf.hotplugdev, argv[i], FILE_NAME_SIZE);
+			strncpy (conf->hotplugdev, argv[i], FILE_NAME_SIZE);
 	}
 
-	init_data (CONFIGFILE, init_keywords);
+	/* read the config file */
+	if (filepresent (CONFIGFILE))
+		init_data (CONFIGFILE, init_keywords);
+	
+	/* fill the voids left in the config file */
+	if (conf->hwtable == NULL) {
+		conf->hwtable = vector_alloc();
+		setup_default_hwtable(conf->hwtable);
+	}
+	
+	if (conf->blist == NULL) {
+		conf->blist = vector_alloc();
+		setup_default_blist(conf->blist);
+	}
 
-	/* dynamic allocations */
+	if (conf->mptable == NULL) {
+		conf->mptable = vector_alloc();
+	}
+
+	if (conf->default_selector == NULL) {
+		conf->default_selector = malloc(sizeof(char) * FILE_NAME_SIZE);
+		sprintf (conf->default_selector, "round-robin");
+	}
+
+	/* allocate the two core vectors to store paths and multipaths*/
 	mp = vector_alloc();
 	pathvec = vector_alloc();
 
@@ -671,38 +785,38 @@ main (int argc, char *argv[])
 		exit (1);
 	}
 
-	if (get_pathvec_sysfs (&conf, pathvec)) {
+	if (get_pathvec_sysfs (pathvec)) {
 		unlink (RUN);
 		exit (0);
 	}
 
-	coalesce_paths (&conf, mp, pathvec);
+	coalesce_paths (mp, pathvec);
 
-	if (conf.verbose) {
-		print_all_path (&conf, pathvec);
+	if (conf->verbose) {
+		print_all_path (pathvec);
 		print_all_mp (mp);
 	}
 
 	/* last chance to quit before messing with devmaps */
-	if (conf.dry_run) {
+	if (conf->dry_run) {
 		unlink (RUN);
 		exit (0);
 	}
 
-	if (conf.verbose)
+	if (conf->verbose)
 		fprintf (stdout, "# device maps :\n");
 
 	for (k = 0; k < VECTOR_SIZE(mp); k++) {
 		mpp = VECTOR_SLOT (mp, k);
 		if (map_present (mpp->wwid)) {
-			setup_map (&conf, pathvec, mp, k, DM_DEVICE_RELOAD);
+			setup_map (pathvec, mp, k, DM_DEVICE_RELOAD);
 		} else {
-			setup_map (&conf, pathvec, mp, k, DM_DEVICE_CREATE);
+			setup_map (pathvec, mp, k, DM_DEVICE_CREATE);
 		}
 	}
 
 	/* signal multipathd that new devmaps may have come up */
-	if (conf.signal)
+	if (conf->signal)
 		signal_daemon ();
 	
 	/* free allocs */

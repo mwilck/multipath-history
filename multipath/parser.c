@@ -319,7 +319,7 @@ process_stream(vector keywords)
 void
 init_data(char *conf_file, vector (*init_keywords) (void))
 {
-	stream = fopen((conf_file) ? conf_file : CONF, "r");
+	stream = fopen(conf_file, "r");
 	if (!stream) {
 		syslog(LOG_INFO, "Configuration file open problem...\n");
 		return;
