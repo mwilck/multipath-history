@@ -272,7 +272,7 @@ print_mp (struct multipath * mpp)
 	struct path * pp = NULL;
 	struct pathgroup * pgp = NULL;
 
-	if (mpp->action == ACT_NOTHING)
+	if (mpp->action == ACT_NOTHING || conf->verbosity == 0)
 		return;
 
 	if (conf->verbosity > 1) {
@@ -361,6 +361,9 @@ print_all_mp (vector mp)
 {
 	int k;
 	struct multipath * mpp;
+
+	if (conf->verbosity == 0)
+		return;
 
 	vector_foreach_slot (mp, mpp, k) 
 		print_mp(mpp);
@@ -1044,6 +1047,7 @@ main (int argc, char *argv[])
 			break;
 		case 'l':
 			conf->list = 1;
+			conf->dry_run = 1;
 			conf->signal = 0;
 			break;
 		case 'S':
@@ -1119,9 +1123,15 @@ main (int argc, char *argv[])
 		conf->default_hwhandler = DEFAULT_HWHANDLER;
 
 	/*
+	 * if we have a blacklisted device parameterexit early
+	 */
+	if (conf->dev && blacklist(conf->blist, conf->dev))
+		exit(0);
+	
+	/*
 	 * get a path list and group them as multipaths
 	 */
-	if (get_pathvec_sysfs(pathvec))
+	if (get_pathvec_sysfs(pathvec) || VECTOR_SIZE(pathvec) == 0)
 		exit(1);
 
 	dm_get_maps(curmp, DEFAULT_TARGET);
