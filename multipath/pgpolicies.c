@@ -3,7 +3,48 @@
 #include <string.h>
 #include "main.h"
 #include "memory.h"
+#include "pgpolicies.h"
 #include "debug.h"
+
+extern int
+get_pgpolicy_id (char * str)
+{
+	if (0 == strncmp(str, "failover", 8))
+		return FAILOVER;
+	if (0 == strncmp(str, "multibus", 8))
+		return MULTIBUS;
+	if (0 == strncmp(str, "group_by_serial", 15))
+		return GROUP_BY_SERIAL;
+	if (0 == strncmp(str, "group_by_prio", 13))
+		return GROUP_BY_PRIO;
+
+	return -1;
+}
+
+extern void
+get_pgpolicy_name (char * buff, int id)
+{
+	char * s;
+
+	switch (id) {
+	case FAILOVER:
+		s = "failover";
+		break;
+	case MULTIBUS:
+		s = "multibus";
+		break;
+	case GROUP_BY_SERIAL:
+		s = "group_by_serial";
+		break;
+	case GROUP_BY_PRIO:
+		s = "group_by_prio";
+		break;
+	default:
+		s = "undefined";
+		break;
+	}
+	sprintf(buff, "%s", s);
+}
 
 /*
  * One path group per unique serial number present in the path vector
@@ -40,7 +81,7 @@ group_by_serial (struct multipath * mp, int slot) {
 
 		/* feed the first path */
 		pathstr = zalloc(PATH_STR_SIZE);
-		strncpy(pathstr, pp->dev_t, strlen(pp->dev_t) - 1);
+		sprintf(pathstr, "%s", pp->dev_t);
 		vector_alloc_slot(pgpaths);
 		vector_set_slot(pgpaths, pathstr);
 				
@@ -55,8 +96,7 @@ group_by_serial (struct multipath * mp, int slot) {
 			
 			if (0 == strcmp(pp->serial, pp2->serial)) {
 				pathstr = zalloc(PATH_STR_SIZE);
-				strncpy(pathstr, pp2->dev_t,
-					strlen(pp2->dev_t) - 1);
+				sprintf(pathstr, "%s", pp2->dev_t);
 				vector_alloc_slot(pgpaths);
 				vector_set_slot(pgpaths, pathstr);
 
@@ -80,7 +120,7 @@ even:
 
 		/* feed the first path */
 		pathstr = zalloc(PATH_STR_SIZE);
-		strncpy(pathstr, pp->dev_t, strlen(pp->dev_t) - 1);
+		sprintf(pathstr, "%s", pp->dev_t);
 		vector_alloc_slot(pgpaths);
 		vector_set_slot(pgpaths, pathstr);
 				
@@ -95,8 +135,7 @@ even:
 			
 			if (0 == strcmp(pp->serial, pp2->serial)) {
 				pathstr = zalloc(PATH_STR_SIZE);
-				strncpy(pathstr, pp2->dev_t,
-					strlen(pp2->dev_t) - 1);
+				sprintf(pathstr, "%s", pp2->dev_t);
 				vector_alloc_slot(pgpaths);
 				vector_set_slot(pgpaths, pathstr);
 
@@ -121,12 +160,11 @@ one_path_per_group (struct multipath * mp)
 	
 	for (i = 0; i < VECTOR_SIZE(mp->paths); i++) {
 		pp = VECTOR_SLOT(mp->paths, i);
-
 		if (0 != pp->sg_id.scsi_type)
 			continue;
 
 		pathstr = zalloc(PATH_STR_SIZE);
-		strncpy(pathstr, pp->dev_t, strlen(pp->dev_t) - 1);
+		sprintf(pathstr, "%s", pp->dev_t);
 
 		if (!pp->tur) {
 			vector_alloc_slot(failedpaths);
@@ -165,7 +203,7 @@ one_group (struct multipath * mp)
 			continue;
 
 		pathstr = zalloc(PATH_STR_SIZE);
-		strncpy(pathstr, pp->dev_t, strlen(pp->dev_t) - 1);
+		sprintf(pathstr, "%s", pp->dev_t);
 
 		if (!pp->tur) {
 			vector_alloc_slot(pgfailedpaths);
@@ -205,7 +243,7 @@ group_by_prio (struct multipath * mp)
 			continue;
 
 		pathstr = zalloc(PATH_STR_SIZE);
-		strncpy(pathstr, pp->dev_t, strlen(pp->dev_t) - 1);
+		sprintf(pathstr, "%s", pp->dev_t);
 
 		if (!pp->tur) {
 			vector_alloc_slot(pgfailedpaths);

@@ -169,34 +169,40 @@ int
 sysfs_devinfo(struct path * curpath)
 {
 	char attr_path[FILE_NAME_SIZE];
-	char attr_buff[17];
+	char attr_buff[32];
 	char sysfs_path[FILE_NAME_SIZE];
+	struct stat buf;
 
 	if (0 == sysfs_get_mnt_path(sysfs_path, FILE_NAME_SIZE)) {
+		sprintf(attr_path, "%s/block/%s", sysfs_path, curpath->dev);
+		
+		if(stat(attr_path, &buf))
+			return 1;
+
 		/* sysfs style */
 		sprintf(attr_path, "%s/block/%s/device/vendor",
 			sysfs_path, curpath->dev);
 		if (0 > sysfs_read_attribute_value(attr_path,
-			attr_buff, 17)) return 0;
+			attr_buff, sizeof(attr_buff))) return 1;
 		memcpy(curpath->vendor_id, attr_buff, 8);
  
 		sprintf(attr_path, "%s/block/%s/device/model",
 			sysfs_path, curpath->dev);
 		if (0 > sysfs_read_attribute_value(attr_path,
-			attr_buff, 17)) return 0;
+			attr_buff, sizeof(attr_buff))) return 1;
 		memcpy(curpath->product_id, attr_buff, 16);
  
 		sprintf(attr_path, "%s/block/%s/device/rev",
 			sysfs_path, curpath->dev);
 		if (0 > sysfs_read_attribute_value(attr_path,
-			attr_buff, 17)) return 0;
+			attr_buff, sizeof(attr_buff))) return 1;
 		memcpy(curpath->rev, attr_buff, 4);
  
 		sprintf(attr_path, "%s/block/%s/dev",
 			sysfs_path, curpath->dev);
 		if (0 > sysfs_read_attribute_value(attr_path,
-			attr_buff, 17)) return 0;
-		strncpy(curpath->dev_t, attr_buff, strlen(attr_buff));
+			attr_buff, sizeof(attr_buff))) return 1;
+		sprintf(curpath->dev_t, "%s", attr_buff);
 	} else {
 		printf("need sysfs mounted : out\n");
 		exit(1);
@@ -426,9 +432,9 @@ static int fill_0x83_id(char *page_83, char *serial)
 	return 0;
 }
 
-long
+unsigned long
 get_disk_size (char * devname) {
-	long size;
+	unsigned long size;
 	char attr_path[FILE_NAME_SIZE];
 	char sysfs_path[FILE_NAME_SIZE];
 	char buff[FILE_NAME_SIZE];
@@ -440,7 +446,7 @@ get_disk_size (char * devname) {
 		if (0 > sysfs_read_attribute_value(attr_path, buff,
 			FILE_NAME_SIZE))
 			return -1;
-		size = atol(buff);
+		size = strtoul(buff, NULL, 10);
 		return size;
 	}
 	dbg("get_disk_size need sysfs");

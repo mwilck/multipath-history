@@ -18,6 +18,7 @@
  */
 
 #include "parser.h"
+#include "debug.h"
 #include "memory.h"
 
 /* local vars */

@@ -52,32 +52,6 @@ exit_tool (int status)
 }
 	
 static int
-sysfsdevice2devname (char *devname, char *device)
-{
-	char sysfs_path[FILE_NAME_SIZE];
-	char block_path[FILE_NAME_SIZE];
-	char link_path[FILE_NAME_SIZE];
-	int r;
-
-	if (sysfs_get_mnt_path (sysfs_path, FILE_NAME_SIZE)) {
-		fprintf (stderr, "[device] feature needs sysfs\n");
-		exit (1);
-	}
-	
-	sprintf (link_path, "%s%s/block", sysfs_path, device);
-	
-	r = sysfs_get_link (link_path, block_path, FILE_NAME_SIZE);
-
-	if (r != 0)
-		return 1;
-
-	sysfs_get_name_from_path (block_path, devname, FILE_NAME_SIZE);
-
-	return 0;
-}
-
-	
-static int
 devt2devname (char *devname, int major, int minor)
 {
 	struct sysfs_directory * sdir;
@@ -115,6 +89,15 @@ devt2devname (char *devname, int major, int minor)
 }
 
 static int
+filepresent (char * run) {
+	struct stat buf;
+
+	if(!stat(run, &buf))
+		return 1;
+	return 0;
+}
+
+static int
 blacklist (char * dev) {
 	int i;
 	char *p;
@@ -136,7 +119,15 @@ devinfo (struct path *curpath)
 	char buff[100];
 	char prio[16];
 
-	sysfs_devinfo(curpath);
+	/*
+	 * fetch info available in sysfs
+	 */
+	if (sysfs_devinfo(curpath))
+		return 1;
+
+	/*
+	 * then those not available through sysfs
+	 */
 	get_serial(curpath->serial, curpath->dev_t);
 	curpath->tur = do_tur(curpath->dev_t);
 	curpath->claimed = get_claimed(curpath->dev_t);
@@ -235,22 +226,24 @@ get_pathvec_sysfs (vector pathvec)
 	memset (empty_buff, 0, WWID_SIZE);
 	memset (refwwid, 0, WWID_SIZE);
 
+	if (sysfs_get_mnt_path(sysfs_path, FILE_NAME_SIZE)) {
+		fprintf(stderr, "[device] feature needs sysfs\n");
+		exit_tool(1);
+	}
+	
 	/*
-	 * if called from hotplug, only consider the paths that relate
-	 * to the device pointed by conf.hotplugdev
+	 * if called from /etc/dev.d , only consider the paths that relate
+	 * to the device pointed by conf->dev
 	 */
-	if (strncmp ("/devices", conf->hotplugdev, 8) == 0) {
-		if (sysfsdevice2devname (buff, conf->hotplugdev))
+	if (conf->dev != NULL && filepresent(conf->dev)) {
+		curpath = zalloc(sizeof (struct path));
+		basename(conf->dev, curpath->dev);
+
+		if (devinfo(curpath))
 			return 1;
 
-		curpath = zalloc (sizeof (struct path));
-		sprintf (curpath->dev, "%s", buff);
-
-		if (devinfo (curpath))
-			return 1;
-
-		memcpy (refwwid, curpath->wwid, WWID_SIZE);
-		free (curpath);
+		memcpy(refwwid, curpath->wwid, WWID_SIZE);
+		free(curpath);
 	}
 
 	/*
@@ -258,39 +251,34 @@ get_pathvec_sysfs (vector pathvec)
 	 * only consider affiliated paths
 	 */
 	if (conf->major >= 0 && conf->minor >= 0) {
-		if (devt2devname (buff, conf->major, conf->minor))
+		if (devt2devname(buff, conf->major, conf->minor))
 			return 1;
 		
-		curpath = zalloc (sizeof (struct path));
-		sprintf (curpath->dev, "%s", buff);
+		curpath = zalloc(sizeof (struct path));
+		sprintf(curpath->dev, "%s", buff);
 
-		if (devinfo (curpath))
+		if (devinfo(curpath))
 			return 1;
 
-		memcpy (refwwid, curpath->wwid, WWID_SIZE);
-		free (curpath);
+		memcpy(refwwid, curpath->wwid, WWID_SIZE);
+		free(curpath);
 	}
 		
-	if (sysfs_get_mnt_path (sysfs_path, FILE_NAME_SIZE)) {
-		fprintf (stderr, "[device] feature needs sysfs\n");
-		exit_tool(1);
-	}
-	
-	sprintf (path, "%s/block", sysfs_path);
-	sdir = sysfs_open_directory (path);
-	sysfs_read_directory (sdir);
+	sprintf(path, "%s/block", sysfs_path);
+	sdir = sysfs_open_directory(path);
+	sysfs_read_directory(sdir);
 
-	dlist_for_each_data (sdir->subdirs, devp, struct sysfs_directory) {
-		if (blacklist (devp->name))
+	dlist_for_each_data(sdir->subdirs, devp, struct sysfs_directory) {
+		if (blacklist(devp->name))
 			continue;
 
-		sysfs_read_directory (devp);
+		sysfs_read_directory(devp);
 
 		if (devp->links == NULL)
 			continue;
 
-		dlist_for_each_data (devp->links, linkp, struct sysfs_link) {
-			if (!strncmp (linkp->name, "device", 6))
+		dlist_for_each_data(devp->links, linkp, struct sysfs_link) {
+			if (!strncmp(linkp->name, "device", 6))
 				break;
 		}
 
@@ -298,32 +286,32 @@ get_pathvec_sysfs (vector pathvec)
 			continue;
 		}
 
-		basename (devp->path, buff);
-		curpath = zalloc (sizeof (struct path));
-		sprintf (curpath->dev, "%s", buff);
+		basename(devp->path, buff);
+		curpath = zalloc(sizeof(struct path));
+		sprintf(curpath->dev, "%s", buff);
 
-		if (devinfo (curpath)) {
+		if (devinfo(curpath)) {
 			free (curpath);
 			continue;
 		}
 
-		if (memcmp (empty_buff, refwwid, WWID_SIZE) != 0 && 
-		    memcmp (curpath->wwid, refwwid, WWID_SIZE) != 0) {
-			free (curpath);
+		if (memcmp(empty_buff, refwwid, WWID_SIZE) != 0 && 
+		    memcmp(curpath->wwid, refwwid, WWID_SIZE) != 0) {
+			free(curpath);
 			continue;
 		}
 
-		basename (linkp->target, buff);
-		sscanf (buff, "%i:%i:%i:%i",
+		basename(linkp->target, buff);
+		sscanf(buff, "%i:%i:%i:%i",
 			&curpath->sg_id.host_no,
 			&curpath->sg_id.channel,
 			&curpath->sg_id.scsi_id,
 			&curpath->sg_id.lun);
 
-		vector_alloc_slot (pathvec);
-		vector_set_slot (pathvec, curpath);
+		vector_alloc_slot(pathvec);
+		vector_set_slot(pathvec, curpath);
 	}
-	sysfs_close_directory (sdir);
+	sysfs_close_directory(sdir);
 	return 0;
 }
 
@@ -564,7 +552,7 @@ dm_simplecmd (int task, const char *name) {
 }
 
 static int
-dm_addmap (int task, const char *name, const char *params, long size) {
+dm_addmap (int task, const char *name, const char *params, unsigned long size) {
 	struct dm_task *dmt;
 
 	if (!(dmt = dm_task_create (task)))
@@ -690,6 +678,7 @@ setup_map (vector pathvec, vector mp, int slot)
 	struct path * pp;
 	struct multipath * mpp;
 	int i, iopolicy;
+	char iopolicy_name[32];
 	int fd;
 	struct hwentry * hwe = NULL;
 	struct mpentry * mpe;
@@ -702,7 +691,7 @@ setup_map (vector pathvec, vector mp, int slot)
 	/*
 	 * don't bother if devmap size is unknown
 	 */
-	if (mpp->size < 0)
+	if (mpp->size <= 0)
 		return 0;
 
 	/*
@@ -729,12 +718,14 @@ setup_map (vector pathvec, vector mp, int slot)
 
 	/* 1) set internal default */
 	iopolicy = FAILOVER;
-	dbg("internal default)\tiopolicy = %s", iopolicies[iopolicy]);
+	get_pgpolicy_name(iopolicy_name, FAILOVER);
+	dbg("internal default)\tiopolicy = %s", iopolicy_name);
 
 	/* 2) override by config file default */
 	if (conf->default_iopolicy >= 0) {
 		iopolicy = conf->default_iopolicy;
-		dbg("config file default)\tiopolicy = %s", iopolicies[iopolicy]);
+		get_pgpolicy_name(iopolicy_name, iopolicy);
+		dbg("config file default)\tiopolicy = %s", iopolicy_name);
 	}
 	
 	/* 3) override by controler wide setting */
@@ -744,7 +735,8 @@ setup_map (vector pathvec, vector mp, int slot)
 		if (MATCH (pp->vendor_id, hwe->vendor) &&
 		    MATCH (pp->product_id, hwe->product)) {
 			iopolicy = hwe->iopolicy;
-			dbg("controler override)\tiopolicy = %s", iopolicies[iopolicy]);
+			get_pgpolicy_name(iopolicy_name, iopolicy);
+			dbg("controler override)\tiopolicy = %s", iopolicy_name);
 		}
 	}
 
@@ -754,14 +746,16 @@ setup_map (vector pathvec, vector mp, int slot)
 
 		if (strcmp(mpe->wwid, mpp->wwid) == 0) {
 			iopolicy = mpe->iopolicy;
-			dbg("lun override)\t\tiopolicy = %s", iopolicies[iopolicy]);
+			get_pgpolicy_name(iopolicy_name, iopolicy);
+			dbg("lun override)\t\tiopolicy = %s", iopolicy_name);
 		}
 	}
 
 	/* 5) cmd line flag has the last word */
 	if (conf->iopolicy_flag >= 0) {
 		iopolicy = conf->iopolicy_flag;
-		dbg("cmd flag override)\tiopolicy = %s", iopolicies[iopolicy]);
+		get_pgpolicy_name(iopolicy_name, iopolicy);
+		dbg("cmd flag override)\tiopolicy = %s", iopolicy_name);
 	}
 
 	/*
@@ -793,12 +787,12 @@ setup_map (vector pathvec, vector mp, int slot)
 	 */
 	assemble_map(mpp);
 
-	fd = dup(2);
-	close(2);
-
 	mapname = mpp->alias ? mpp->alias : mpp->wwid;
 	op = map_present(mpp->wwid) ? DM_DEVICE_RELOAD : DM_DEVICE_CREATE;
 	
+	fd = dup(2);
+	close(2);
+
 	if (op == DM_DEVICE_RELOAD)
 		if (!dm_simplecmd(DM_DEVICE_SUSPEND, mapname)) {
 			dup2(fd, 2);
@@ -815,7 +809,7 @@ setup_map (vector pathvec, vector mp, int slot)
 
 	if (op == DM_DEVICE_RELOAD)
 		if (!dm_simplecmd(DM_DEVICE_RESUME, mapname)) {
-			return 0;
+			dup2(fd, 2);
 			close(fd);
 			return 0;
 		}
@@ -823,11 +817,14 @@ setup_map (vector pathvec, vector mp, int slot)
 	dup2(fd, 2);
 	close(fd);
 
-	if (!conf->quiet)
-		printf ("%s:0 %li %s%s\n",
-			mapname,
+	if (conf->verbosity > 0)
+		printf ("%s", mapname);
+	if (conf->verbosity > 1)
+		printf (":0 %lu %s%s",
 			mpp->size, DM_TARGET,
 			mpp->params);
+	if (conf->verbosity > 0)
+		printf ("\n");
 
 	return 1;
 }
@@ -855,15 +852,6 @@ signal_daemon (void)
 	free (buf);
 
 	kill (pid, SIGHUP);
-}
-
-static int
-filepresent (char * run) {
-	struct stat buf;
-
-	if(!stat (run, &buf))
-		return 1;
-	return 0;
 }
 
 #define VECTOR_ADDSTR(a, b) \
@@ -933,14 +921,16 @@ static void
 usage (char * progname)
 {
 	fprintf (stderr, VERSION_STRING);
-	fprintf (stderr, "Usage: %s\t[-v|-q] [-d] [-D major minor] [-S]\n",
+	fprintf (stderr, "Usage: %s\t[-v level] [-d] [-D major minor] [-S]\n",
 		progname);
 	fprintf (stderr,
 		"\t\t\t[-p failover|multibus|group_by_serial|group_by_prio]\n" \
 		"\t\t\t[device]\n" \
 		"\n" \
-		"\t-v\t\tverbose, print all paths and multipaths\n" \
-		"\t-q\t\tquiet, no output at all\n" \
+		"\t-v level\t\tverbosty level\n" \
+		"\t   0 no output\n" \
+		"\t   1 print created devmap names only\n" \
+		"\t   2 print all paths and multipaths\n" \
 		"\t-d\t\tdry run, do not create or update devmaps\n" \
 		"\t-D maj min\tlimit scope to the device's multipath\n" \
 		"\t\t\t(major minor device reference)\n"
@@ -953,7 +943,7 @@ usage (char * progname)
 		"\t   group_by_prio\t\t- 1 priority group per priority lvl\n" \
 		"\n" \
 		"\tdevice\t\tlimit scope to the device's multipath\n" \
-		"\t\t\t(hotplug-style $DEVPATH reference)\n" \
+		"\t\t\t(udev-style $DEVNAME reference, eg /dev/sdb)\n" \
 		);
 
 	exit_tool(1);
@@ -973,20 +963,20 @@ main (int argc, char *argv[])
 	/*
 	 * Don't run in parallel
 	 */
-	while (filepresent (RUN) && try++ < MAXTRY)
-		usleep (100000);
+	while (filepresent(RUN) && try++ < MAXTRY)
+		usleep(100000);
 
-	if (filepresent (RUN)) {
-		fprintf (stderr, "waited for to long. exiting\n");
-		exit (1);
+	if (filepresent(RUN)) {
+		fprintf(stderr, "waited for to long. exiting\n");
+		exit(1);
 	}
 	
 	/*
 	 * Our turn
 	 */
-	if (!open (RUN, O_CREAT)) {
-		fprintf (stderr, "can't create runfile\n");
-		exit (1);
+	if (!open(RUN, O_CREAT)) {
+		fprintf(stderr, "can't create runfile\n");
+		exit(1);
 	}
 		
 	/*
@@ -998,13 +988,12 @@ main (int argc, char *argv[])
 	 * internal defaults
 	 */
 	conf->dry_run = 0;		/* 1 == Do not Create/Update devmaps */
-	conf->verbose = 0;		/* 1 == Print pathvec and mp */
-	conf->quiet = 0;		/* 1 == Do not even print devmaps */
+	conf->verbosity = 1;		/* 1 == Print mp names */
 	conf->iopolicy_flag = -1;	/* do not override defaults */
 	conf->major = -1;
 	conf->minor = -1;
 	conf->signal = 1;		/* 1 == Send a signal to multipathd */
-	conf->hotplugdev = zalloc(sizeof(char) * FILE_NAME_SIZE);
+	conf->dev = zalloc(sizeof(char) * FILE_NAME_SIZE);
 	conf->default_selector = NULL;
 	conf->default_selector_args = 0;
 	conf->default_iopolicy = -1;
@@ -1012,19 +1001,16 @@ main (int argc, char *argv[])
 	conf->hwtable = NULL;
 	conf->blist = NULL;
 
-	while ((arg = getopt(argc, argv, ":vqdSi:p:D:")) != EOF ) {
+	while ((arg = getopt(argc, argv, ":qdSi:v:p:D:")) != EOF ) {
 		switch(arg) {
 			case 1: printf("optarg : %s\n",optarg);
 				break;
 			case 'v':
-				if (conf->quiet == 1)
+				if (sizeof(optarg) > sizeof(char *) ||
+				    !isdigit(optarg[0]))
 					usage (argv[0]);
-				conf->verbose = 1;
-				break;
-			case 'q':                
-				if (conf->verbose == 1)
-					usage (argv[0]);
-				conf->quiet = 1;
+
+				conf->verbosity = atoi(optarg);
 				break;
 			case 'd':
 				conf->dry_run = 1;
@@ -1065,7 +1051,7 @@ main (int argc, char *argv[])
 		}
 	}        
 	if (optind<argc)
-		strncpy (conf->hotplugdev, argv[optind], FILE_NAME_SIZE);
+		strncpy (conf->dev, argv[optind], FILE_NAME_SIZE);
 
 	/*
 	 * read the config file
@@ -1110,14 +1096,14 @@ main (int argc, char *argv[])
 	if (get_pathvec_sysfs(pathvec))
 		exit_tool(1);
 
-	if (VECTOR_SIZE(pathvec) == 0 && !conf->quiet) {
+	if (VECTOR_SIZE(pathvec) == 0 && conf->verbosity > 0) {
 		fprintf (stdout, "no path found\n");
 		exit_tool(0);
 	}
 
 	coalesce_paths(mp, pathvec);
 
-	if (conf->verbose) {
+	if (conf->verbosity > 1) {
 		print_all_path(pathvec);
 		print_all_mp(mp);
 	}
@@ -1128,7 +1114,7 @@ main (int argc, char *argv[])
 	if (conf->dry_run)
 		exit_tool(0);
 
-	if (conf->verbose)
+	if (conf->verbosity > 1)
 		fprintf (stdout, "#\n# device maps :\n#\n");
 
 	for (k = 0; k < VECTOR_SIZE(mp); k++)

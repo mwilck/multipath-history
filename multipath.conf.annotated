@@ -7,9 +7,9 @@ defaults {
 	# name    : multipath_tool
 	# scope   : multipathd
 	# desc    : the tool in charge of configuring the multipath device maps
-	# default : "/sbin/multipath -q -S"
+	# default : "/sbin/multipath -v 0 -S"
 	#
-	multipath_tool	"/sbin/multipath -q -S"
+	multipath_tool	"/sbin/multipath -v 0 -S"
 
 	#
 	# name    : udev_dir
