@@ -1,5 +1,8 @@
 #include <string.h>
 #include <ctype.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #define PARAMS_SIZE 255
 
@@ -35,5 +38,14 @@ basename (char * str1, char * str2)
 		p++;
 
 	strcpy(str2, p);
+}
+
+int
+filepresent (char * run) {
+	struct stat buf;
+
+	if(!stat(run, &buf))
+		return 1;
+	return 0;
 }
 
