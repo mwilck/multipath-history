@@ -7,14 +7,17 @@ BUILD=klibc
 include ../Makefile.inc
 
 ifeq ($(strip $(BUILD)),klibc)
-	CFLAGS = ${REQFLAGS} ${OPTFLAGS} -I../libdevmapper -I.
+	CFLAGS = ${REQFLAGS} ${OPTFLAGS} -I$(libdmdir) -I.
+	OBJS = bsd.o dos.o kpartx.o solaris.o unixware.o gpt.o crc32.o \
+	       lopart.o xstrncpy.o $(DMLIB)-$(BUILD).a
 else
 	CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes -I.
 	LDFLAGS = -ldevmapper
+	OBJS = bsd.o dos.o kpartx.o solaris.o unixware.o gpt.o crc32.o \
+	       lopart.o xstrncpy.o
 endif
 
 EXEC = kpartx
-OBJS = bsd.o dos.o kpartx.o solaris.o unixware.o gpt.o crc32.o lopart.o xstrncpy.o
 
 all: klibc
 
@@ -24,13 +27,18 @@ prepare:
 glibc: prepare $(OBJS)
 	$(CC) $(OBJS) -o $(EXEC) $(LDFLAGS)
 	$(STRIP) $(EXEC)
-#	$(GZIP) $(EXEC).8 > $(EXEC).8.gz
 	
-klibc: prepare $(OBJS)
-	$(LD) -o $(EXEC) $(CRT0) $(OBJS) $(DMLIB)-$(BUILD).a \
-	$(KLIBC) $(LIBGCC)
+klibc: prepare $(KLIBC) $(OBJS)
+	$(LD) -o $(EXEC) $(CRT0) $(OBJS) $(KLIBC) $(LIBGCC)
 	$(STRIP) $(EXEC)
-#	$(GZIP) $(EXEC).8 > $(EXEC).8.gz
+
+$(DMLIB)-$(BUILD).a:
+	make -C $(libdmdir) BUILD=$(BUILD) $(BUILD)
+
+$(KLIBC):
+	rm -f $(klibcdir)/linux
+	ln -s $(KERNEL_BUILD) $(klibcdir)/linux
+	make -C $(klibcdir)
 
 install:
 	install -d $(DESTDIR)$(bindir)

@@ -8,8 +8,9 @@ ifeq ($(strip $(BUILD)),klibc)
 endif
 
 prefix      = 
-exec_prefix = ${prefix}
-bindir      = ${exec_prefix}/sbin
+exec_prefix = $(prefix)
+bindir      = $(exec_prefix)/sbin
+klibcdir    = $(SRCROOT)
 libdmdir    = ../libdevmapper
 sysfsdir    = ../libsysfs
 checkersdir = ../libcheckers
@@ -23,3 +24,5 @@ DMLIB = $(libdmdir)/libdevmapper
 SYSFSLIB = $(sysfsdir)/libsysfs
 CHECKERSLIB = $(checkersdir)/libcheckers
 MULTIPATHLIB = $(multipathdir)/libmultipath
+
+KERNEL_BUILD = /lib/modules/$(shell uname -r)/build
