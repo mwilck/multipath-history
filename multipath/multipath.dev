@@ -1,15 +1,13 @@
 #!/bin/sh -e
 
-map=$(/sbin/multipath -S -v 1 $DEVNAME)
-
-if [ -z $map ]
-then
+if [ ! "${ACTION}" = add ] ; then
 	exit
 fi
 
-echo "path $DEVNAME : multipath $map"
-
-if [ -b /dev/$map ] 
-then
-	kpartx -v -a /dev/$map
+if [ "${DEVPATH:7:3}" = "dm-" ] ; then
+	dev=$(</sys${DEVPATH}/dev)
+	map=$(/sbin/devmap_name $dev)
+	/sbin/kpartx -v -a /dev/$map
+else
+	/sbin/multipath -v0 ${DEVNAME}
 fi
