@@ -12,7 +12,6 @@
 #include <wait.h>
 #include <sched.h>
 #include <errno.h>
-#include <syslog.h>
 #include <sys/mount.h>
 #include <sys/mman.h>
 
@@ -49,6 +48,7 @@
 #include "devinfo.h"
 #include "copy.h"
 #include "clone_platform.h"
+#include "log_pthread.h"
 
 #define FILE_NAME_SIZE 256
 #define CMDSIZE 160
@@ -61,7 +61,7 @@
 
 #define LOG_MSG(a,b) \
 	if (strlen(a)) { \
-		syslog(LOG_WARNING, "%s: %s", b, a); \
+		log_safe(LOG_WARNING, "%s: %s", b, a); \
 		memset(a, 0, MAX_CHECKER_MSG_SIZE); \
 	}
 
@@ -122,19 +122,19 @@ select_checkfn(struct path *pp, char *devname)
 	r = get_lun_strings(vendor, product, rev, devname);
 
 	if (r) {
-		syslog(LOG_ERR, "can not get scsi strings");
+		log_safe(LOG_ERR, "can not get scsi strings");
 		return r;
 	}
 	hwe = find_hwe(hwtable, vendor, product);
 
 	if (hwe && hwe->checker_index > 0) {
 		get_checker_name(checker_name, hwe->checker_index);
-		syslog(LOG_INFO, "set %s path checker for %s",
+		log_safe(LOG_INFO, "set %s path checker for %s",
 		     checker_name, devname);
 		pp->checkfn = get_checker_addr(hwe->checker_index);
 		return 0;
 	}
-	syslog(LOG_INFO, "set readsector0 path checker for %s (default)",
+	log_safe(LOG_INFO, "set readsector0 path checker for %s (default)",
 		devname);
 	return 0;
 }
@@ -145,13 +145,14 @@ exit_daemon (int status)
 	if (status != 0)
 		fprintf(stderr, "bad exit status. see daemon.log\n");
 
-	syslog(LOG_INFO, "umount ramfs");
+	log_safe(LOG_INFO, "umount ramfs");
 	umount(CALLOUT_DIR);
 
-	syslog(LOG_INFO, "unlink pidfile");
+	log_safe(LOG_INFO, "unlink pidfile");
 	unlink(DEFAULT_PIDFILE);
 
-	syslog(LOG_NOTICE, "--------shut down-------");
+	log_safe(LOG_NOTICE, "--------shut down-------");
+	log_thread_stop();
 	exit(status);
 }
 
@@ -187,7 +188,7 @@ get_devmaps (void)
 	}
 
 	if (!names->dev) {
-		syslog(LOG_WARNING, "no devmap found");
+		log_safe(LOG_WARNING, "no devmap found");
 		goto out;
 	}
 
@@ -263,11 +264,11 @@ updatepaths (struct paths *allpaths, char *sysfs_path)
 	sdir = sysfs_open_directory(path);
 
 	if (!sdir) {
-		syslog(LOG_ERR, "cannot open %s/block", sysfs_path);
+		log_safe(LOG_ERR, "cannot open %s/block", sysfs_path);
 		return 1;
 	}
 	if (sysfs_read_dir_subdirs(sdir) < 0) {
-		syslog(LOG_ERR, "cannot open %s/block subdirs", sysfs_path);
+		log_safe(LOG_ERR, "cannot open %s/block subdirs", sysfs_path);
 		sysfs_close_directory(sdir);
 		return 1;
 	}
@@ -275,7 +276,7 @@ updatepaths (struct paths *allpaths, char *sysfs_path)
 
 	dlist_for_each_data(sdir->subdirs, devp, struct sysfs_directory) {
 		if (blacklist(blist, devp->name)) {
-			syslog(LOG_DEBUG, "%s blacklisted", devp->name);
+			log_safe(LOG_DEBUG, "%s blacklisted", devp->name);
 			continue;
 		}
 		memset(attr_buff, 0, sizeof (attr_buff));
@@ -287,7 +288,7 @@ updatepaths (struct paths *allpaths, char *sysfs_path)
 			continue;
 		}
 		if (0 > sysfs_read_attribute_value(attr_path, attr_buff, 17)) {
-			syslog(LOG_ERR, "no such attribute : %s",
+			log_safe(LOG_ERR, "no such attribute : %s",
 				attr_path);
 			continue;
 		}
@@ -302,7 +303,7 @@ updatepaths (struct paths *allpaths, char *sysfs_path)
 				break;
 
 		if (i < VECTOR_SIZE(allpaths->pathvec)) {
-			syslog(LOG_INFO, "path checker already active : %s",
+			log_safe(LOG_INFO, "path checker already active : %s",
 				pp->dev_t);
 			continue;
 		}
@@ -325,7 +326,7 @@ updatepaths (struct paths *allpaths, char *sysfs_path)
 		pp->state = pp->checkfn(pp->dev_t, NULL, &pp->checker_context);
 		vector_alloc_slot(allpaths->pathvec);
 		vector_set_slot(allpaths->pathvec, pp);
-		syslog(LOG_NOTICE, "path checker startup : %s", pp->dev_t);
+		log_safe(LOG_NOTICE, "path checker startup : %s", pp->dev_t);
 	}
 	pthread_mutex_unlock(allpaths->lock);
 	sysfs_close_directory(sdir);
@@ -353,7 +354,7 @@ geteventnr (char *name)
 	}
 
 	if (!info.exists) {
-		syslog(LOG_ERR, "Device %s does not exist", name);
+		log_safe(LOG_ERR, "Device %s does not exist", name);
 		info.event_nr = 0;
 		goto out;
 	}
@@ -395,7 +396,7 @@ mark_failed_path (struct paths *allpaths, char *mapname)
 
 			app = find_path_by_devt(allpaths->pathvec, pp->dev_t);
 			if (app && app->state != PATH_DOWN) {
-				syslog(LOG_NOTICE, "mark %s as failed",
+				log_safe(LOG_NOTICE, "mark %s as failed",
 					pp->dev_t);
 				app->state = PATH_DOWN;
 			}
@@ -421,13 +422,13 @@ waitevent (void * et)
 	waiter = (struct event_thread *)et;
 
 	if (safe_snprintf(cmd, CMDSIZE, "%s %s", multipath, waiter->mapname)) {
-		syslog(LOG_ERR, "command too long, abord reconfigure");
+		log_safe(LOG_ERR, "command too long, abord reconfigure");
 		return NULL;
 	}
 	pthread_mutex_lock (waiter->waiter_lock);
 
 	waiter->event_nr = geteventnr (waiter->mapname);
-	syslog(LOG_DEBUG, "waiter->event_nr = %i", waiter->event_nr);
+	log_safe(LOG_DEBUG, "waiter->event_nr = %i", waiter->event_nr);
 
 	if (!(dmt = dm_task_create(DM_DEVICE_WAITEVENT)))
 		return 0;
@@ -443,8 +444,8 @@ waitevent (void * et)
 out:
 	dm_task_destroy(dmt);
 
-	syslog(LOG_DEBUG, "%s", cmd);
-	syslog(LOG_NOTICE, "devmap event on %s", waiter->mapname);
+	log_safe(LOG_DEBUG, "%s", cmd);
+	log_safe(LOG_NOTICE, "devmap event on %s", waiter->mapname);
 	mark_failed_path(waiter->allpaths, waiter->mapname);
 	execute_program(cmd, buff, 1);
 
@@ -478,10 +479,10 @@ waiterloop (void *ap)
 	int i, j;
 
 	mlockall(MCL_CURRENT | MCL_FUTURE);
-	syslog(LOG_NOTICE, "start DM events thread");
+	log_safe(LOG_NOTICE, "start DM events thread");
 
 	if (sysfs_get_mnt_path(sysfs_path, FILE_NAME_SIZE)) {
-		syslog(LOG_ERR, "can not find sysfs mount point");
+		log_safe(LOG_ERR, "can not find sysfs mount point");
 		return NULL;
 	}
 
@@ -493,14 +494,14 @@ waiterloop (void *ap)
 	pthread_attr_init(&attr);
 	pthread_attr_setstacksize(&attr, 32 * 1024);
 
-	syslog(LOG_NOTICE, "initial reconfigure multipath maps");
+	log_safe(LOG_NOTICE, "initial reconfigure multipath maps");
 	execute_program(multipath, buff, 1);
 
 	while (1) {
 		/*
 		 * update devmap list
 		 */
-		syslog(LOG_INFO, "refresh devmaps list");
+		log_safe(LOG_INFO, "refresh devmaps list");
 		if (devmaps != NULL)
 			strvec_free(devmaps);
 
@@ -508,24 +509,24 @@ waiterloop (void *ap)
 			/*
 			 * we're not allowed to fail here
 			 */
-			syslog(LOG_ERR, "can't get devmaps ... retry");
+			log_safe(LOG_ERR, "can't get devmaps ... retry");
 			sleep(5);
 		}
 
 		/*
 		 * update paths list
 		 */
-		syslog(LOG_INFO, "refresh paths list");
+		log_safe(LOG_INFO, "refresh paths list");
 
 		while(updatepaths(allpaths, sysfs_path)) {
-			syslog(LOG_ERR, "can't update path list ... retry");
+			log_safe(LOG_ERR, "can't update path list ... retry");
 			sleep(5);
 		}
 
 		/*
 		 * start waiters on all devmaps
 		 */
-		syslog(LOG_INFO, "start up event loops");
+		log_safe(LOG_INFO, "start up event loops");
 
 		vector_foreach_slot (devmaps, devmap, i) {
 			/*
@@ -566,7 +567,7 @@ waiterloop (void *ap)
 				pthread_mutex_unlock (wp->waiter_lock);
 			}
 			
-			syslog(LOG_NOTICE, "event checker startup : %s",
+			log_safe(LOG_NOTICE, "event checker startup : %s",
 					wp->mapname);
 			pthread_create (wp->thread, &attr, waitevent, wp);
 			pthread_detach (*wp->thread);
@@ -598,15 +599,15 @@ checkerloop (void *ap)
 	memset(checker_msg, 0, MAX_CHECKER_MSG_SIZE);
 	allpaths = (struct paths *)ap;
 
-	syslog(LOG_NOTICE, "path checkers start up");
+	log_safe(LOG_NOTICE, "path checkers start up");
 
 	while (1) {
 		pthread_mutex_lock(allpaths->lock);
-		syslog(LOG_DEBUG, "checking paths");
+		log_safe(LOG_DEBUG, "checking paths");
 
 		vector_foreach_slot (allpaths->pathvec, pp, i) {
 			if (!pp->checkfn) {
-				syslog(LOG_ERR, "checkfn is void");
+				log_safe(LOG_ERR, "checkfn is void");
 				continue;
 			}
 			newstate = pp->checkfn(pp->dev_t, checker_msg,
@@ -630,11 +631,11 @@ checkerloop (void *ap)
 				 */
 				if (safe_snprintf(cmd, CMDSIZE, "%s %s",
 						  multipath, pp->dev_t)) {
-					syslog(LOG_ERR, "command too long,"
+					log_safe(LOG_ERR, "command too long,"
 							" abord reconfigure");
 				} else {
-					syslog(LOG_DEBUG, "%s", cmd);
-					syslog(LOG_INFO,
+					log_safe(LOG_DEBUG, "%s", cmd);
+					log_safe(LOG_INFO,
 						"reconfigure %s multipath",
 						pp->dev_t);
 					execute_program(cmd, buff, 1);
@@ -700,10 +701,10 @@ prepare_namespace(void)
 	 */
 	if (stat (CALLOUT_DIR, buf) < 0) {
 		if (mkdir(CALLOUT_DIR, mode) < 0) {
-			syslog(LOG_ERR, "cannot create " CALLOUT_DIR);
+			log_safe(LOG_ERR, "cannot create " CALLOUT_DIR);
 			return -1;
 		}
-		syslog(LOG_DEBUG, "created " CALLOUT_DIR);
+		log_safe(LOG_DEBUG, "created " CALLOUT_DIR);
 	}
 
 	/*
@@ -711,17 +712,17 @@ prepare_namespace(void)
 	 */
 	vector_foreach_slot (binvec, bin,i) {
 		if ((fd = open(bin, O_RDONLY)) < 0) {
-			syslog(LOG_ERR, "cannot open %s", bin);
+			log_safe(LOG_ERR, "cannot open %s", bin);
 			return -1;
 		}
 		if (fstat(fd, &statbuf) < 0) {
-			syslog(LOG_ERR, "cannot stat %s", bin);
+			log_safe(LOG_ERR, "cannot stat %s", bin);
 			return -1;
 		}
 		size += statbuf.st_size;
 		close(fd);
 	}
-	syslog(LOG_INFO, "ramfs maxsize is %u", (unsigned int) size);
+	log_safe(LOG_INFO, "ramfs maxsize is %u", (unsigned int) size);
 	
 	/*
 	 * mount the ramfs
@@ -731,20 +732,20 @@ prepare_namespace(void)
 		return -1;
 	}
 	if (mount(NULL, CALLOUT_DIR, "ramfs", MS_SYNCHRONOUS, ramfs_args) < 0) {
-		syslog(LOG_ERR, "cannot mount ramfs on " CALLOUT_DIR);
+		log_safe(LOG_ERR, "cannot mount ramfs on " CALLOUT_DIR);
 		return -1;
 	}
-	syslog(LOG_DEBUG, "mount ramfs on " CALLOUT_DIR);
+	log_safe(LOG_DEBUG, "mount ramfs on " CALLOUT_DIR);
 
 	/*
 	 * populate the ramfs with callout binaries
 	 */
 	vector_foreach_slot (binvec, bin,i) {
 		if (copytodir(bin, CALLOUT_DIR) < 0) {
-			syslog(LOG_ERR, "cannot copy %s in ramfs", bin);
+			log_safe(LOG_ERR, "cannot copy %s in ramfs", bin);
 			exit_daemon(1);
 		}
-		syslog(LOG_DEBUG, "cp %s in ramfs", bin);
+		log_safe(LOG_DEBUG, "cp %s in ramfs", bin);
 	}
 	strvec_free(binvec);
 
@@ -755,20 +756,20 @@ prepare_namespace(void)
 	 * /tmp  : home of tools temp files
 	 */
 	if (mount(CALLOUT_DIR, "/sbin", NULL, MS_BIND, NULL) < 0) {
-		syslog(LOG_ERR, "cannot bind ramfs on /sbin");
+		log_safe(LOG_ERR, "cannot bind ramfs on /sbin");
 		return -1;
 	}
-	syslog(LOG_DEBUG, "bind ramfs on /sbin");
+	log_safe(LOG_DEBUG, "bind ramfs on /sbin");
 	if (mount(CALLOUT_DIR, "/bin", NULL, MS_BIND, NULL) < 0) {
-		syslog(LOG_ERR, "cannot bind ramfs on /bin");
+		log_safe(LOG_ERR, "cannot bind ramfs on /bin");
 		return -1;
 	}
-	syslog(LOG_DEBUG, "bind ramfs on /bin");
+	log_safe(LOG_DEBUG, "bind ramfs on /bin");
 	if (mount(CALLOUT_DIR, "/tmp", NULL, MS_BIND, NULL) < 0) {
-		syslog(LOG_ERR, "cannot bind ramfs on /tmp");
+		log_safe(LOG_ERR, "cannot bind ramfs on /tmp");
 		return -1;
 	}
-	syslog(LOG_DEBUG, "bind ramfs on /tmp");
+	log_safe(LOG_DEBUG, "bind ramfs on /tmp");
 
 	return 0;
 }
@@ -783,7 +784,7 @@ pidfile (pid_t pid)
 	buf = MALLOC(sizeof(struct stat));
 
 	if (!stat(DEFAULT_PIDFILE, buf)) {
-		syslog(LOG_ERR, "already running : out");
+		log_safe(LOG_ERR, "already running : out");
 		FREE(buf);
 		exit(1);
 	}
@@ -792,7 +793,7 @@ pidfile (pid_t pid)
 	pid = setsid();
 
 	if (pid < -1) {
-		syslog(LOG_ERR, "setsid() error");
+		log_safe(LOG_ERR, "setsid() error");
 		exit(1);
 	}
 	
@@ -824,7 +825,7 @@ signal_set(int signo, void (*func) (int))
 static void
 sighup (int sig)
 {
-	syslog(LOG_NOTICE, "SIGHUP received from multipath or operator");
+	log_safe(LOG_NOTICE, "SIGHUP received from multipath or operator");
 
 	/*
 	 * signal updatepaths() that we come from SIGHUP
@@ -865,7 +866,7 @@ setscheduler (void)
         res = sched_setscheduler (0, SCHED_RR, &sched_param);
 
         if (res == -1)
-                syslog(LOG_WARNING, "Could not set SCHED_RR at priority 99");
+                log_safe(LOG_WARNING, "Could not set SCHED_RR at priority 99");
 	return;
 }
 
@@ -878,9 +879,13 @@ child (void * param)
 
 	mlockall(MCL_CURRENT | MCL_FUTURE);
 
+#if 0
 	openlog("multipathd", 0, LOG_DAEMON);
 	setlogmask(LOG_UPTO(LOGLEVEL));
-	syslog(LOG_NOTICE, "--------start up--------");
+	log_safe(LOG_NOTICE, "--------start up--------");
+#endif
+	log_thread_start();
+	log_safe(LOG_NOTICE, "--------start up--------");
 
 	pidfile(getpid());
 	signal_init();
@@ -888,7 +893,7 @@ child (void * param)
 	allpaths = initpaths();
 	checkint = CHECKINT;
 
-	syslog(LOG_INFO, "read " DEFAULT_CONFIGFILE);
+	log_safe(LOG_INFO, "read " DEFAULT_CONFIGFILE);
 	init_data(DEFAULT_CONFIGFILE, init_keywords);
 
 	/*
@@ -916,7 +921,7 @@ child (void * param)
 
 #ifdef CLONE_NEWNS
 	if (prepare_namespace() < 0) {
-		syslog(LOG_ERR, "cannot prepare namespace");
+		log_safe(LOG_ERR, "cannot prepare namespace");
 		exit_daemon(1);
 	}
 #endif

@@ -1,4 +1,3 @@
-#include <syslog.h>
 #include <checkers.h>
 #include <vector.h>
 #include <hwtable.h>
@@ -6,6 +5,7 @@
 #include "main.h"
 #include "parser.h"
 #include "memory.h"
+#include "log_pthread.h"
 
 /*
  * helper function to draw a list of callout binaries found in the config file
@@ -40,7 +40,7 @@ push_callout(char * callout)
 	 */
 	bin = MALLOC((p - callout) + 1);
 	strncpy(bin, callout, p - callout);
-	syslog(LOG_DEBUG, "add %s to binvec", bin);
+	log_safe(LOG_DEBUG, "add %s to binvec", bin);
 
 	vector_alloc_slot(binvec);
 	vector_set_slot(binvec, bin);
