@@ -5,7 +5,7 @@
 KERNEL_BUILD = /lib/modules/$(shell uname -r)/build
 VERSION = $(shell basename ${PWD} | cut -d'-' -f3)
 
-BUILDDIRS = klibc libsysfs libdevmapper \
+BUILDDIRS = klibc libsysfs libdevmapper libcheckers \
           devmap_name multipath multipathd kpartx
 
 INSTALLDIRS = devmap_name multipath multipathd kpartx

@@ -34,13 +34,14 @@ CFLAGS += -D${ARCH}
 #
 # object files
 #
-OBJS = main.o copy.o devinfo.o checkers.o parser.o callout.o \
-       vector.o dict.o memory.o libsysfs/libsysfs.a
+OBJS = main.o copy.o devinfo.o parser.o callout.o \
+       vector.o dict.o memory.o \
+       libcheckers/libcheckers.a libsysfs/libsysfs.a
 
 #
 # directives
 #
-all: sysfs $(EXEC)
+all: sysfs checkers $(EXEC)
 
 $(EXEC): $(OBJS)
 	$(CC) $(OBJS) -o $(EXEC) $(LDFLAGS)
@@ -50,6 +51,11 @@ sysfs:
 	(cd ..;tar cf - libsysfs/ --exclude "*.[oa]" --exclude Makefile)|tar xvf -
 	grep -v include ../libsysfs/Makefile > libsysfs/Makefile
 	make -C libsysfs
+
+checkers:
+	(cd ..;tar cf - libcheckers/ --exclude "*.[oa]" --exclude Makefile)|tar xvf -
+	grep -v include ../libcheckers/Makefile > libcheckers/Makefile
+	make -C libcheckers
 
 install:
 	install -d $(DESTDIR)$(bindir)
@@ -64,4 +70,5 @@ uninstall:
 clean:
 	rm -f core *.o $(EXEC) *.gz
 	rm -rf libsysfs
+	rm -rf libcheckers
 

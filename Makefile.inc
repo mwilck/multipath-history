@@ -11,6 +11,7 @@ exec_prefix = ${prefix}
 bindir      = ${exec_prefix}/sbin
 libdmdir    = ../libdevmapper
 sysfsdir    = ../libsysfs
+checkersdir = ../libcheckers
 mandir      = /usr/share/man/man8
 
 GZIP        = /bin/gzip -9 -c
@@ -22,3 +23,9 @@ DMOBJS = $(libdmdir)/libdm-common.o \
 SYSFSOBJS = $(sysfsdir)/dlist.o \
 	    $(sysfsdir)/sysfs_dir.o \
             $(sysfsdir)/sysfs_utils.o
+
+CHECKERSOBJS = $(checkersdir)/selector.o \
+               $(checkersdir)/tur.o \
+	       $(checkersdir)/readsector0.o \
+	       $(checkersdir)/emc_clariion.o \
+	       $(checkersdir)/checkers.o

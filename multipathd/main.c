@@ -16,13 +16,13 @@
 #include <sys/mman.h>
 #include "libsysfs/sysfs/libsysfs.h"
 #include "libsysfs/dlist.h"
+#include "libcheckers/checkers.h"
 
 #include "hwtable.h"
 #include "dict.h"
 #include "parser.h"
 #include "vector.h"
 #include "devinfo.h"
-#include "checkers.h"
 #include "memory.h"
 #include "copy.h"
 #include "log.h"
@@ -140,6 +140,7 @@ select_checkfn(struct path *path_p, char *devname)
 	char vendor[8];
 	char product[16];
 	char rev[4];
+	char checker_name[CHECKER_NAME_SIZE];
 	int i, r;
 	struct hwentry * hwe;
 
@@ -158,14 +159,16 @@ select_checkfn(struct path *path_p, char *devname)
 	for (i = 0; i < VECTOR_SIZE(hwtable); i++) {
 		hwe = VECTOR_SLOT(hwtable, i);
 		if (MATCH(hwe->vendor, vendor) &&
-		    MATCH(hwe->product, product)) {
+		    MATCH(hwe->product, product) &&
+		    hwe->checker_index > 0) {
+			get_checker_name(checker_name, hwe->checker_index);
 			LOG (2, "set %s path checker for %s",
-			     checker_list[hwe->checker_index].name,
-			     devname);
-			path_p->checkfn = checker_list[hwe->checker_index].checker;
+			     checker_name, devname);
+			path_p->checkfn = get_checker_addr(hwe->checker_index);
+			return 0;
 		}
 	}
-
+	LOG (2, "set readsector0 path checker for %s", devname);
 	return 0;
 }
 
@@ -272,34 +275,6 @@ out:
 }
 
 static int
-checkpath (struct path *path_p)
-{
-	char devnode[FILENAMESIZE];
-	int r;
-	
-	if (safe_sprintf(devnode, "/tmp/.checker.%i.%i",
-			 path_p->major, path_p->minor)) {
-		fprintf(stderr, "checkpath: devnode too small\n");
-		return -1;
-	}
-	r = makenode(devnode, path_p->major, path_p->minor);
-
-	if (r < 0) {
-		LOG (2, "can not create %s", devnode);
-		return r;
-	}
-
-	r = path_p->checkfn(devnode);
-	unlink(devnode);
-				
-	LOG (2, "check path %i:%i => %s",
-	     path_p->major, path_p->minor,
-	     r ? "up" : "down");
-
-	return r;
-}
-
-static int
 updatepaths (struct paths *failedpaths)
 {
 	struct path *path_p;
@@ -347,11 +322,14 @@ updatepaths (struct paths *failedpaths)
 		}
 
 		path_p = MALLOC(sizeof (struct path));
-		sscanf(attr_buff, "%i:%i", &path_p->major, &path_p->minor);
-
-		if (!select_checkfn(path_p, devp->name) && checkpath(path_p)) {
-			LOG(2, "discard %i:%i as valid path",
-			    path_p->major, path_p->minor);
+		if (safe_snprintf(path_p->sg_dev_t, DEV_T_SIZE, "%s",
+				  attr_buff)) {
+			fprintf(stderr, "sg_dev_t too small\n");
+			return 1;
+		}
+		if (!select_checkfn(path_p, devp->name) &&
+		    checkpath(path_p->sg_dev_t, path_p->checkfn)) {
+			LOG(2, "discard %s as valid path", path_p->sg_dev_t);
 			FREE(path_p);
 			continue;
 		}
@@ -598,16 +576,18 @@ checkerloop (void *ap)
 		for (i = 0; i < VECTOR_SIZE(failedpaths->pathvec); i++) {
 			path_p = VECTOR_SLOT(failedpaths->pathvec, i);
 			
-			if (checkpath(path_p)) {
+			if (checkpath(path_p->sg_dev_t, path_p->checkfn)) {
 				/*
 				 * tell waiterloop we have an event
 				 */
-				LOG(1, "path checker event on device %i:%i",
-					path_p->major, path_p->minor);
+				LOG(1, "path checker event on device %s",
+					path_p->sg_dev_t);
 				pthread_mutex_lock (event_lock);
 				pthread_cond_signal(event);
 				pthread_mutex_unlock (event_lock);
-			}
+			} else
+				LOG (2, "check path %s => down",
+				     path_p->sg_dev_t);
 		}
 		pthread_mutex_unlock(failedpaths->lock);
 		sleep(checkint ? checkint : CHECKINT);

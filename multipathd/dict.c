@@ -2,6 +2,7 @@
 #include "memory.h"
 #include "hwtable.h"
 #include "log.h"
+#include "libcheckers/checkers.h"
 
 /*
  * helper function to draw a list of callout binaries found in the config file
@@ -117,18 +118,11 @@ static void
 path_checker_handler(vector strvec)
 {
 	char * buff;
-	int i = 0;
 	struct hwentry * hwe = VECTOR_SLOT(hwtable, VECTOR_SIZE(hwtable) - 1);
 
 	buff = set_value(strvec);
-	while (checker_list[i].name) {
-		if (0 == strncmp(checker_list[i].name, buff,
-				 sizeof(checker_list[i].name))) {
-			hwe->checker_index = i;
-			break;
-		}
-		i++;
-	}
+	hwe->checker_index = get_checker_id(buff);
+
 	FREE(buff);
 }
 
