@@ -48,7 +48,7 @@
 #define MATCH(x,y) 0 == strncmp (x, y, strlen(y))
 
 static int
-devt2devname (char *devname, int major, int minor)
+devt2devname (char *devname, char *devt)
 {
 	struct sysfs_directory * sdir;
 	struct sysfs_directory * devp;
@@ -56,17 +56,12 @@ devt2devname (char *devname, int major, int minor)
 	char block_path[FILE_NAME_SIZE];
 	char attr_path[FILE_NAME_SIZE];
 	char attr_value[16];
-	char attr_ref_value[16];
 
 	if (sysfs_get_mnt_path(sysfs_path, FILE_NAME_SIZE)) {
 		fprintf(stderr, "-D feature available with sysfs only\n");
 		exit(1);
 	}
 		
-	if(safe_sprintf(attr_ref_value, "%i:%i\n", major, minor)) {
-		fprintf(stderr, "attr_ref_value too small\n");
-		exit(1);
-	}
 	if(safe_sprintf(block_path, "%s/block", sysfs_path)) {
 		fprintf(stderr, "block_path too small\n");
 		exit(1);
@@ -83,7 +78,7 @@ devt2devname (char *devname, int major, int minor)
 		sysfs_read_attribute_value(attr_path, attr_value,
 					   sizeof(attr_value));
 
-		if (!strcmp(attr_value, attr_ref_value)) {
+		if (!strncmp(attr_value, devt, strlen(devt))) {
 			if(safe_sprintf(attr_path, "%s/%s",
 					block_path, devp->name)) {
 				fprintf(stderr, "attr_path too small\n");
@@ -174,7 +169,7 @@ devinfo (struct path *curpath)
 	 * get path state, no message collection, no context
 	 */
 	select_checkfn(curpath);
-	curpath->state = checkpath(curpath->sg_dev_t, curpath->checkfn,
+	curpath->state = checkpath(curpath->dev_t, curpath->checkfn,
 				   NULL, NULL);
 	dbg("path %s state : %i", curpath->dev, curpath->state);
 	
@@ -291,7 +286,7 @@ get_pathvec_sysfs (vector pathvec)
 	 * if called from /etc/dev.d or pathcheckers, only consider the paths
 	 * that relate to the device pointed by conf->dev
 	 */
-	if (conf->dev != NULL && filepresent(conf->dev)) {
+	if (conf->dev && filepresent(conf->dev)) {
 		curpath = zalloc(sizeof (struct path));
 		basename(conf->dev, curpath->dev);
 
@@ -303,11 +298,11 @@ get_pathvec_sysfs (vector pathvec)
 	}
 
 	/*
-	 * if major/minor specified on the cmd line,
+	 * if devt specified on the cmd line,
 	 * only consider affiliated paths
 	 */
-	if (conf->major >= 0 && conf->minor >= 0) {
-		if (devt2devname(buff, conf->major, conf->minor))
+	if (conf->devt) {
+		if (devt2devname(buff, conf->devt))
 			return 1;
 		
 		curpath = zalloc(sizeof (struct path));
@@ -1037,7 +1032,7 @@ setup_map (vector pathvec, struct multipath * mpp)
 	close(2);
 
 	if (op == DM_DEVICE_RELOAD) {
-		if (conf->dev != NULL && filepresent(conf->dev) &&
+		if (conf->dev && filepresent(conf->dev) &&
 		    dm_get_map(mapname, curparams) &&
 		    0 == strncmp(mpp->params, curparams, strlen(mpp->params))) {
 	                pp = zalloc(sizeof(struct path));
@@ -1169,26 +1164,26 @@ static void
 usage (char * progname)
 {
 	fprintf (stderr, VERSION_STRING);
-	fprintf (stderr, "Usage: %s\t[-v level] [-d] [-D major minor] [-S]\n",
+	fprintf (stderr, "Usage: %s\t[-v level] [-d] [-D major:minor] [-S]\n",
 		progname);
 	fprintf (stderr,
 		"\t\t\t[-p failover|multibus|group_by_serial|group_by_prio]\n" \
 		"\t\t\t[device]\n" \
 		"\n" \
-		"\t-v level\t\tverbosty level\n" \
-		"\t   0 no output\n" \
-		"\t   1 print created devmap names only\n" \
-		"\t   2 print all paths and multipaths\n" \
+		"\t-v level\tverbosty level\n" \
+		"\t   0\t\t\tno output\n" \
+		"\t   1\t\t\tprint created devmap names only\n" \
+		"\t   2\t\t\tprint all paths and multipaths\n" \
 		"\t-d\t\tdry run, do not create or update devmaps\n" \
 		"\t-D maj min\tlimit scope to the device's multipath\n" \
-		"\t\t\t(major minor device reference)\n"
+		"\t\t\t(major:minor device reference)\n"
 		"\t-S\t\tinhibit signal sending to multipathd\n"
 		"\n" \
 		"\t-p policy\tforce all maps to specified policy :\n" \
-		"\t   failover\t\t- 1 path per priority group\n" \
-		"\t   multibus\t\t- all paths in 1 priority group\n" \
-		"\t   group_by_serial\t- 1 priority group per serial\n" \
-		"\t   group_by_prio\t\t- 1 priority group per priority lvl\n" \
+		"\t   failover\t\t1 path per priority group\n" \
+		"\t   multibus\t\tall paths in 1 priority group\n" \
+		"\t   group_by_serial\t1 priority group per serial\n" \
+		"\t   group_by_prio\t1 priority group per priority lvl\n" \
 		"\n" \
 		"\tdevice\t\tlimit scope to the device's multipath\n" \
 		"\t\t\t(udev-style $DEVNAME reference, eg /dev/sdb\n" \
@@ -1262,10 +1257,9 @@ main (int argc, char *argv[])
 	conf->dry_run = 0;		/* 1 == Do not Create/Update devmaps */
 	conf->verbosity = 1;		/* 1 == Print mp names */
 	conf->iopolicy_flag = 0;	/* do not override defaults */
-	conf->major = -1;
-	conf->minor = -1;
 	conf->signal = 1;		/* 1 == Send a signal to multipathd */
-	conf->dev = zalloc(sizeof(char) * FILE_NAME_SIZE);
+	conf->dev = NULL;
+	conf->devt = NULL;
 	conf->default_selector = NULL;
 	conf->default_selector_args = 0;
 	conf->default_iopolicy = 0;
@@ -1309,8 +1303,8 @@ main (int argc, char *argv[])
 			}                
 			break;
 		case 'D':
-			conf->major = atoi(optarg);
-			conf->minor = atoi(argv[optind++]);
+			conf->devt = zalloc(DEV_T_SIZE);
+			strncpy(conf->devt, optarg, DEV_T_SIZE);
 			break;
 		case ':':
 			fprintf(stderr, "Missing option arguement\n");
@@ -1322,8 +1316,10 @@ main (int argc, char *argv[])
 			usage(argv[0]);
 		}
 	}        
-	if (optind<argc)
-		strncpy (conf->dev, argv[optind], FILE_NAME_SIZE);
+	if (optind<argc) {
+		conf->dev = zalloc(FILE_NAME_SIZE);
+		strncpy(conf->dev, argv[optind], FILE_NAME_SIZE);
+	}
 
 	/*
 	 * read the config file
@@ -1382,8 +1378,10 @@ main (int argc, char *argv[])
 	for (k = 0; k < VECTOR_SIZE(mp); k++) {
 		mpp = VECTOR_SLOT(mp, k);
 
-		if (0 == strncmp(mpp->alias, conf->dev, FILE_NAME_SIZE) ||
-		    0 == strncmp(mpp->wwid, conf->dev, FILE_NAME_SIZE)) {
+		if (conf->dev && (
+		    (mpp->alias &&
+		    0 == strncmp(mpp->alias, conf->dev, FILE_NAME_SIZE)) ||
+		    0 == strncmp(mpp->wwid, conf->dev, FILE_NAME_SIZE))) {
 			setup_map(pathvec, mpp);
 			goto out;
 		}
