@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <sys/resource.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -435,6 +436,7 @@ void *waiterloop (void *ap)
 	struct paths *failedpaths;
 	struct devmap *devmaps, *devmaps_p;
 	struct event_thread *waiters, *waiters_p;
+	pthread_attr_t attr;
 	int r;
 
 	/* inits */
@@ -442,6 +444,8 @@ void *waiterloop (void *ap)
 	devmaps = malloc (MAXMAPS * sizeof (struct devmap));
 	waiters = malloc (MAXMAPS * sizeof (struct event_thread));
 	memset (waiters, 0, MAXMAPS * sizeof (struct event_thread));
+	pthread_attr_init (&attr);
+	pthread_attr_setstacksize (&attr, 32 * 1024);
 
 	while (1) {
 		
@@ -487,7 +491,8 @@ void *waiterloop (void *ap)
 			}
 			
 			LOG (1, "[event thread] create event thread for %s", waiters_p->mapname);
-			pthread_create (waiters_p->thread, NULL, waitevent, waiters_p);
+			pthread_create (waiters_p->thread, &attr, waitevent, waiters_p);
+			pthread_detach (*waiters_p->thread);
 out:
 			waiters_p = waiters;
 			devmaps_p++;
@@ -643,6 +648,7 @@ void signal_init(void)
 int main (int argc, char *argv[])
 {
 	pthread_t wait, check;
+	pthread_attr_t attr;
 	struct paths *failedpaths;
 	pid_t pid;
 
@@ -664,9 +670,12 @@ int main (int argc, char *argv[])
 	signal_init ();
 
 	failedpaths = initpaths ();
+
+	pthread_attr_init (&attr);
+	pthread_attr_setstacksize (&attr, 64 * 1024);
 	
-	pthread_create (&wait, NULL, waiterloop, failedpaths);
-	pthread_create (&check, NULL, checkerloop, failedpaths);
+	pthread_create (&wait, &attr, waiterloop, failedpaths);
+	pthread_create (&check, &attr, checkerloop, failedpaths);
 	pthread_join (wait, NULL);
 	pthread_join (check, NULL);
 

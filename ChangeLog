@@ -1,3 +1,7 @@
+2004-03-12 multipath-tools-0.1.2
+	* detach the per devmap waiter threads
+	* set the thread stack size to lower limits
+	  (VSZ down to 4MB from 85 MB here)
 2004-03-06 multipath-tools-0.1.1
 	* include dlist.h in multipath main.c (PM Hahn)
 	* typo in hotplug script (PM Hahn)
