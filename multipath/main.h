@@ -141,7 +141,7 @@ struct multipath {
 };
 
 struct pathgroup {
-	int id;
+	long id;
 	int status;
 	int priority;
 	vector paths;
