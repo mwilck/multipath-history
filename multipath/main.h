@@ -55,6 +55,7 @@
 #define ACT_CREATE_STR		"create"
 
 enum actions {
+	ACT_RESERVED,
 	ACT_NOTHING,
 	ACT_RELOAD,
 	ACT_SWITCHPG,
@@ -124,6 +125,7 @@ struct multipath {
 	int pgpolicy;
 	int nextpg;
 	int queuedio;
+	int action;
 	unsigned long size;
 	vector paths;
 	vector pg;
