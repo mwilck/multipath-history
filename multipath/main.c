@@ -603,6 +603,112 @@ dm_addmap (int task, const char *name, const char *params, unsigned long size) {
 	return 1;
 }
 
+static int
+dm_map_present (char * str)
+{
+        int r = 0;
+	struct dm_task *dmt;
+        struct dm_names *names;
+        unsigned next = 0;
+
+	if (!(dmt = dm_task_create (DM_DEVICE_LIST)))
+		return 0;
+
+	if (!dm_task_run (dmt))
+		goto out;
+
+	if (!(names = dm_task_get_names (dmt)))
+		goto out;
+
+	if (!names->dev) {
+		goto out;
+	}
+
+	do {
+		if (0 == strcmp (names->name, str))
+			r = 1;
+		next = names->next;
+		names = (void *) names + next;
+	} while (next);
+
+	out:
+	dm_task_destroy (dmt);
+	return r;
+}
+
+static int
+dm_get_map(char * name, char * outparams)
+{
+	int r = 0;
+	struct dm_task *dmt;
+	void *next = NULL;
+	uint64_t start, length;
+	char *target_type = NULL;
+	char *params;
+	int cmd;
+
+	cmd = DM_DEVICE_TABLE;
+
+	if (!(dmt = dm_task_create(cmd)))
+		return 0;
+
+	if (!dm_task_set_name(dmt, name))
+		goto out;
+
+	if (!dm_task_run(dmt))
+		goto out;
+
+	/* Fetch 1st target */
+	next = dm_get_next_target(dmt, next, &start, &length,
+				  &target_type, &params);
+
+	if (snprintf(outparams, PARAMS_SIZE, params) >= PARAMS_SIZE)
+		goto out;
+
+	r = 1;
+
+	out:
+	dm_task_destroy(dmt);
+	return r;
+}
+
+static int
+dm_reinstate(char * mapname, char * path)
+{
+        int r = 0, sz = 1, i;
+        struct dm_task *dmt;
+        char *str;
+
+        if (!(dmt = dm_task_create(DM_DEVICE_TARGET_MSG)))
+                return 0;
+
+        if (!dm_task_set_name(dmt, mapname))
+                goto out;
+
+        if (!dm_task_set_sector(dmt, 0))
+                goto out;
+
+	sz = strlen(path) + 10;
+        str = zalloc(sz);
+
+	snprintf(str, sz, "reinstate %s\n", path);
+
+        if (!dm_task_set_message(dmt, str))
+                goto out;
+
+        free(str);
+
+        if (!dm_task_run(dmt))
+                goto out;
+
+        r = 1;
+
+      out:
+        dm_task_destroy(dmt);
+
+        return r;
+}
+
 /*
  * Transforms the path group vector into a proper device map string
  */
@@ -610,6 +716,7 @@ void
 assemble_map (struct multipath * mp)
 {
 	int i, j;
+	int shift, freechar;
 	char * p;
 	vector pgpaths;
 	char * selector;
@@ -703,11 +810,12 @@ setup_map (vector pathvec, vector mp, int slot)
 	struct path * pp;
 	struct multipath * mpp;
 	int i, iopolicy;
-	char iopolicy_name[32];
+	char iopolicy_name[POLICY_NAME_SIZE];
 	int fd;
 	struct hwentry * hwe = NULL;
 	struct mpentry * mpe;
 	char * mapname;
+	char curparams[PARAMS_SIZE];
 	int op;
 
 	mpp = VECTOR_SLOT(mp, slot);
@@ -805,53 +913,78 @@ setup_map (vector pathvec, vector mp, int slot)
 	if (iopolicy == GROUP_BY_PRIO)
 		group_by_prio (mpp);
 
+	if (mpp->pg == NULL) {
+		dbg("iopolicy failed to produce a ->pg vector");
+		return 1;
+	}
+
+	/*
+	 * transform the mp->pg vector of vectors of paths
+	 * into a mp->params strings to feed the device-mapper
+	 */
+	assemble_map(mpp);
+
+	/*
+	 * select between RELOAD and CREATE
+	 */
+	mapname = mpp->alias ? mpp->alias : mpp->wwid;
+	op = dm_map_present(mapname) ? DM_DEVICE_RELOAD : DM_DEVICE_CREATE;
+	
+	if (conf->verbosity > 1)
+		printf("%s:", (op == DM_DEVICE_RELOAD) ? "reload" : "create");
+	if (conf->verbosity > 0)
+		printf("%s", mapname);
+	if (conf->verbosity > 1)
+		printf(":0 %lu %s %s",
+			mpp->size, DM_TARGET,
+			mpp->params);
+	if (conf->verbosity > 0)
+		printf("\n");
+
+	/*
+	 * last chance to quit before touching the devmaps
+	 */
+	if (conf->dry_run)
+		return 1;
+
 	/*
 	 * device mapper creation or updating
 	 * here we know we'll have garbage on stderr from
 	 * libdevmapper. so shut it down temporarily.
 	 */
-	assemble_map(mpp);
-
-	mapname = mpp->alias ? mpp->alias : mpp->wwid;
-	op = map_present(mpp->wwid) ? DM_DEVICE_RELOAD : DM_DEVICE_CREATE;
-	
 	fd = dup(2);
 	close(2);
 
-	if (op == DM_DEVICE_RELOAD)
-		if (!dm_simplecmd(DM_DEVICE_SUSPEND, mapname)) {
-			dup2(fd, 2);
-			close(fd);
-			return 0;
+	if (op == DM_DEVICE_RELOAD) {
+		if (conf->dev != NULL && filepresent(conf->dev) &&
+		    dm_get_map(mapname, curparams) &&
+		    0 == strncmp(mpp->params, curparams, strlen(mpp->params))) {
+			dm_reinstate(mapname, conf->dev);
+
+			if (conf->verbosity > 1)
+				printf("[reinstate %s in %s]\n",
+					conf->dev, mapname);
+			goto out;
 		}
+		if (!dm_simplecmd(DM_DEVICE_SUSPEND, mapname))
+			goto out;
+	}
 
 	if (dm_addmap(op, mapname, mpp->params, mpp->size)) {
 		dm_simplecmd(DM_DEVICE_REMOVE, mapname);
-		dup2(fd, 2);
-		close(fd);
-		return 0;
+		goto out;
 	}
 
 	if (op == DM_DEVICE_RELOAD)
-		if (!dm_simplecmd(DM_DEVICE_RESUME, mapname)) {
-			dup2(fd, 2);
-			close(fd);
-			return 0;
-		}
-
-	dup2(fd, 2);
-	close(fd);
-
-	if (conf->verbosity > 0)
-		printf ("%s", mapname);
-	if (conf->verbosity > 1)
-		printf (":0 %lu %s%s",
-			mpp->size, DM_TARGET,
-			mpp->params);
-	if (conf->verbosity > 0)
-		printf ("\n");
+		if (!dm_simplecmd(DM_DEVICE_RESUME, mapname))
+			goto out;
 
 	return 1;
+
+	out:
+	dup2(fd, 2);
+	close(fd);
+	return 0;
 }
 
 static void
@@ -1132,12 +1265,6 @@ main (int argc, char *argv[])
 		print_all_path(pathvec);
 		print_all_mp(mp);
 	}
-
-	/*
-	 * last chance to quit before messing with devmaps
-	 */
-	if (conf->dry_run)
-		exit_tool(0);
 
 	if (conf->verbosity > 1)
 		fprintf (stdout, "#\n# device maps :\n#\n");
