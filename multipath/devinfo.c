@@ -154,27 +154,6 @@ sprint_wwid(char * buff, const char * str)
         }
         buff[WWID_SIZE - 1] = '\0';
 }
-                                                                                                                 
-/* get EVPD page 0x83 off 8 */
-/* tested ok with StorageWorks */
-int
-get_evpd_wwid(char * devname, char * wwid)
-{
-        int fd;
-        char buff[MX_ALLOC_LEN + 1];
-                                                                                                                 
-        if ((fd = open(devname, O_RDONLY)) < 0)
-                        return 0;
-
-        if (0 == do_inq(fd, 0, 1, 0x83, buff, MX_ALLOC_LEN, 1)) {
-                sprint_wwid(wwid, &buff[8]);
-                close(fd);
-                return 1; /* success */
-        }
-
-        close(fd);
-        return 0; /* not good */
-}
 
 long
 get_disk_size (char * devname) {
@@ -237,4 +216,40 @@ do_tur(char *dev)
 		return 0;
 
 	return 1;
+}
+
+/* getuid functions */
+
+/*
+ * returns a 128 bits uid filled with zeroes
+ * used to ignore devices
+ */
+int
+get_null_uid (char * devname, char * wwid)
+{
+	memset (wwid, 0x0, 32);
+	return 0;
+}
+
+/*
+ * get EVPD page 0x83 off 8
+ * tested ok with StorageWorks
+ */
+int
+get_evpd_wwid (char * devname, char * wwid)
+{
+        int fd;
+        char buff[MX_ALLOC_LEN + 1];
+
+        if ((fd = open(devname, O_RDONLY)) < 0)
+                        return 1;
+
+        if (0 == do_inq(fd, 0, 1, 0x83, buff, MX_ALLOC_LEN, 1)) {
+                sprint_wwid(wwid, &buff[8]);
+                close(fd);
+                return 0;
+        }
+
+        close(fd);
+        return 1;
 }

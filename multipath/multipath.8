@@ -5,12 +5,15 @@ multipath \- Device mapper target autoconfig
 .B multipath
 .RB [\| \-v | \-q \|]
 .RB [\| \-d \|]
+.RB [\| \-D\ \c
+.IR major \c
+.IR \ minor \|]
 .RB [\| \-i\ \c
 .IR int \|]
 .RB [\| \-m\ \c
 .IR max_devs \|]
 .RB [\| \-p\ \c
-.BR failover | multibus | group_by_serial \|]
+.BR failover | multibus | group_by_serial | group_by_tur \|]
 .RB [\| device \|]
 .SH DESCRIPTION
 .B multipath
@@ -51,6 +54,9 @@ all paths in 1 priority group
 .TP
 .B group_by_serial
 1 priority group per serial
+.TP
+.B group_by_tur
+1 priority group per TUR state
 .RE
 .TP
 .BI device

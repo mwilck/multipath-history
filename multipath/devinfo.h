@@ -16,6 +16,9 @@
 void basename (char *, char *);
 int get_serial (char *, char *);
 int get_lun_strings (char *, char *, char *, char *);
-int get_evpd_wwid(char *, char *);
 long get_disk_size (char *);
 int do_tur (char *);
+
+/* getuid methods */
+int get_evpd_wwid (char *, char *);
+int get_null_uid (char *, char *);
