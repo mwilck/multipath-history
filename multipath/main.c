@@ -922,30 +922,28 @@ usage (char * progname)
 }
 
 static int
-get_current_paths (struct multipath * mpp, vector pathvec)
+update_pathvec (vector pathvec)
 {
-	int i, j;
-	struct pathgroup * pgp;
+	int i;
 	struct path * pp;
 
-	vector_foreach_slot (mpp->pg, pgp, i) {
-		vector_foreach_slot (pgp->paths, pp, j) {
-			if (strlen(pp->dev) == 0) {
-				devt2devname(pp->dev, pp->dev_t);
-				devinfo(pp);
-			}
-			if (pp->state == PATH_UNCHECKED)
-				pp->state = pp->checkfn(pp->dev_t, NULL, NULL);
+	vector_foreach_slot (pathvec, pp, i) {
+		if (strlen(pp->dev) == 0) {
+			devt2devname(pp->dev, pp->dev_t);
+			devinfo(pp);
 		}
+		if (pp->state == PATH_UNCHECKED)
+			pp->state = pp->checkfn(pp->dev_t, NULL, NULL);
 	}
 	return 0;
 }
 
 static int
-get_current_mp (vector curmp, vector pathvec)
+get_current_mp (vector curmp, vector pathvec, char * refwwid)
 {
 	int i;
 	struct multipath * mpp;
+	char * wwid;
 
 	dm_get_maps(curmp, DEFAULT_TARGET);
 
@@ -964,7 +962,7 @@ get_current_mp (vector curmp, vector pathvec)
 		dbg("params = %s", mpp->params);
 		dbg("status = %s", mpp->status);
 		disassemble_map(pathvec, mpp->params, mpp);
-		get_current_paths(mpp, pathvec);
+		update_pathvec(pathvec);
 		disassemble_status(mpp->status, mpp);
 
 		if (conf->list)
