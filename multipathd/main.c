@@ -34,13 +34,13 @@
 #include <parser.h>
 #include <vector.h>
 #include <memory.h>
+#include <callout.h>
+#include <safe_printf.h>
 
 #include "hwtable.h"
 #include "dict.h"
 #include "devinfo.h"
 #include "copy.h"
-#include "safe.h"
-#include "callout.h"
 #include "clone_platform.h"
 
 #define MAXPATHS 1024

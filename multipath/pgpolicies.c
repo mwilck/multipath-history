@@ -27,11 +27,11 @@
 
 #include <string.h>
 #include <path_state.h>
+#include <safe_printf.h>
 
 #include <memory.h>
 #include "main.h"
 #include "pgpolicies.h"
-#include "debug.h"
 
 extern int
 get_pgpolicy_id (char * str)

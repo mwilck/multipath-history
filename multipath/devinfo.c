@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <errno.h>
+#include <safe_printf.h>
 
 #include "../libsysfs/sysfs/libsysfs.h"
 #include "devinfo.h"
