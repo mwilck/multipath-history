@@ -1,3 +1,6 @@
+	* [kpartx] works with device nodes outside /dev
+	* [kpartx] correctly display the delimiter in partition
+	  name outputs
 2004-05-17 multipath-tools-0.2.0
 	* change the default klibc by greg's :
 	  corrects the segfaults reported by Ling Hwa Hing
