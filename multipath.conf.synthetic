@@ -3,7 +3,6 @@ defaults {
 	udev_dir	/dev
 	polling_interval 10
 	default_selector	round-robin
-	default_selector_args	0
 	default_path_grouping_policy	multibus
 	default_getuid_callout	"/sbin/scsi_id -g -u -s /block/%n"
 	default_prio_callout	"/bin/false"
@@ -29,7 +28,6 @@ multipaths {
 		path_grouping_policy	multibus
 		path_checker		readsector0
 		path_selector		round-robin
-		path_selector_args	0
 	}
 	multipath {
 		wwid	1DEC_____321816758474
