@@ -13,7 +13,8 @@ o klibc
 External :
 
 o Linux kernel 2.6.0 with udm5 patchset (or greater)
-  http://people.sistina.com/~thornber/dm/
+  http://people.sistina.com/~thornber/dm/ (deprecated)
+  ftp://sources.redhat.com/pub/dm/
   
 How it works :
 ==============
