@@ -1,6 +1,7 @@
 2004-04-25 multipath-tools-0.1.6
 	* add the dmadm WIP tool (read MD superblocks and create
 	  corresponding devmaps when possible)
+	* plug fd leak in TUR path checker
 2004-03-25 multipath-tools-0.1.5
 	* kpartx to manage the nested bdevs as /dev/cciss/c0d0.
 	  parts are named sysfs style : cciss!c0d0p*
