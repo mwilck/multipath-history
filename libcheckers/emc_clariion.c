@@ -8,17 +8,42 @@
 #include <errno.h>
 
 #include "sg_include.h"
+#include "path_state.h"
+#include "checkers.h"
 
 #define INQUIRY_CMD     0x12
 #define INQUIRY_CMDLEN  6
+#define HEAVY_CHECK_COUNT	10
 
-int emc_clariion(char *devnode)
+#define MSG_EMC_CLARIION_UP	"emc_clariion checker report path up"
+#define MSG_EMC_CLARIION_DOWN	"emc_clariion checker report path down"
+#define MSG_EMC_CLARIION_SHAKY	"emc_clariion checker report path is " \
+				"scheduled for shutdown"
+
+struct emc_clariion_checker_context {
+	int run_count;
+	char wwn[64];
+};
+
+int emc_clariion(char *devnode, char *msg, void *context)
 {
 	unsigned char sense_buffer[128];
 	unsigned char inqCmdBlk[INQUIRY_CMDLEN] = {INQUIRY_CMD, 0, 0xC0, 0,
 						sizeof(sense_buffer), 0};
 	struct sg_io_hdr io_hdr;
 	int fd;
+	struct emc_clariion_checker_context * ctxt;
+
+	if (context != NULL) {
+		ctxt = (struct emc_clariion_checker_context *)context;
+		ctxt->run_count++;
+		/* do stuff */
+	}
+
+	if (ctxt->run_count % HEAVY_CHECK_COUNT) {
+		ctxt->run_count = 0;
+		/* do stuff */
+	}
 
 	fd = open (devnode, O_RDONLY);
 
@@ -33,11 +58,13 @@ int emc_clariion(char *devnode)
 	io_hdr.pack_id = 0;
 	if (ioctl(fd, SG_IO, &io_hdr) < 0) {
 		close (fd);
-		return 0;
+		MSG(MSG_EMC_CLARIION_DOWN);
+		return PATH_DOWN;
 	}
 	if (io_hdr.info & SG_INFO_OK_MASK) {
 		close (fd);
-		return 0;
+		MSG(MSG_EMC_CLARIION_DOWN);
+		return PATH_DOWN;
 	}
 	close (fd);
 
@@ -57,7 +84,8 @@ int emc_clariion(char *devnode)
 		|| sense_buffer[48] != 0x00
 		/* LUN should at least be bound somewhere */
 		|| sense_buffer[4] != 0x00) {
-		return 0;
+		MSG(MSG_EMC_CLARIION_DOWN);
+		return PATH_DOWN;
 	}
 
 	/*
@@ -66,5 +94,12 @@ int emc_clariion(char *devnode)
 	 * change in between, to protect against the path suddenly
 	 * pointing somewhere else.
 	 */
-        return 1;
+	MSG(MSG_EMC_CLARIION_UP);
+        return PATH_UP;
+
+	/*
+	 * TODO: determine the condition for that
+	 */
+	if (0)
+		MSG(MSG_EMC_CLARIION_SHAKY);
 }

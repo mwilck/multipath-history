@@ -84,20 +84,21 @@ pthread_cond_t *event;
 /*
  * structs
  */
-struct path
-{
+struct path {
+	int major;
+	int minor;
 	char sg_dev_t[DEV_T_SIZE];
-	int (*checkfn) (char *);
+	int state;
+	int (*checkfn) (char *, char *, void *);
+	void * checker_context;
 };
 
-struct paths
-{
+struct paths {
 	pthread_mutex_t *lock;
 	vector pathvec;
 };
 
-struct event_thread
-{
+struct event_thread {
 	pthread_t *thread;
 	pthread_mutex_t *waiter_lock;
 	int event_nr;

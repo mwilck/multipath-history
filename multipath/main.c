@@ -171,12 +171,12 @@ devinfo (struct path *curpath)
 	curpath->claimed = get_claimed(curpath->dev_t);
 
 	/*
-	 * get path state
+	 * get path state, no message collection, no context
 	 */
 	select_checkfn(curpath);
-	curpath->state = checkpath(curpath->sg_dev_t, curpath->checkfn);
-dbg("state : %i", curpath->state);
-dbg("sg_dev_t : %s", curpath->sg_dev_t);
+	curpath->state = checkpath(curpath->sg_dev_t, curpath->checkfn,
+				   NULL, NULL);
+	dbg("path %s state : %i", curpath->dev, curpath->state);
 	
 	/*
 	 * get path prio

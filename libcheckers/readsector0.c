@@ -8,9 +8,14 @@
 #include <errno.h>
 
 #include "sg_include.h"
+#include "path_state.h"
+#include "checkers.h"
 
 #define SENSE_BUFF_LEN 32
 #define DEF_TIMEOUT 60000
+
+#define MSG_READSECTOR0_UP	"readsector0 checker report path is up"
+#define MSG_READSECTOR0_DOWN	"readsector0 checker report path is down"
 
 static int
 sg_read (int sg_fd, unsigned char * buff)
@@ -56,30 +61,44 @@ sg_read (int sg_fd, unsigned char * buff)
 	while (((res = ioctl(sg_fd, SG_IO, &io_hdr)) < 0) && (EINTR == errno));
 
 	if (res < 0) {
-		if (ENOMEM == errno)
-			return 1;
-		return 0;
+		if (ENOMEM == errno) {
+			return PATH_UP;
+		}
+		return PATH_DOWN;
 	}
 
 	if ((0 == io_hdr.status) &&
 	    (0 == io_hdr.host_status) &&
-	    (0 == io_hdr.driver_status))
-		return 1;
-	else
-		return 0;
+	    (0 == io_hdr.driver_status)) {
+		return PATH_UP;
+	} else {
+		return PATH_DOWN;
+	}
 }
 
-int readsector0 (char *devnode)
+int readsector0 (char *devnode, char *msg, void *context)
 {
 	int fd, r;
 	char buf[512];
 
 	fd = open(devnode, O_RDONLY);
 
-	if (fd <= 0)
-		return fd;
-
+	if (fd <= 0) {
+		MSG(MSG_READSECTOR0_DOWN);
+		return PATH_DOWN;
+	}
 	r = sg_read(fd, &buf[0]);
 	close(fd);
+
+	switch (r) {
+	case PATH_DOWN:
+		MSG(MSG_READSECTOR0_DOWN);
+		break;
+	case PATH_UP:
+		MSG(MSG_READSECTOR0_UP);
+		break;
+	default:
+		break;
+	}
 	return r;
 }
