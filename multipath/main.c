@@ -52,7 +52,7 @@ sysfsdevice2devname (char *devname, char *device)
 	int r;
 
 	if (sysfs_get_mnt_path (sysfs_path, FILE_NAME_SIZE)) {
-		fprintf (stderr, "[device] feature available with sysfs only\n");
+		fprintf (stderr, "[device] feature needs sysfs\n");
 		exit (1);
 	}
 	
@@ -159,6 +159,7 @@ get_pathvec_sysfs (struct env * conf, vector pathvec)
 	char empty_buff[WWID_SIZE];
 	char buff[FILE_NAME_SIZE];
 	char path[FILE_NAME_SIZE];
+	char sysfs_path[FILE_NAME_SIZE];
 	struct path * curpath;
 
 	memset (empty_buff, 0, WWID_SIZE);
@@ -169,13 +170,13 @@ get_pathvec_sysfs (struct env * conf, vector pathvec)
 
 	if (strncmp ("/devices", conf->hotplugdev, 8) == 0) {
 		if (sysfsdevice2devname (buff, conf->hotplugdev))
-			return 0;
+			return 1;
 
 		curpath = zalloc (sizeof (struct path));
 		sprintf (curpath->sg_dev, "/dev/%s", buff);
 
 		if (devinfo (curpath))
-			return 0;
+			return 1;
 
 		memcpy (refwwid, curpath->wwid, WWID_SIZE);
 		free (curpath);
@@ -186,20 +187,24 @@ get_pathvec_sysfs (struct env * conf, vector pathvec)
 
 	if (conf->major >= 0 && conf->minor >= 0) {
 		if (devt2devname (buff, conf->major, conf->minor))
-			return 0;
+			return 1;
 		
 		curpath = zalloc (sizeof (struct path));
 		sprintf (curpath->sg_dev, "/dev/%s", buff);
 
 		if (devinfo (curpath))
-			return 0;
+			return 1;
 
 		memcpy (refwwid, curpath->wwid, WWID_SIZE);
 		free (curpath);
 	}
 		
-
-	sprintf (path, "%s/block", conf->sysfs_path);
+	if (sysfs_get_mnt_path (sysfs_path, FILE_NAME_SIZE)) {
+		fprintf (stderr, "[device] feature needs sysfs\n");
+		exit (1);
+	}
+	
+	sprintf (path, "%s/block", sysfs_path);
 	sdir = sysfs_open_directory (path);
 	sysfs_read_directory (sdir);
 
@@ -301,7 +306,7 @@ print_all_path (struct env * conf, vector pathvec)
 }
 
 static void
-print_all_mp (vector pathvec, vector mp)
+print_all_mp (vector mp)
 {
 	int k, i;
 	struct multipath * mpp;
@@ -313,8 +318,8 @@ print_all_mp (vector pathvec, vector mp)
 		mpp = VECTOR_SLOT(mp, k);
 		printf ("%s\n", mpp->wwid);
 
-		for (i = 0; i <= mpp->npaths; i++) {
-			pp = VECTOR_SLOT(pathvec, mpp->pindex[i]);
+		for (i = 0; i < VECTOR_SIZE(mpp->paths); i++) {
+			pp = VECTOR_SLOT(mpp->paths, i);
 			print_path (pp, NOWWID);
 		}
 	}
@@ -323,7 +328,7 @@ print_all_mp (vector pathvec, vector mp)
 static void
 coalesce_paths (struct env * conf, vector mp, vector pathvec)
 {
-	int k, i, np, already_done;
+	int k, i, already_done;
 	char empty_buff[WWID_SIZE];
 	struct multipath * mpp;
 	struct path * pp1;
@@ -352,11 +357,12 @@ coalesce_paths (struct env * conf, vector mp, vector pathvec)
 		}
 
 		/* at this point, we know we really got a new mp */
-		np = 0;
 		vector_alloc_slot(mp);
 		mpp = malloc(sizeof(struct multipath));
 		strcpy (mpp->wwid, pp1->wwid);
-		mpp->pindex[np] = k;
+		mpp->paths = vector_alloc();
+		vector_alloc_slot (mpp->paths);
+		vector_set_slot (mpp->paths, VECTOR_SLOT(pathvec, k));
 
 		if (mpp->size == 0)
 			mpp->size = get_disk_size (pp1->dev);
@@ -364,9 +370,9 @@ coalesce_paths (struct env * conf, vector mp, vector pathvec)
 		for (i = k + 1; i < VECTOR_SIZE(pathvec); i++) {
 			pp2 = VECTOR_SLOT(pathvec, i);
 			if (0 == strcmp (pp1->wwid, pp2->wwid)) {
-				np++;
-				mpp->pindex[np] = i;
-				mpp->npaths = np;
+				vector_alloc_slot (mpp->paths);
+				vector_set_slot (mpp->paths,
+						 VECTOR_SLOT(pathvec, i));
 			}
 		}
 		vector_set_slot(mp, mpp);
@@ -419,29 +425,31 @@ dm_addmap (int task, const char *name, const char *params, long size) {
 		    (pp->iopolicy == x && conf->iopolicy == -1))
 
 static int
-setup_map (struct env * conf, vector pathvec, struct multipath * mpp, int op)
+setup_map (struct env * conf, vector pathvec, vector mp, int slot,  int op)
 {
 	char params[255];
 	char * params_p;
 	struct path * pp;
+	struct multipath * mpp;
 
-	pp = VECTOR_SLOT(pathvec, mpp->pindex[0]);
+	mpp = VECTOR_SLOT(mp, slot);
+	pp = VECTOR_SLOT(mpp->paths, 0);
 	params_p = &params[0];
 
 	/* paths grouping policy selector */
 	/* implementations in pgpolicies.c */
 
 	if (policyis (MULTIBUS))
-		one_group (mpp, pathvec, params_p);
+		one_group (mpp, params_p);
 
 	if (policyis (FAILOVER))
-		one_path_per_group (mpp, pathvec, params_p);
+		one_path_per_group (mpp, params_p);
 
 	if (policyis (GROUP_BY_SERIAL))
-		group_by_serial (mpp, pathvec, params_p);
+		group_by_serial (mpp, slot, params_p);
 
 	if (policyis (GROUP_BY_TUR))
-		group_by_tur (mpp, pathvec, params_p);
+		group_by_tur (mpp, params_p);
 
 	if (mpp->size < 0)
 		return 0;
@@ -663,15 +671,16 @@ main (int argc, char *argv[])
 		exit (1);
 	}
 
-	if (sysfs_get_mnt_path (conf.sysfs_path, FILE_NAME_SIZE))
-		exit (1);
+	if (get_pathvec_sysfs (&conf, pathvec)) {
+		unlink (RUN);
+		exit (0);
+	}
 
-	get_pathvec_sysfs (&conf, pathvec);
 	coalesce_paths (&conf, mp, pathvec);
 
 	if (conf.verbose) {
 		print_all_path (&conf, pathvec);
-		print_all_mp (pathvec, mp);
+		print_all_mp (mp);
 	}
 
 	/* last chance to quit before messing with devmaps */
@@ -684,11 +693,11 @@ main (int argc, char *argv[])
 		fprintf (stdout, "# device maps :\n");
 
 	for (k = 0; k < VECTOR_SIZE(mp); k++) {
-		mpp = VECTOR_SLOT(mp, k);
+		mpp = VECTOR_SLOT (mp, k);
 		if (map_present (mpp->wwid)) {
-			setup_map (&conf, pathvec, mpp, DM_DEVICE_RELOAD);
+			setup_map (&conf, pathvec, mp, k, DM_DEVICE_RELOAD);
 		} else {
-			setup_map (&conf, pathvec, mpp, DM_DEVICE_CREATE);
+			setup_map (&conf, pathvec, mp, k, DM_DEVICE_CREATE);
 		}
 	}
 

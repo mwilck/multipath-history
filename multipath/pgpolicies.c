@@ -4,12 +4,13 @@
 #include "main.h"
 #include "pgpolicies.h"
 #include "vector.h"
+#include "memory.h"
 
 #define SELECTOR	"round-robin"
 #define SELECTOR_ARGS	0
 
 extern void
-group_by_tur (struct multipath * mp, vector pathvec, char * str) {
+group_by_tur (struct multipath * mp, char * str) {
 	int left_path_count = 0;
 	int right_path_count = 0;
 	int i;
@@ -19,8 +20,8 @@ group_by_tur (struct multipath * mp, vector pathvec, char * str) {
 	char * right_path_buff_p = &right_path_buff[0];
 	struct path * pp;
 
-	for (i = 0; i <= mp->npaths; i++) {
-		pp = VECTOR_SLOT(pathvec, mp->pindex[i]);
+	for (i = 0; i < VECTOR_SIZE(mp->paths); i++) {
+		pp = VECTOR_SLOT(mp->paths, i);
 
 		if (pp->tur) {
 			
@@ -54,7 +55,7 @@ group_by_tur (struct multipath * mp, vector pathvec, char * str) {
 }
 
 extern void
-group_by_serial (struct multipath * mp, vector pathvec, char * str) {
+group_by_serial (struct multipath * mp, int slot, char * str) {
 	int path_count, pg_count = 0;
 	int i, k;
 	int * bitmap;
@@ -63,16 +64,20 @@ group_by_serial (struct multipath * mp, vector pathvec, char * str) {
 	char * path_buff_p = &path_buff[0];
 	char * pg_buff_p = &pg_buff[0];
 	struct path * pp;
+	struct path * pp2;
 
 	/* init the bitmap */
-	bitmap = malloc ((mp->npaths + 1) * sizeof (int));
-	memset (bitmap, 0, (mp->npaths + 1) * sizeof (int));
+	bitmap = zalloc (VECTOR_SIZE(mp->paths) * sizeof (int));
 
-	for (i = 0; i <= mp->npaths; i++) {
+	if (slot % 2)
+		goto even;
+	
+	/* scan paths bottom up */
+	for (i = 0; i < VECTOR_SIZE(mp->paths); i++) {
 		if (bitmap[i])
 			continue;
 
-		pp = VECTOR_SLOT(pathvec, mp->pindex[i]);
+		pp = VECTOR_SLOT(mp->paths, i);
 
 		/* here, we really got a new pg */
 		pg_count++;
@@ -83,14 +88,16 @@ group_by_serial (struct multipath * mp, vector pathvec, char * str) {
 		path_buff_p += sprintf (path_buff_p, " %s", pp->dev);
 		bitmap[i] = 1;
 
-		for (k = i + 1; k <= mp->npaths; k++) {
+		for (k = i + 1; k < VECTOR_SIZE(mp->paths); k++) {
 			
 			if (bitmap[k])
 				continue;
 
-			if (0 == strcmp (pp->serial, pp->serial)) {
+			pp2 = VECTOR_SLOT(mp->paths, k);
+			
+			if (0 == strcmp (pp->serial, pp2->serial)) {
 				path_buff_p += sprintf (path_buff_p, " %s",
-							pp->dev);
+							pp2->dev);
 
 				bitmap[k] = 1;
 				path_count++;
@@ -103,13 +110,52 @@ group_by_serial (struct multipath * mp, vector pathvec, char * str) {
 
 	}
 
+even:
+	/* scan paths top down */
+	for (i = VECTOR_SIZE(mp->paths) - 1; i >= 0; i--) {
+		if (bitmap[i])
+			continue;
+
+		pp = VECTOR_SLOT(mp->paths, i);
+
+		/* here, we really got a new pg */
+		pg_count++;
+		path_count = 1;
+		memset (&path_buff, 0, FILE_NAME_SIZE * sizeof (char));
+		path_buff_p = &path_buff[0];
+
+		path_buff_p += sprintf (path_buff_p, " %s", pp->dev);
+		bitmap[i] = 1;
+
+		for (k = i - 1; k >= 0; k--) {
+			
+			if (bitmap[k])
+				continue;
+
+			pp2 = VECTOR_SLOT(mp->paths, k);
+			
+			if (0 == strcmp (pp->serial, pp2->serial)) {
+				path_buff_p += sprintf (path_buff_p, " %s",
+							pp2->dev);
+
+				bitmap[k] = 1;
+				path_count++;
+			}
+		}
+
+		pg_buff_p += sprintf (pg_buff_p,
+				      " " SELECTOR " %i %i%s",
+				      path_count, SELECTOR_ARGS, path_buff);
+	}
+
+
 	sprintf (str, " %i%s", pg_count, pg_buff);
 	free (bitmap);
 }
 
 
 extern void
-one_path_per_group (struct multipath * mp, vector pathvec, char * str)
+one_path_per_group (struct multipath * mp, char * str)
 {
 	int i;
 	char * p;
@@ -117,10 +163,10 @@ one_path_per_group (struct multipath * mp, vector pathvec, char * str)
 
 	p = str;
 
-	p += sprintf (p, " %i", mp->npaths + 1);
+	p += sprintf (p, " %i", VECTOR_SIZE(mp->paths));
 
-	for (i=0; i <= mp->npaths; i++) {
-		pp = VECTOR_SLOT(pathvec, mp->pindex[i]);
+	for (i=0; i < VECTOR_SIZE(mp->paths); i++) {
+		pp = VECTOR_SLOT(mp->paths, i);
 
 		if (0 != pp->sg_id.scsi_type)
 			continue;
@@ -132,7 +178,7 @@ one_path_per_group (struct multipath * mp, vector pathvec, char * str)
 }
 
 extern void
-one_group (struct multipath * mp, vector pathvec, char * str)
+one_group (struct multipath * mp, char * str)
 {
 	int i, np = 0;
 	char * p;
@@ -140,19 +186,20 @@ one_group (struct multipath * mp, vector pathvec, char * str)
 
 	p = str;
 
-	for (i=0; i <= mp->npaths; i++) {
-		pp = VECTOR_SLOT(pathvec, mp->pindex[i]);
+	for (i=0; i < VECTOR_SIZE(mp->paths); i++) {
+		pp = VECTOR_SLOT(mp->paths, i);
 		if (0 == pp->sg_id.scsi_type)
 		np++;
 	}
 	
 	p += sprintf (p, " 1 " SELECTOR " %i %i", np, SELECTOR_ARGS);
 	
-	for (i=0; i<= mp->npaths; i++) {
+	for (i = 0; i < VECTOR_SIZE(mp->paths); i++) {
 
 		if (0 != pp->sg_id.scsi_type)
 			continue;
 
+		pp = VECTOR_SLOT(mp->paths, i);
 		p += sprintf (p, " %s", pp->dev);
 	}
 }

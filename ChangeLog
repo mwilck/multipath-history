@@ -1,3 +1,14 @@
+2004-06-07 multipath-tools-0.2.3
+	* [multipath] group_by_serial try to be smart with LUN
+	  balancing across controlers (for STK / LSI) :
+	  1st multipath : 1st pg made of path through 1st controler
+	  2nd multipath : 1st pg made of path through 2nd controler
+	  3rd multipath : 1st pg made of path through 1st controler
+	  ...
+	* [multipath] drop .pindex[] in struct multipath in favor
+	  of a *paths vector : much cleaner
+	* [multipath] fix group_by_serial pgpolicy broken by
+	  vectorisation in 0.2.2
 	* add a StorageTek array in the sample multipath.conf
 	* [multipathd] strcmp fix from <j@pureftpd.org>
 	* [multipathd] convert to vector api
