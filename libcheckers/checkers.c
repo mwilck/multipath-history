@@ -6,41 +6,39 @@
 
 #include "checkers.h"
 
-static int
-makenode (char *devnode, char *devt)
+extern int
+devnode (int action, char *devt)
 {
 	dev_t dev;
 	int major, minor;
-
-	sscanf(devt, "%i:%i", &major, &minor);
-
-	dev = makedev(major, minor);
-	unlink (devnode);
-
-	return mknod(devnode, S_IFBLK | S_IRUSR | S_IWUSR, dev);
-}
-
-extern int
-checkpath (char * devt, void * checkfn, char * msg, void * context)
-{
-	int (*checker) (char *, char *, void *);
+	int ret = 0;
 	char devnode[DEVNODE_SIZE];
-	int r;
-
-	checker = checkfn;
-
-	if (checker <= 0 )
-		return -1;
 
 	if (snprintf(devnode, sizeof(devnode), "/tmp/.checkpath.%s",
 		     devt) >= sizeof(devnode)) {
 		fprintf(stderr, "checkpath: devnode too small\n");
 		return -1;
 	}
-	if (makenode(devnode, devt))
-		return -1;
 
-	r = checker(devnode, msg, context);
-	unlink(devnode);
-	return r;
+	switch (action)
+	{
+	case CREATE_NODE:
+		sscanf(devt, "%i:%i", &major, &minor);
+		dev = makedev(major, minor);
+		unlink(devnode);
+		ret = mknod(devnode, S_IFBLK | S_IRUSR | S_IWUSR, dev);
+		break;
+
+	case UNLINK_NODE:
+		unlink(devnode);
+		break;
+
+	case OPEN_NODE:
+		ret = open(devnode, O_RDONLY);
+		break;
+
+	default:
+		break;
+	}
+	return(ret);
 }
