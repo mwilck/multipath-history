@@ -10,7 +10,6 @@
 #include <errno.h>
 
 #define FILESIZE 128
-#define LOG(x, y, z...) if (DEBUG>=x) syslog(x, "[copy.c] " y, ##z)
 
 static void
 basename(char * str1, char * str2)
@@ -34,14 +33,14 @@ copy (char * src, char * dst)
 	fdin = open (src, O_RDONLY);
 
 	if (fdin < 0) {
-		LOG(1, "cannot open %s", src);
+		syslog(3, "[copy.c] cannot open %s", src);
 		return -1;
 	}
 	/*
 	 * Stat the input file to obtain its size
 	 */
 	if (fstat (fdin, &statbuf) < 0) {
-		LOG(1, "cannot stat %s", src);
+		syslog(3, "[copy.c] cannot stat %s", src);
 		goto out1;
 	}
 	/*
@@ -51,17 +50,17 @@ copy (char * src, char * dst)
 	fdout = open (dst, O_RDWR | O_CREAT | O_TRUNC, statbuf.st_mode);
 
 	if (fdout < 0) {
-		LOG(1, "cannot open %s", dst);
+		syslog(3, "[copy.c] cannot open %s", dst);
 		goto out1;
 	}
 
 	if (lseek (fdout, statbuf.st_size - 1, SEEK_SET) == -1) {
-		LOG(1, "cannot lseek %s", dst);
+		syslog(3, "[copy.c] cannot lseek %s", dst);
 		goto out2;
 	}
 
 	if (write (fdout, "", 1) != 1) {
-		LOG(1, "cannot write dummy char");
+		syslog(3, "[copy.c] cannot write dummy char");
 		goto out2;
 	}
 	/*
@@ -69,13 +68,13 @@ copy (char * src, char * dst)
 	 */
 	if ((mmsrc = mmap(0, statbuf.st_size, PROT_READ, MAP_SHARED, fdin, 0))
 		== (caddr_t) -1) {
-		LOG(1, "cannot mmap %s", src);
+		syslog(3, "[copy.c] cannot mmap %s", src);
 		goto out2;
 	}
 	
 	if ((mmdst = mmap(0, statbuf.st_size, PROT_READ | PROT_WRITE,
 		MAP_SHARED, fdout, 0)) == (caddr_t) -1) {
-		LOG(1, "cannot mmap %s", dst);
+		syslog(3, "[copy.c] cannot mmap %s", dst);
 		goto out3;
 	}
 	memcpy(mmdst, mmsrc, statbuf.st_size);
@@ -100,7 +99,7 @@ copytodir (char * src, char * dstdir)
 	
 	basename(src, filename);
 	if (FILESIZE <= snprintf(dst, FILESIZE, "%s/%s", dstdir, filename)) {
-		LOG(1, "filename buffer overflow : %s ", filename);
+		syslog(3, "[copy.c] filename buffer overflow : %s ", filename);
 		return -1;
 	}
 

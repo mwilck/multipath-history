@@ -55,7 +55,16 @@
 #define CONFIGFILE "/etc/multipath.conf"
 #define CALLOUT_DIR "/var/cache/multipathd"
 
+#ifndef LOGLEVEL
+#define LOGLEVEL 5
+#endif
+
 #define MATCH(x, y) strncmp(x, y, strlen(x)) == 0
+#define LOG_MSG(a,b) \
+	if (strlen(a)) { \
+		syslog(LOG_WARNING, "%s: %s", b, a); \
+		memset(a, 0, MAX_CHECKER_MSG_SIZE); \
+	}
 
 #ifdef CLONE_NEWNS
 #ifdef ia64
@@ -155,7 +164,7 @@ select_checkfn(struct path *path_p, char *devname)
 	r = get_lun_strings(vendor, product, rev, devname);
 
 	if (r) {
-		LOG(1, "can not get device strings");
+		syslog(LOG_ERR, "can not get scsi strings");
 		return r;
 	}
 
@@ -165,13 +174,13 @@ select_checkfn(struct path *path_p, char *devname)
 		    MATCH(hwe->product, product) &&
 		    hwe->checker_index > 0) {
 			get_checker_name(checker_name, hwe->checker_index);
-			LOG (2, "set %s path checker for %s",
+			syslog(LOG_INFO, "set %s path checker for %s",
 			     checker_name, devname);
-			path_p->checkfn = get_checker_addr(hwe->checker_index);
+			pp->checkfn = get_checker_addr(hwe->checker_index);
 			return 0;
 		}
 	}
-	LOG (2, "set readsector0 path checker for %s", devname);
+	syslog(LOG_INFO, "set readsector0 path checker for %s", devname);
 	return 0;
 }
 
@@ -181,13 +190,13 @@ exit_daemon (int status)
 	if (status != 0)
 		fprintf(stderr, "bad exit status. see daemon.log\n");
 
-	LOG (2, "umount ramfs");
+	syslog(LOG_INFO, "umount ramfs");
 	umount(CALLOUT_DIR);
 
-	LOG (2, "unlink pidfile");
-	unlink (PIDFILE);
+	syslog(LOG_INFO, "unlink pidfile");
+	unlink(PIDFILE);
 
-	LOG (1, "--------shut down-------");
+	syslog(LOG_NOTICE, "--------shut down-------");
 	exit(status);
 }
 
@@ -220,7 +229,7 @@ get_devmaps (void)
 	}
 
 	if (!names->dev) {
-		LOG (1, "no devmap found");
+		syslog(LOG_WARNING, "no devmap found");
 		goto out;
 	}
 
@@ -230,7 +239,7 @@ get_devmaps (void)
 		 */
 		names = (void *) names + next;
 		nexttgt = NULL;
-		LOG (3, "devmap %s :", names->name);
+		syslog(LOG_DEBUG, "devmap %s :", names->name);
 
 		if (!(dmt1 = dm_task_create(DM_DEVICE_STATUS)))
 			goto out;
@@ -241,19 +250,18 @@ get_devmaps (void)
 		if (!dm_task_run(dmt1))
 			goto out1;
 
-		LOG (4, "DM_DEVICE_STATUS ioctl done");
 		do {
 			nexttgt = dm_get_next_target(dmt1, nexttgt,
 						   &start,
 						   &length,
 						   &target_type,
 						   &params);
-			LOG (3, "\\_ %lu %lu %s", (unsigned long) start,
+			syslog(LOG_DEBUG, "\\_ %lu %lu %s", (unsigned long) start,
 						  (unsigned long) length,
 						  target_type);
 
 			if (!target_type) {
-				LOG (2, "   unknown target type");
+				syslog(LOG_INFO, "   unknown target type");
 				goto out1;
 			}
 			
@@ -263,7 +271,7 @@ get_devmaps (void)
 				vector_alloc_slot(devmaps);
 				vector_set_slot(devmaps, devmap);
 			} else
-				LOG (3, "   skip non multipath target");
+				syslog(LOG_DEBUG, "   skip non multipath target");
 		} while (nexttgt);
 
 out1:
@@ -289,7 +297,7 @@ updatepaths (struct paths *failedpaths)
 	char attr_buff[17];
 	
 	if (sysfs_get_mnt_path(sysfs_path, FILENAMESIZE)) {
-		LOG(2, "can not find sysfs mount point");
+		syslog(LOG_ERR, "can not find sysfs mount point");
 		return 1;
 	}
 
@@ -368,7 +376,7 @@ geteventnr (char *name)
 	}
 
 	if (!info.exists) {
-		LOG(1, "Device %s does not exist", name);
+		syslog(LOG_ERR, "Device %s does not exist", name);
 		info.event_nr = 0;
 		goto out;
 	}
@@ -389,7 +397,7 @@ waitevent (void * et)
 	pthread_mutex_lock (waiter->waiter_lock);
 
 	waiter->event_nr = geteventnr (waiter->mapname);
-	LOG (3, "waiter->event_nr = %i", waiter->event_nr);
+	syslog(LOG_DEBUG, "waiter->event_nr = %i", waiter->event_nr);
 
 	struct dm_task *dmt;
 
@@ -424,20 +432,6 @@ out:
 	return (NULL);
 }
 
-static void
-log_failedpaths_vec (vector pathvec)
-{
-	int i;
-	struct path * pp;
-
-	LOG(1, "paths to check :");
-
-	for (i = 0; i < VECTOR_SIZE(pathvec); i++) {
-		pp = VECTOR_SLOT(pathvec, i);
-		LOG(1, "%s", pp->sg_dev_t);
-	}
-}
-
 static void *
 waiterloop (void *ap)
 {
@@ -451,7 +445,7 @@ waiterloop (void *ap)
 	char buff[1];
 	int i, j;
 
-	LOG (1, "start DM events thread");
+	syslog(LOG_NOTICE, "start DM events thread");
 	mlockall(MCL_CURRENT | MCL_FUTURE);
 
 	/*
@@ -485,21 +479,20 @@ waiterloop (void *ap)
 			/*
 			 * we're not allowed to fail here
 			 */
-			LOG (1, "can't get devmaps ... retry later");
+			syslog(LOG_ERR, "can't get devmaps ... retry later");
 			sleep(5);
 		}
 
 		/*
-		 * update failed paths list
+		 * update paths list
 		 */
-		LOG(2, "refresh failpaths list");
+		syslog(LOG_INFO, "refresh failpaths list");
 		updatepaths(failedpaths);
-		log_failedpaths_vec(failedpaths->pathvec);
 
 		/*
 		 * start waiters on all devmaps
 		 */
-		LOG (2, "start up event loops");
+		syslog(LOG_INFO, "start up event loops");
 
 		for (i = 0; i < VECTOR_SIZE(devmaps); i++) {
 			devmap = VECTOR_SLOT (devmaps, i);
@@ -544,7 +537,7 @@ waiterloop (void *ap)
 				pthread_mutex_unlock (wp->waiter_lock);
 			}
 			
-			LOG (1, "event checker startup : %s", wp->mapname);
+			syslog(LOG_NOTICE, "event checker startup : %s", wp->mapname);
 			pthread_create (wp->thread, &attr, waitevent, wp);
 			pthread_detach (*wp->thread);
 		}
@@ -705,10 +698,10 @@ prepare_namespace(void)
 	 */
 	if (stat (CALLOUT_DIR, buf) < 0) {
 		if (mkdir(CALLOUT_DIR, mode) < 0) {
-			LOG(1, "cannot create " CALLOUT_DIR);
+			syslog(LOG_ERR, "cannot create " CALLOUT_DIR);
 			return -1;
 		}
-		LOG(3, "created " CALLOUT_DIR);
+		syslog(LOG_DEBUG, "created " CALLOUT_DIR);
 	}
 
 	/*
@@ -718,17 +711,17 @@ prepare_namespace(void)
 		bin = VECTOR_SLOT(binvec, i);
 
 		if ((fd = open(bin, O_RDONLY)) < 0) {
-			LOG(1, "cannot open %s", bin);
+			syslog(LOG_ERR, "cannot open %s", bin);
 			return -1;
 		}
 		if (fstat(fd, &statbuf) < 0) {
-			LOG(1, "cannot stat %s", bin);
+			syslog(LOG_ERR, "cannot stat %s", bin);
 			return -1;
 		}
 		size += statbuf.st_size;
 		close(fd);
 	}
-	LOG(3, "ramfs maxsize is %u", (unsigned int) size);
+	syslog(LOG_INFO, "ramfs maxsize is %u", (unsigned int) size);
 	
 	/*
 	 * mount the ramfs
@@ -738,10 +731,10 @@ prepare_namespace(void)
 		return -1;
 	}
 	if (mount(NULL, CALLOUT_DIR, "ramfs", MS_SYNCHRONOUS, ramfs_args) < 0) {
-		LOG(1, "cannot mount ramfs on " CALLOUT_DIR);
+		syslog(LOG_ERR, "cannot mount ramfs on " CALLOUT_DIR);
 		return -1;
 	}
-	LOG(3, "mount ramfs on " CALLOUT_DIR);
+	syslog(LOG_DEBUG, "mount ramfs on " CALLOUT_DIR);
 
 	/*
 	 * populate the ramfs with callout binaries
@@ -750,10 +743,10 @@ prepare_namespace(void)
 		bin = VECTOR_SLOT(binvec, i);
 		
 		if (copytodir(bin, CALLOUT_DIR) < 0) {
-			LOG(1, "cannot copy %s in ramfs", bin);
+			syslog(LOG_ERR, "cannot copy %s in ramfs", bin);
 			exit_daemon(1);
 		}
-		LOG(3, "cp %s in ramfs", bin);
+		syslog(LOG_DEBUG, "cp %s in ramfs", bin);
 	}
 	strvec_free(binvec);
 
@@ -764,20 +757,20 @@ prepare_namespace(void)
 	 * /tmp  : home of tools temp files
 	 */
 	if (mount(CALLOUT_DIR, "/sbin", NULL, MS_BIND, NULL) < 0) {
-		LOG(1, "cannot bind ramfs on /sbin");
+		syslog(LOG_ERR, "cannot bind ramfs on /sbin");
 		return -1;
 	}
-	LOG(3, "bind ramfs on /sbin");
+	syslog(LOG_DEBUG, "bind ramfs on /sbin");
 	if (mount(CALLOUT_DIR, "/bin", NULL, MS_BIND, NULL) < 0) {
-		LOG(1, "cannot bind ramfs on /bin");
+		syslog(LOG_ERR, "cannot bind ramfs on /bin");
 		return -1;
 	}
-	LOG(3, "bind ramfs on /bin");
+	syslog(LOG_DEBUG, "bind ramfs on /bin");
 	if (mount(CALLOUT_DIR, "/tmp", NULL, MS_BIND, NULL) < 0) {
-		LOG(1, "cannot bind ramfs on /tmp");
+		syslog(LOG_ERR, "cannot bind ramfs on /tmp");
 		return -1;
 	}
-	LOG(3, "bind ramfs on /tmp");
+	syslog(LOG_DEBUG, "bind ramfs on /tmp");
 
 	return 0;
 }
@@ -833,7 +826,7 @@ signal_set(int signo, void (*func) (int))
 static void
 sighup (int sig)
 {
-	LOG (1, "SIGHUP received from multipath or operator");
+	syslog(LOG_NOTICE, "SIGHUP received from multipath or operator");
 
 	/*
 	 * signal updatepaths() that we come from SIGHUP
@@ -874,7 +867,7 @@ setscheduler (void)
         res = sched_setscheduler (0, SCHED_RR, &sched_param);
 
         if (res == -1)
-                LOG(1, "Could not set SCHED_RR at priority 99");
+                syslog(LOG_WARNING, "Could not set SCHED_RR at priority 99");
 	return;
 }
 
@@ -886,14 +879,15 @@ child (void * param)
 	struct paths *failedpaths;
 
 	openlog("multipathd", 0, LOG_DAEMON);
-	LOG(1, "--------start up--------");
+	setlogmask(LOG_UPTO(LOGLEVEL));
+	syslog(LOG_NOTICE, "--------start up--------");
 
 	pidfile(getpid());
 	signal_init();
 	setscheduler();
 	failedpaths = initpaths();
 
-	LOG(2, "read " CONFIGFILE);
+	syslog(LOG_INFO, "read " CONFIGFILE);
 	init_data(CONFIGFILE, init_keywords);
 
 	/*
@@ -919,7 +913,7 @@ child (void * param)
 
 #ifdef CLONE_NEWNS
 	if (prepare_namespace() < 0) {
-		LOG(1, "cannot prepare namespace");
+		syslog(LOG_ERR, "cannot prepare namespace");
 		exit_daemon(1);
 	}
 #endif
