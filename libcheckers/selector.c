@@ -10,7 +10,8 @@ get_checker_id (char * str)
 		return TUR;
 	if (0 == strncmp(str, "readsector0", 11))
 		return READSECTOR0;
-
+ 	if (0 == strncmp(str, "emc_clariion", 12))
+		return EMC_CLARIION;
 	return -1;
 }
 
