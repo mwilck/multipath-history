@@ -9,54 +9,24 @@
 #if LOGDBG
 static void dump_logarea (void)
 {
-	char * p;
-	int i;
+	struct logmsg * msg;
+	
+	logdbg(stderr, "\n==== area: start addr = %p, end addr = %p ====\n",
+		la->start, la->end);
+	logdbg(stderr, "|addr     |next     |prio|msg\n");
 
-	for ((p = la->start) && (i = 0); (void *)p < la->end; p++ && i++) {
-		if (*p >= 0x20)
-			logdbg(stderr, "%c", *p);
-		else if (*p == 0x0)
-			logdbg(stderr, ".");
-		else
-			logdbg(stderr, "*");
+	for (msg = (struct logmsg *)la->head; (void *)msg != la->tail;
+	     msg = msg->next)
+		logdbg(stderr, "|%p |%p |%i   |%s\n", (void *)msg, msg->next,
+				msg->prio, (char *)&msg->str);
 
-		if ((i % 64) == 0) {
-			i = 0;
-			logdbg(stderr, "\n");
-		}
-	}
-	logdbg(stderr, "\n");
-}
+	logdbg(stderr, "|%p |%p |%i   |%s\n", (void *)msg, msg->next,
+			msg->prio, (char *)&msg->str);
 
-void dump_logmsg (void * data)
-{
-	struct logmsg * msg = (struct logmsg *)data;
-	char * p;
-	int i;
-
-	logdbg(stderr,"dump_logmsg: msg addr %p\n", data);
-
-	for ((p = data) && (i = 0);
-	     (void *)p < (data + MAX_MSG_SIZE + sizeof(struct logmsg));
-	     p++ && i++) {
-		if (*p >= 0x20)
-			logdbg(stderr, "%c", *p);
-		else if (*p == 0x0)
-			logdbg(stderr, ".");
-		else
-			logdbg(stderr, "*");
-
-		if ((i % 64) == 0) {
-			i = 0;
-			logdbg(stderr, "\n");
-		}
-	}
-	logdbg(stderr, "dump message: msg->prio = %i\n", msg->prio);
-	logdbg(stderr, "dump message: msg->next = %p\n", msg->next);
-	logdbg(stderr, "dump message: msg->str  = %s\n", (char *)&msg->str);
+	logdbg(stderr, "\n\n");
 }
 #endif
-
+		
 static int logarea_init (int size)
 {
 	logdbg(stderr,"enter logarea_init\n");
@@ -71,15 +41,25 @@ static int logarea_init (int size)
 	la->start = malloc(size);
 	memset(la->start, 0, size);
 
-	if (!la->start)
+	if (!la->start) {
+		free(la);
 		return 1;
+	}
 
 	la->empty = 1;
 	la->end = la->start + size;
 	la->head = la->start;
 	la->tail = la->start;
 
+	la->buff = malloc(MAX_MSG_SIZE + sizeof(struct logmsg));
+
+	if (!la->buff) {
+		free(la->start);
+		free(la);
+		return 1;
+	}
 	return 0;
+
 }
 
 int log_init(char *program_name, int size)
@@ -96,6 +76,8 @@ int log_init(char *program_name, int size)
 
 void free_logarea (void)
 {
+	free(la->start);
+	free(la->buff);
 	free(la);
 	return;
 }
@@ -146,13 +128,13 @@ int log_enqueue (int prio, const char * fmt, va_list ap)
 	/* ok, we can stage the msg in the area */
 	la->empty = 0;
 	msg = (struct logmsg *)la->tail;
-
 	msg->prio = prio;
-	logdbg(stderr, "enqueue: msg prio set to %i\n", msg->prio);
-	
 	memcpy((void *)&msg->str, buff, len);
 	lastmsg->next = la->tail;
 	msg->next = la->head;
+
+	logdbg(stderr, "enqueue: %p, %p, %i, %s\n", (void *)msg, msg->next,
+		msg->prio, (char *)&msg->str);
 
 #if LOGDBG
 	dump_logarea();
@@ -164,22 +146,29 @@ int log_dequeue (void * buff)
 {
 	struct logmsg * src = (struct logmsg *)la->head;
 	struct logmsg * dst = (struct logmsg *)buff;
+	struct logmsg * lst = (struct logmsg *)la->tail;
+
+	if (la->empty)
+		return 1;
+	
 	int len = strlen((char *)&src->str) * sizeof(char) +
 		  sizeof(struct logmsg) + 1;
 
-	if (!la->empty) {
-		dst->prio = src->prio;
-		memcpy(dst, src,  len);
+	dst->prio = src->prio;
+	memcpy(dst, src,  len);
+
+	if (la->tail == la->head)
+		la->empty = 1; /* we purge the last logmsg */
+	else {
 		la->head = src->next;
-		memset((void *)src, 0,  len);
-		
-		if (la->tail == la->head) {
-			la->empty = 1;
-			return 0;
-		}
-		return 1;
+		lst->next = la->head;
 	}
-	return 0;
+	logdbg(stderr, "dequeue: %p, %p, %i, %s\n",
+		(void *)src, src->next, src->prio, (char *)&src->str);
+
+	memset((void *)src, 0,  len);
+
+	return la->empty;
 }
 
 /*
@@ -189,19 +178,5 @@ void log_syslog (void * buff)
 {
 	struct logmsg * msg = (struct logmsg *)buff;
 
-	logdbg(stderr,"log_syslog: %s\n", (char *)&msg->str);
 	syslog(msg->prio, "%s", (char *)&msg->str);
-	memset(msg, 0, MAX_MSG_SIZE + sizeof(struct logmsg));
-}
-
-char * log_alloc_buffer (void)
-{
-	char * p = malloc(MAX_MSG_SIZE + sizeof(struct logmsg));
-
-	if (p)
-		memset(p, 0, MAX_MSG_SIZE + sizeof(struct logmsg));
-
-	logdbg(stderr,"log_alloc_buffer: %p\n", p);
-
-	return p;
 }
