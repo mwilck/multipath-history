@@ -33,7 +33,10 @@ klibc: prepare $(KLIBC) $(OBJS)
 	$(STRIP) $(EXEC)
 
 $(DMLIB)-$(BUILD).a:
-	make -C $(libdmdir) BUILD=$(BUILD) $(BUILD)
+	make -C $(libdmdir) BUILD=$(BUILD)
+
+$(MULTIPATHLIB)-$(BUILD).a:
+	make -C $(multipathdir) BUILD=$(BUILD)
 
 $(KLIBC):
 	rm -f $(klibcdir)/linux
