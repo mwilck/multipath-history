@@ -1,15 +1,27 @@
 # Makefile
 #
 # Copyright (C) 2003 Christophe Varoqui, <christophe.varoqui@free.fr>
+#
+BUILD = glibc
 
 include ../Makefile.inc
 
-CFLAGS = ${REQFLAGS} ${OPTFLAGS}
-
 OBJS = readsector0.o tur.o selector.o checkers.o emc_clariion.o
 
-all: $(OBJS)
-	ar rs libcheckers.a *.o
+ifeq ($(strip $(BUILD)),klibc)
+	CFLAGS = ${REQFLAGS} ${OPTFLAGS}
+else
+	CFLAGS =
+endif
+
+prepare:
+	rm -f core *.o *.gz
+
+klibc: prepare $(OBJS)
+	ar rs libcheckers-klibc.a *.o
+
+glibc: prepare $(OBJS)
+	ar rs libcheckers-glibc.a *.o
 
 install:
 

@@ -17,9 +17,10 @@
  *              2 of the License, or (at your option) any later version.
  */
 
+#include <syslog.h>
+
 #include "parser.h"
 #include "memory.h"
-#include "log.h"
 
 /* local vars */
 static int sublevel = 0;
@@ -330,7 +331,7 @@ init_data(char *conf_file, vector (*init_keywords) (void))
 {
 	stream = fopen(conf_file, "r");
 	if (!stream) {
-		syslog(LOG_INFO, "Configuration file open problem...\n");
+		syslog(LOG_WARNING, "Configuration file open problem");
 		return;
 	}
 

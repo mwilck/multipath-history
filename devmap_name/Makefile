@@ -1,21 +1,36 @@
 # Makefile
 #
 # Copyright (C) 2003 Christophe Varoqui, <christophe.varoqui@free.fr>
-
-EXEC = devmap_name
+BUILD = klibc
 
 include ../Makefile.inc
 
-OBJS = devmap_name.o
-CFLAGS = ${REQFLAGS} ${OPTFLAGS}
+ifeq ($(strip $(BUILD)),klibc)
+	CFLAGS = ${REQFLAGS} ${OPTFLAGS} -I../libdevmapper
+else
+	CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes \
+		 -DDEBUG=$(DEBUG)
+	LDFLAGS = -ldevmapper
+endif
 
-$(EXEC): $(OBJS)
-	$(LD) -o $(EXEC) $(CRT0) $(OBJS) $(DMOBJS) $(KLIBC) $(LIBGCC)
+EXEC = devmap_name
+OBJS = devmap_name.o
+
+all: klibc
+
+prepare:
+	rm -f core *.o *.gz
+
+glibc: prepare $(OBJS)
+	$(CC) $(OBJS) -o $(EXEC) $(LDFLAGS)
 	$(STRIP) $(EXEC)
 	$(GZIP) $(EXEC).8 > $(EXEC).8.gz
-
-clean:
-	rm -f core *.o $(EXEC) *.gz
+	
+klibc: prepare $(OBJS)
+	$(LD) -o $(EXEC) $(CRT0) $(OBJS) $(DMLIB)-$(BUILD).a \
+	$(KLIBC) $(LIBGCC)
+	$(STRIP) $(EXEC)
+	$(GZIP) $(EXEC).8 > $(EXEC).8.gz
 
 install:
 	install -d $(DESTDIR)$(bindir)
@@ -26,3 +41,6 @@ install:
 uninstall:
 	rm $(DESTDIR)$(bindir)/$(EXEC)
 	rm $(DESTDIR)$(mandir)/$(EXEC).8.gz
+
+clean:
+	rm -f core *.o $(EXEC) *.gz

@@ -3,6 +3,7 @@
 #include "pgpolicies.h"
 #include "debug.h"
 #include "memory.h"
+#include "../libcheckers/checkers.h"
 
 /*
  * default block handlers

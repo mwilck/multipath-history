@@ -31,7 +31,7 @@
 vector
 vector_alloc(void)
 {
-	vector v = (vector) MALLOC(sizeof (struct _vector));
+	vector v = (vector) zalloc(sizeof (struct _vector));
 	return v;
 }
 
@@ -43,15 +43,28 @@ vector_alloc_slot(vector v)
 	if (v->slot)
 		v->slot = realloc(v->slot, sizeof (void *) * v->allocated);
 	else
-		v->slot = (void *) MALLOC(sizeof (void *) * v->allocated);
+		v->slot = (void *) zalloc(sizeof (void *) * v->allocated);
 }
 
+void
+vector_insert_slot(vector v, int slot, void *value)
+{
+	int i;
+	
+	vector_alloc_slot(v);
+
+	for (i = v->allocated - 2; i >= slot; i -= VECTOR_DEFAULT_SIZE)
+		v->slot[i+VECTOR_DEFAULT_SIZE] = v->slot[i];
+
+	v->slot[slot*VECTOR_DEFAULT_SIZE] = value;
+}
+		
 /* Free memory vector allocation */
 void
 vector_free(vector v)
 {
-	FREE(v->slot);
-	FREE(v);
+	free(v->slot);
+	free(v);
 }
 
 void
@@ -65,7 +78,7 @@ free_strvec(vector strvec)
 
 	for (i = 0; i < VECTOR_SIZE(strvec); i++)
 		if ((str = VECTOR_SLOT(strvec, i)) != NULL)
-			FREE(str);
+			free(str);
 
 	vector_free(strvec);
 }
