@@ -1,8 +1,4 @@
 /* 
- * Soft:        Keepalived is a failover program for the LVS project
- *              <www.linuxvirtualserver.org>. It monitor & manipulate
- *              a loadbalanced server pool using multi-layer checks.
- * 
  * Part:        Vector structure manipulation.
  *  
  * Version:     $Id: vector.c,v 1.0.3 2003/05/11 02:28:03 acassen Exp $
@@ -36,7 +32,7 @@ vector_alloc(void)
 }
 
 /* allocated one slot */
-void
+void *
 vector_alloc_slot(vector v)
 {
 	v->allocated += VECTOR_DEFAULT_SIZE;
@@ -44,19 +40,27 @@ vector_alloc_slot(vector v)
 		v->slot = realloc(v->slot, sizeof (void *) * v->allocated);
 	else
 		v->slot = (void *) zalloc(sizeof (void *) * v->allocated);
+
+	if (!v->slot)
+		v->allocated -= VECTOR_DEFAULT_SIZE;
+
+	return v->slot;
 }
 
-void
+void *
 vector_insert_slot(vector v, int slot, void *value)
 {
 	int i;
 	
-	vector_alloc_slot(v);
+	if (!vector_alloc_slot(v))
+		return NULL;
 
 	for (i = (v->allocated /VECTOR_DEFAULT_SIZE) - 2; i >= slot; i--)
 		v->slot[i + 1] = v->slot[i];
 
 	v->slot[slot] = value;
+
+	return v->slot[slot];
 }
 
 void

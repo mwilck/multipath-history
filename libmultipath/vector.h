@@ -40,12 +40,12 @@ typedef struct _vector *vector;
 
 /* Prototypes */
 extern vector vector_alloc(void);
-extern void vector_alloc_slot(vector v);
+extern void *vector_alloc_slot(vector v);
 extern void vector_free(vector v);
 extern void free_strvec(vector strvec);
 extern void vector_set_slot(vector v, void *value);
 extern void vector_del_slot(vector v, int slot);
-extern void vector_insert_slot(vector v, int slot, void *value);
+extern void *vector_insert_slot(vector v, int slot, void *value);
 extern void vector_dump(vector v);
 extern void dump_strvec(vector strvec);
 

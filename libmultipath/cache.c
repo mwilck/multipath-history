@@ -117,6 +117,7 @@ cache_flush (void)
 
 	return ftruncate(fd, 0);
 }
+
 int
 cache_cold (int expire)
 {
