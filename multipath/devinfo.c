@@ -235,6 +235,17 @@ sysfs_devinfo(struct path * curpath)
 		if (strlen(attr_buff) > 1)
 			strncpy(curpath->dev_t, attr_buff,
 				strlen(attr_buff) - 1);
+
+		if(safe_sprintf(attr_path, "%s/block/%s/device/generic/dev",
+			sysfs_path, curpath->dev)) {
+			fprintf(stderr, "attr_path too small\n");
+			return 1;
+		}
+		if (0 > sysfs_read_attribute_value(attr_path,
+			attr_buff, sizeof(attr_buff))) return 1;
+		if (strlen(attr_buff) > 1)
+			strncpy(curpath->sg_dev_t, attr_buff,
+				strlen(attr_buff) - 1);
 	} else {
 		fprintf(stderr, "need sysfs mounted : out\n");
 		return 1;

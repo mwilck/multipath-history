@@ -73,6 +73,7 @@ struct scsi_dev {
 struct path {
 	char dev[FILE_NAME_SIZE];
 	char dev_t[FILE_NAME_SIZE];
+	char sg_dev_t[FILE_NAME_SIZE];
 	struct scsi_idlun scsi_id;
 	struct sg_id sg_id;
 	char wwid[WWID_SIZE];
