@@ -23,6 +23,7 @@
 #include "debug.h"
 #include "config.h"
 #include "propsel.h"
+#include "hwtable.h"
 
 #define readattr(a,b) \
 	sysfs_read_attribute_value(a, b, sizeof(b))
@@ -109,17 +110,11 @@ devt2devname (char *devname, char *devt)
 {
 	struct sysfs_directory * sdir;
 	struct sysfs_directory * devp;
-	char sysfs_path[FILE_NAME_SIZE];
 	char block_path[FILE_NAME_SIZE];
 	char attr_path[FILE_NAME_SIZE];
 	char attr_value[16];
 	int len;
 
-	if (sysfs_get_mnt_path(sysfs_path, FILE_NAME_SIZE)) {
-		fprintf(stderr, "feature available with sysfs only\n");
-		exit(1);
-	}
-		
 	if(safe_sprintf(block_path, "%s/block", sysfs_path)) {
 		fprintf(stderr, "block_path too small\n");
 		exit(1);
@@ -241,12 +236,6 @@ sysfs_devinfo(struct path * curpath)
 {
 	char attr_path[FILE_NAME_SIZE];
 	char attr_buff[FILE_NAME_SIZE];
-	char sysfs_path[FILE_NAME_SIZE];
-
-	if (sysfs_get_mnt_path(sysfs_path, FILE_NAME_SIZE)) {
-		fprintf(stderr, "need sysfs mounted : out\n");
-		return 1;
-	}
 
 	if (sysfs_get_vendor(sysfs_path, curpath->dev,
 			     curpath->vendor_id, SCSI_VENDOR_SIZE))

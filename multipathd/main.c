@@ -476,7 +476,6 @@ waiterloop (void *ap)
 	int r;
 	char buff[1];
 	int i, j;
-	char sysfs_path[FILE_NAME_SIZE];
 
 	syslog(LOG_NOTICE, "start DM events thread");
 	mlockall(MCL_CURRENT | MCL_FUTURE);

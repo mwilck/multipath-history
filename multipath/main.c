@@ -19,12 +19,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <fcntl.h>
-#include <sys/types.h>
 #include <sys/stat.h>
 #include <string.h>
 #include <signal.h>
-#include <sys/ioctl.h>
 
 #include <parser.h>
 #include <vector.h>
@@ -42,6 +39,7 @@
 #include <defaults.h>
 #include <structs.h>
 #include <dmparser.h>
+#include <cache.h>
 
 #include "main.h"
 #include "devinfo.h"
@@ -984,10 +982,10 @@ main (int argc, char *argv[])
 		fprintf(stderr, "device mapper prerequisites not met.\n");
 		exit(1);
 	}
-
-	/*
-	 * alloc config struct
-	 */
+	if (sysfs_get_mnt_path(sysfs_path, FILE_NAME_SIZE)) {
+		fprintf(stderr, "multipath tools need sysfs\n");
+		exit(1);
+	}
 	conf = zalloc(sizeof(struct config));
 				
 	/*
