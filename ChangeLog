@@ -1,4 +1,32 @@
-2004-10-26 multipath-tools-0.3.3
+2004-10-26 multipath-tools-0.3.4
+
+	* [multipathd] exec multipath precisely : pass in the path
+	  or the devmap to update. No more full reconfiguration, and
+	  really use the reinstate feature of multipath.
+	* [multipathd] check all paths, not only failed ones. Path
+	  checker now trigger on state change (formerly triggred on
+	  state == UP condition)
+	* [multipathd] incremental updatepaths() instead of scrap /
+	  refresh all logic.
+	* [multipathd] path checkers now take *msg and *context
+	  params. consensus w/ lmb at suse. tur.c modified as example
+	* [multipath] assemble maps in PG vector descending order to
+	  fit the layered policies design
+	* [multipath] stop playing with strings in pgpolicies, as it
+	  uses more memory and looses info for no gain
+	* [multipath] remove lk2.4 scsi ioctl scsi_type remnant
+	* [multipath] layered pgpolicies : (see pgpolicies.c)
+		* group_by_status
+		* group_by_serial | multibus | failover | group_by_prio
+		* sort_pg_by_summed_prio
+	  thus remove duplicated failedpath logic in pgpolicies
+	* [checkers] framework for arbitrate checkers return values
+	* [multipathd] scrap yet another reinvented wheel in the 
+	  name of the LOG macro :  learn the existance of setloglevel
+	  and LOG_UPTO macro
+	* glibc make with "make BUILD=glibc", asked by lmb at suse
+
+2004-10-20 multipath-tools-0.3.3
 
 	* [checkers] add the emc_clariion path checker (lmb at Suse)
 	* [multipath] introduce safe_snprintf macro to complement the
