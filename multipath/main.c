@@ -641,21 +641,7 @@ setup_map (vector pathvec, struct multipath * mpp)
 	select_hwhandler(mpp);
 
 	/*
-	 * layered map computation :
-	 *  1) separate failed paths in a tersary PG
-	 *  2) separate shaky paths in a secondary PG
-	 *  3) apply selected grouping policy to valid paths
-	 *  4) reorder path groups by summed priority
-	 */
-
-	/*
-	 * 1) & 2)
-	 */
-	//group_by_status(mpp, PATH_DOWN);
-	//group_by_status(mpp, PATH_SHAKY);
-
-	/*
-	 * 3) apply selected grouping policy
+	 * apply selected grouping policy to valid paths
 	 */
 	if (mpp->pgpolicy == MULTIBUS)
 		one_group (mpp);

@@ -20,12 +20,7 @@ int get_pgpolicy_id(char *);
 void get_pgpolicy_name (char *, int);
 
 /*
- * intermediate policies
- */
-void group_by_status(struct multipath *, int);
-
-/*
- * leaf policies
+ * policies
  */
 void one_path_per_group(struct multipath *);
 void one_group(struct multipath *);
