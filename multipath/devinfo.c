@@ -34,7 +34,11 @@ opennode (char * devt, int mode)
 	sscanf(devt, "%u:%u", &major, &minor);
 
 	/* first, try with udev reverse mappings */
-	sprintf(devpath, "%s/reverse/%u:%u", conf->udev_dir, major, minor);
+	if (safe_sprintf(devpath, "%s/reverse/%u:%u",
+			 conf->udev_dir, major, minor)) {
+		fprintf(stderr, "devpath too small\n");
+		return -1;
+	}
 	fd = open(devpath, mode);
 
 	if (fd >= 0)
@@ -42,7 +46,12 @@ opennode (char * devt, int mode)
 
 	/* fallback to temp devnode creation */
 	memset(devpath, 0, FILE_NAME_SIZE);
-	sprintf(devpath, "/tmp/.multipath.%u.%u.devnode", major, minor);
+	
+	if (safe_sprintf(devpath, "/tmp/.multipath.%u.%u.devnode",
+			 major, minor)) {
+		fprintf(stderr, "devpath too small\n");
+		return -1;
+	}
 	unlink (devpath);
 	mknod(devpath, S_IFBLK|S_IRUSR|S_IWUSR, makedev(major, minor));
 	fd = open(devpath, mode);
@@ -65,7 +74,11 @@ closenode (char * devt, int fd)
 		close(fd);
 
 	sscanf(devt, "%u:%u", &major, &minor);
-	sprintf(devpath, "/tmp/.multipath.%u.%u.devnode", major, minor);
+	if (safe_sprintf(devpath, "/tmp/.multipath.%u.%u.devnode",
+			 major, minor)) {
+		fprintf(stderr, "devpath too small\n");
+		return;
+	}
 	unlink(devpath);
 }
 
@@ -174,38 +187,56 @@ sysfs_devinfo(struct path * curpath)
 	struct stat buf;
 
 	if (0 == sysfs_get_mnt_path(sysfs_path, FILE_NAME_SIZE)) {
-		sprintf(attr_path, "%s/block/%s", sysfs_path, curpath->dev);
+		if (safe_sprintf(attr_path, "%s/block/%s",
+				 sysfs_path, curpath->dev)) {
+			fprintf(stderr, "attr_path too small\n");
+			return 1;
+		}
 		
 		if(stat(attr_path, &buf))
 			return 1;
 
 		/* sysfs style */
-		sprintf(attr_path, "%s/block/%s/device/vendor",
-			sysfs_path, curpath->dev);
+		if(safe_sprintf(attr_path, "%s/block/%s/device/vendor",
+			sysfs_path, curpath->dev)) {
+			fprintf(stderr, "attr_path too small\n");
+			return 1;
+		}
 		if (0 > sysfs_read_attribute_value(attr_path,
 			attr_buff, sizeof(attr_buff))) return 1;
 		memcpy(curpath->vendor_id, attr_buff, 8);
  
-		sprintf(attr_path, "%s/block/%s/device/model",
-			sysfs_path, curpath->dev);
+		if(safe_sprintf(attr_path, "%s/block/%s/device/model",
+			sysfs_path, curpath->dev)) {
+			fprintf(stderr, "attr_path too small\n");
+			return 1;
+		}
 		if (0 > sysfs_read_attribute_value(attr_path,
 			attr_buff, sizeof(attr_buff))) return 1;
 		memcpy(curpath->product_id, attr_buff, 16);
  
-		sprintf(attr_path, "%s/block/%s/device/rev",
-			sysfs_path, curpath->dev);
+		if(safe_sprintf(attr_path, "%s/block/%s/device/rev",
+			sysfs_path, curpath->dev)) {
+			fprintf(stderr, "attr_path too small\n");
+			return 1;
+		}
 		if (0 > sysfs_read_attribute_value(attr_path,
 			attr_buff, sizeof(attr_buff))) return 1;
 		memcpy(curpath->rev, attr_buff, 4);
  
-		sprintf(attr_path, "%s/block/%s/dev",
-			sysfs_path, curpath->dev);
+		if(safe_sprintf(attr_path, "%s/block/%s/dev",
+			sysfs_path, curpath->dev)) {
+			fprintf(stderr, "attr_path too small\n");
+			return 1;
+		}
 		if (0 > sysfs_read_attribute_value(attr_path,
 			attr_buff, sizeof(attr_buff))) return 1;
-		sprintf(curpath->dev_t, "%s", attr_buff);
+		if (strlen(attr_buff) > 1)
+			strncpy(curpath->dev_t, attr_buff,
+				strlen(attr_buff) - 1);
 	} else {
-		printf("need sysfs mounted : out\n");
-		exit(1);
+		fprintf(stderr, "need sysfs mounted : out\n");
+		return 1;
 	}
 	return 0;
 }
@@ -441,8 +472,11 @@ get_disk_size (char * devname) {
 
 	if (0 == sysfs_get_mnt_path(sysfs_path, FILE_NAME_SIZE)) {
 		memset(attr_path, 0, FILE_NAME_SIZE);
-		sprintf(attr_path, "%s/block/%s/size",
-			sysfs_path, devname);
+		if(safe_sprintf(attr_path, "%s/block/%s/size",
+			sysfs_path, devname)) {
+			fprintf(stderr, "attr_path too small\n");
+			return -1;
+		}
 		if (0 > sysfs_read_attribute_value(attr_path, buff,
 			FILE_NAME_SIZE))
 			return -1;

@@ -39,6 +39,13 @@
 #define DEFAULT_SELECTOR	"round-robin"
 #define MAXTRY		50
 
+/*
+ * SCSI strings sizes
+ */
+#define SCSI_VENDOR_SIZE	9
+#define SCSI_PRODUCT_SIZE	17
+#define SCSI_REV_SIZE		5
+
 /* global types */
 struct scsi_idlun {
 	int dev_id;
@@ -70,9 +77,9 @@ struct path {
 	struct scsi_idlun scsi_id;
 	struct sg_id sg_id;
 	char wwid[WWID_SIZE];
-	char vendor_id[9];
-	char product_id[17];
-	char rev[5];
+	char vendor_id[SCSI_VENDOR_SIZE];
+	char product_id[SCSI_PRODUCT_SIZE];
+	char rev[SCSI_REV_SIZE];
 	char serial[SERIAL_SIZE];
 	int tur;
 	unsigned int priority;

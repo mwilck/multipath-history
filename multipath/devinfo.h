@@ -7,13 +7,18 @@
 #define BLKGETSIZE      _IO(0x12,96)
 #define TUR_CMD_LEN     6
 
-/* exerpt from "sg_err.h" */
+/*
+ * exerpt from sg_err.h
+ */
 #define SCSI_CHECK_CONDITION    0x2
 #define SCSI_COMMAND_TERMINATED 0x22
 #define SG_ERR_DRIVER_SENSE     0x08
 
 #include "main.h"
 
+/*
+ * prototypes
+ */
 void basename (char *, char *);
 int get_serial (char *, char *);
 int sysfs_devinfo (struct path *);
@@ -21,5 +26,7 @@ unsigned long get_disk_size (char *);
 int do_tur (char *);
 int get_claimed(char *);
 
-/* internal getuid methods */
+/*
+ * internal getuid methods
+ */
 int get_evpd_wwid (char *, char *);

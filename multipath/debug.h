@@ -3,3 +3,6 @@
 #else
 #define dbg(format, arg...) do {} while(0)
 #endif
+
+#define safe_sprintf(var, format, args...)      \
+	snprintf(var, sizeof(var), format, ##args) >= sizeof(var)

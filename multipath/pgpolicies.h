@@ -5,6 +5,8 @@
 #include "main.h"
 #endif
 
+#define POLICY_NAME_SIZE 32
+
 /* Storage controlers capabilities */
 enum iopolicies { 
 	FAILOVER,
