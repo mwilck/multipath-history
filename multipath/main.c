@@ -597,7 +597,7 @@ dm_map_present (char * str)
 	}
 
 	do {
-		if (0 == strcmp(names->name, str))
+		if (0 == strncmp(names->name, str, strlen(names->name)))
 			r = 1;
 		next = names->next;
 		names = (void *) names + next;
