@@ -112,9 +112,9 @@ group_by_status (struct multipath * mp, int state)
 	}
 	return;
 }
+
 /*
  * One path group per unique serial number present in the path vector
- * Simple rotation logic for the head pg's serial
  */
 extern void
 group_by_serial (struct multipath * mp) {
@@ -131,6 +131,7 @@ group_by_serial (struct multipath * mp) {
 	bitmap = zalloc(VECTOR_SIZE(mp->paths) * sizeof (int));
 
 	for (i = 0; i < VECTOR_SIZE(mp->paths); i++) {
+
 		if (bitmap[i])
 			continue;
 
@@ -156,7 +157,7 @@ group_by_serial (struct multipath * mp) {
 			
 			if (0 == strcmp(pp->serial, pp2->serial)) {
 				vector_alloc_slot(pgpaths);
-				vector_set_slot(pgpaths, pp);
+				vector_set_slot(pgpaths, pp2);
 				bitmap[k] = 1;
 			}
 		}
