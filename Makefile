@@ -21,9 +21,9 @@ INSTALLDIRS = devmap_name multipath multipathd kpartx path_priority
 all: recurse
 
 recurse:
-	@if [ $(BUILD) = klibc ]; then\
+	@if [ "$(BUILD)" = "klibc" ]; then\
 	ln -s ${KERNEL_BUILD} klibc/linux ; \
-	$(MAKE) -C klibc ; \
+	$(MAKE) -C klibc || exit $?; \
 	fi
 	@for dir in $(BUILDDIRS); do\
 	$(MAKE) -C $$dir $(BUILD) BUILD=$(BUILD) VERSION=$(VERSION); \
