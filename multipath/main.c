@@ -399,6 +399,9 @@ assemble_map (struct multipath * mp)
 		exit(1);
 	}
 	snprintf(p, 1, "\n");
+#if DEBUG
+	print_map(mp);
+#endif
 }
 
 static int
@@ -691,7 +694,8 @@ domap (struct multipath * mpp)
 		dm_switchgroup(mpp->alias, mpp->nextpg);
 		/*
 		 * we may have avoided reinstating paths because there where in
-		 * active or disabled PG. Now that the topology has changed, retry.
+		 * active or disabled PG. Now that the topology has changed,
+		 * retry.
 		 */
 		reinstate_paths(mpp);
 		return 0;
