@@ -231,7 +231,8 @@ get_devmaps (void)
 						   &length,
 						   &target_type,
 						   &params);
-			syslog(LOG_DEBUG, "\\_ %lu %lu %s", (unsigned long) start,
+			syslog(LOG_DEBUG, "\\_ %lu %lu %s",
+			       (unsigned long) start,
 						  (unsigned long) length,
 						  target_type);
 
@@ -246,7 +247,8 @@ get_devmaps (void)
 				vector_alloc_slot(devmaps);
 				vector_set_slot(devmaps, devmap);
 			} else
-				syslog(LOG_DEBUG, "   skip non multipath target");
+				syslog(LOG_DEBUG,
+				       "   skip non multipath target");
 		} while (nexttgt);
 
 out1:
