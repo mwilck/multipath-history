@@ -1,3 +1,5 @@
+	* [multipathd] rely on sysfs for failedpaths enum and no
+	  longer on the device mapper
 	* [multipathd] convert get_lun_strings from ioctl to sysfs
 	  so we can benefit from strings persistency for failed
 	  paths
