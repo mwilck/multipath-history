@@ -8,9 +8,8 @@ TOPDIR	= ..
 include $(TOPDIR)/Makefile.inc
 
 ifeq ($(strip $(BUILD)),klibc)
-	CFLAGS = -I$(libdmdir) -I$(multipathdir) -DDEBUG=$(DEBUG)
-	OBJS = pp_balance_units.o $(DMLIB)-$(BUILD).a \
-	       $(MULTIPATHLIB)-$(BUILD).a
+	CFLAGS = -I/usr/include -DDEBUG=$(DEBUG)
+	OBJS = pp_balance_units.o $(MULTIPATHLIB)-$(BUILD).a
 else
 	CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes \
 		 -I$(multipathdir) -DDEBUG=$(DEBUG)

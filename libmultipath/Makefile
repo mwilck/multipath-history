@@ -12,15 +12,14 @@ OBJS = memory.o parser.o vector.o devmapper.o callout.o \
        pgpolicies.o
 
 ifeq ($(strip $(BUILD)),klibc)
-	CFLAGS = -I$(libdmdir) -I$(sysfsdir)
+	CFLAGS += -I/usr/include
 else
 	CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes
+endif
 
-ifneq ($(WITH_LOCAL_LIBSYSFS),)
-	CFLAGS += -I$(sysfsdir)
+ifeq ($(strip $(DAEMON)),1)
+	CFLAGS += -DDAEMON
 endif
-endif
-#CFLAGS += -DDEBUG=${DEBUG}
 
 all: $(BUILD)
 
