@@ -157,6 +157,47 @@ dm_get_map(char * name, unsigned long * size, char ** outparams)
 }
 
 extern int
+dm_get_status(char * name, char ** outstatus)
+{
+	int r = 0;
+	struct dm_task *dmt;
+	void *next = NULL;
+	uint64_t start, length;
+	char *target_type = NULL;
+	char *status;
+	int cmd;
+
+	cmd = DM_DEVICE_STATUS;
+
+	if (!(dmt = dm_task_create(cmd)))
+		return 0;
+
+	if (!dm_task_set_name(dmt, name))
+		goto out;
+
+	if (!dm_task_run(dmt))
+		goto out;
+
+	/* Fetch 1st target */
+	next = dm_get_next_target(dmt, next, &start, &length,
+				  &target_type, &status);
+
+	*outstatus = malloc(strlen(status) + 1);
+
+	if (!*outstatus)
+		goto out;
+
+	if (sprintf(*outstatus, status))
+		goto out;
+
+	r = 1;
+
+	out:
+	dm_task_destroy(dmt);
+	return r;
+}
+
+extern int
 dm_type(char * name, char * type)
 {
 	int r = 0;
