@@ -1,3 +1,9 @@
+2004-03-25 multipath-tools-0.1.5
+	* kpartx to manage the nested bdevs as /dev/cciss/c0d0.
+	  parts are named sysfs style : cciss!c0d0p*
+	* kpartx loop support
+	* kpartx do DM updates if part maps already present
+	* merge kpartx for partitioned multipath support
 	* add get_null_uid to getuid methods. assign it the "0" index
 	  devices with this getuid are thus ignored by multipath.
 	  warning : change /etc/multipath.conf (get_evpd_wwid == 1)

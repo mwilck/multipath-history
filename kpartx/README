@@ -1,0 +1,9 @@
+Rationale :
+===========
+This version of partx is intented to be build 
+static against klibc. Hence you need a recent
+compiled klibc build at hand.
+
+With due respect to the original authors,
+have fun,
+cvaroqui
