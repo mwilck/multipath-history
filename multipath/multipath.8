@@ -6,6 +6,7 @@ multipath \- Device mapper target autoconfig
 .RB [\| \-v\ \c
 .IR verbosity \|]
 .RB [\| \-d \|]
+.RB [\| \-l \|]
 .RB [\| \-D\ \c
 .IR major:minor \|]
 .RB [\| \-i\ \c
@@ -35,6 +36,10 @@ print all info : detected paths, coalesced paths (ie multipaths) and device maps
 .TP
 .B \-d
 dry run, do not create or update devmaps
+.TP
+.B \-l
+list the current multipath configuration
+.TP
 .TP
 .BI \-i " interval"
 multipath target param: polling interval
