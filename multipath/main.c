@@ -1147,7 +1147,7 @@ usage (char * progname)
 		"\t-D maj:min\tlimit scope to the device's multipath\n" \
 		"\t\t\t(major:minor device reference)\n"
 		"\t-S\t\tinhibit signal sending to multipathd\n"
-		"\n" \
+		"\t-F\t\tflush all multipath device maps\n" \
 		"\t-p policy\tforce all maps to specified policy :\n" \
 		"\t   failover\t\t1 path per priority group\n" \
 		"\t   multibus\t\tall paths in 1 priority group\n" \
@@ -1198,7 +1198,7 @@ int try_lock (char * file)
 int
 main (int argc, char *argv[])
 {
-	vector mp;
+	vector mp, curmp;
 	vector pathvec;
 	struct multipath * mpp;
 	int k;
@@ -1241,8 +1241,10 @@ main (int argc, char *argv[])
 	conf->mptable = NULL;
 	conf->hwtable = NULL;
 	conf->blist = NULL;
+	conf->default_features = NULL;
+	conf->default_hwhandler = NULL;
 
-	while ((arg = getopt(argc, argv, ":qdSi:v:p:D:")) != EOF ) {
+	while ((arg = getopt(argc, argv, ":qdlFSi:v:p:D:")) != EOF ) {
 		switch(arg) {
 		case 1: printf("optarg : %s\n",optarg);
 			break;
@@ -1255,6 +1257,14 @@ main (int argc, char *argv[])
 			break;
 		case 'd':
 			conf->dry_run = 1;
+			conf->signal = 0;
+			break;
+		case 'F':
+			dm_flush_maps(DM_TARGET);
+			goto out;
+			break;
+		case 'l':
+			conf->list = 1;
 			conf->signal = 0;
 			break;
 		case 'S':
@@ -1297,6 +1307,24 @@ main (int argc, char *argv[])
 	}
 
 	/*
+	 * allocate the two core vectors to store paths and multipaths
+	 */
+	mp = vector_alloc();
+	curmp = vector_alloc();
+	pathvec = vector_alloc();
+
+	if (!mp || !curmp || !pathvec) {
+		fprintf(stderr, "can not allocate memory\n");
+		exit(1);
+	}
+
+	if (conf->list) {
+		dm_get_maps(curmp, DM_TARGET);
+		print_all_mp(curmp);
+		goto out;
+	}
+
+	/*
 	 * read the config file
 	 */
 	if (filepresent(CONFIGFILE))
@@ -1332,16 +1360,8 @@ main (int argc, char *argv[])
 		conf->default_hwhandler = DEFAULT_HWHANDLER;
 
 	/*
-	 * allocate the two core vectors to store paths and multipaths
+	 * get a path list and group them as multipaths
 	 */
-	mp = vector_alloc();
-	pathvec = vector_alloc();
-
-	if (mp == NULL || pathvec == NULL) {
-		fprintf(stderr, "can not allocate memory\n");
-		exit(1);
-	}
-
 	if (get_pathvec_sysfs(pathvec))
 		exit(1);
 
@@ -1353,7 +1373,7 @@ main (int argc, char *argv[])
 	coalesce_paths(mp, pathvec);
 
 	/*
-	 * may be conf->dev is a mapname
+	 * conf->dev can be a mapname
 	 * if so, only reconfigure this map
 	 */
 	vector_foreach_slot (mp, mpp, k) {
@@ -1385,9 +1405,10 @@ out:
 		signal_daemon();
 	
 	/*
-	 * free allocs
+	 * free allocs : FIXME, need a freemp() or nothing
 	 */
 	free(mp);
+	free(curmp);
 	free(pathvec);
 
 	exit(0);
