@@ -5,11 +5,7 @@
 include ../Makefile.inc
 
 OBJS = dlist.o \
-       sysfs_bus.o \
-       sysfs_class.o \
-       sysfs_device.o \
        sysfs_dir.o \
-       sysfs_driver.o \
        sysfs_utils.o
 
 all: $(OBJS)
