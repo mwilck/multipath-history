@@ -1,8 +1,0 @@
-o "make" or "make rpm"
-o "make install" or "rpm -Uvh rpms/$arch/*rpm"
-
-Important note :
-
-o RedHat kernels may have an #error in
-  include/linux/config.h preventing kernel headers inclusion from
-  userspace, which you should erase to compile klibc.

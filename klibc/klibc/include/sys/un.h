@@ -1,10 +1,10 @@
 /*
- * <sys/un.h>
+ * sys/un.h
  */
 
-#ifndef _SYS_UN_H
-#define _SYS_UN_H
+#ifndef _UN_H
+#define _UN_H
 
 #include <linux/un.h>
 
-#endif /* _SYS_UN_H */
+#endif /* _UN_H */
