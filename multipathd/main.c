@@ -140,6 +140,8 @@ get_devmaps (void)
 	if (!(dmt = dm_task_create(DM_DEVICE_LIST)))
 		return NULL;
 
+	dm_task_no_open_count(dmt);
+
 	if (!dm_task_run(dmt)) {
 		devmaps = NULL;
 		goto out;
@@ -264,6 +266,8 @@ waitevent (void * et)
 
 	if (waiter->event_nr && !dm_task_set_event_nr(dmt, waiter->event_nr))
 		goto out;
+
+	dm_task_no_open_count(dmt);
 
 	dm_task_run(dmt);
 

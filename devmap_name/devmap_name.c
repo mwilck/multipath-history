@@ -28,6 +28,8 @@ int main(int argc, char **argv)
         if (!(dmt = dm_task_create(DM_DEVICE_LIST)))
                 return 0;
                                                                                 
+	dm_task_no_open_count(dmt);
+
         if (!dm_task_run(dmt))
                 goto out;
                                                                                 

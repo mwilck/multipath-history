@@ -21,6 +21,8 @@ dm_prereq (char * str, int x, int y, int z)
 	if (!(dmt = dm_task_create(DM_DEVICE_LIST_VERSIONS)))
 		return 1;
 
+	dm_task_no_open_count(dmt);
+
 	if (!dm_task_run(dmt))
 		goto out;
 
@@ -57,6 +59,8 @@ dm_simplecmd (int task, const char *name) {
 	if (!dm_task_set_name (dmt, name))
 		goto out;
 
+	dm_task_no_open_count(dmt);
+
 	r = dm_task_run (dmt);
 
 	out:
@@ -79,6 +83,8 @@ dm_addmap (int task, const char *name, const char *target,
 	if (!dm_task_add_target (dmt, 0, size, target, params))
 		goto addout;
 
+	dm_task_no_open_count(dmt);
+
 	r = dm_task_run (dmt);
 
 	addout:
@@ -96,6 +102,8 @@ dm_map_present (char * str)
 
 	if (!(dmt = dm_task_create (DM_DEVICE_LIST)))
 		return 0;
+
+	dm_task_no_open_count(dmt);
 
 	if (!dm_task_run (dmt))
 		goto out;
@@ -137,6 +145,8 @@ dm_get_map(char * name, unsigned long * size, char ** outparams)
 
 	if (!dm_task_set_name(dmt, name))
 		goto out;
+
+	dm_task_no_open_count(dmt);
 
 	if (!dm_task_run(dmt))
 		goto out;
@@ -182,6 +192,8 @@ dm_get_status(char * name, char ** outstatus)
 	if (!dm_task_set_name(dmt, name))
 		goto out;
 
+	dm_task_no_open_count(dmt);
+
 	if (!dm_task_run(dmt))
 		goto out;
 
@@ -223,6 +235,8 @@ dm_type(char * name, char * type)
 	if (!dm_task_set_name(dmt, name))
 		goto out;
 
+	dm_task_no_open_count(dmt);
+
 	if (!dm_task_run(dmt))
 		goto out;
 
@@ -253,6 +267,8 @@ dm_get_opencount (char * mapname)
 	if (!dm_task_set_name(dmt, mapname))
 		goto out;
 
+	dm_task_no_open_count(dmt);
+
 	if (!dm_task_run(dmt))
 		goto out;
 
@@ -275,6 +291,8 @@ dm_flush_maps (char * type)
 
 	if (!(dmt = dm_task_create (DM_DEVICE_LIST)))
 		return 0;
+
+	dm_task_no_open_count(dmt);
 
 	if (!dm_task_run (dmt))
 		goto out;
@@ -327,6 +345,8 @@ dm_fail_path(char * mapname, char * path)
 
 	free(str);
 
+	dm_task_no_open_count(dmt);
+
 	if (!dm_task_run(dmt))
 		goto out;
 
@@ -365,6 +385,8 @@ dm_reinstate(char * mapname, char * path)
 
 	free(str);
 
+	dm_task_no_open_count(dmt);
+
 	if (!dm_task_run(dmt))
 		goto out;
 
@@ -388,6 +410,8 @@ dm_mapname(int major, int minor)
 	if (!(dmt = dm_task_create(DM_DEVICE_LIST)))
 		return 0;
                                                                                 
+	dm_task_no_open_count(dmt);
+
 	if (!dm_task_run(dmt))
 		goto out;
                                                                                 
@@ -439,6 +463,8 @@ dm_switchgroup(char * mapname, int index)
 	if (!dm_task_set_message(dmt, str))
 		goto out;
 
+	dm_task_no_open_count(dmt);
+
 	if (!dm_task_run(dmt))
 		goto out;
 
@@ -467,6 +493,8 @@ dm_get_maps (vector mp, char * type)
 
 	if (!(dmt = dm_task_create (DM_DEVICE_LIST)))
 		return 0;
+
+	dm_task_no_open_count(dmt);
 
 	if (!dm_task_run (dmt))
 		goto out;
@@ -517,6 +545,8 @@ dm_geteventnr (char *name)
 
 	if (!dm_task_set_name(dmt, name))
 		goto out;
+
+	dm_task_no_open_count(dmt);
 
 	if (!dm_task_run(dmt))
 		goto out;
