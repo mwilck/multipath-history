@@ -1,3 +1,42 @@
+2004-10-30 multipath-tools-0.3.6
+
+	* Patrick Caulfield took over debian packaging. Showing
+	  evident expertise, his first wish is to see debian/
+	  disappear. :) So be it.
+	* [libmultipath] add a vector_foreach_slot macro. Still
+	  needs an iterator but saves 1 line per loop occurence and
+	  tame this UPPERCASE MACROS bad taste.
+	* [multipathd] don't load sg anymore on multipathd startup
+	* [multipathd] change killall for kill `cat $PIDFILE` in
+	  init script (Jaime Peñalba & Cesar Solera)
+	* [multipathd] the fork fallback was borked (just exiting)
+	  noticed by Jaime Peñalba & Cesar Solera
+	* [multipathd] try without the FLOATING_STACKS flag. Does
+	  it matter anyway ?
+	* [multipathd] merge clone_platform.h from LTP and cover
+	  the hppa special case.
+	* [multipath] since we will be able to create a devmap with
+	  paths too small, don't rely anymore on the first path's
+	  size blindly : verify the path is up, before assigning its
+	  size to the multipath
+	* [priority] add a path priority fetcher to balance LU accross
+	  controlers based on the controler serial detection. Untested
+	  but provides a good example of what can be done with the
+	  priority framework.
+	* [priority] create subdir and drop a test pp_random
+	* [multipath] add dev_t reporting to print_path() to ease
+	  devmap decoding by humans
+	* [multipath] change default path priority to 1
+	* [multipath] add wits to the sort_by_prio policy, so that
+	  sort_pathvec_by_prio() is now useless. Remove it.
+	* [multipath] invert sort_pg_by_summed_prio sort order :
+	  highest prio leftmost
+	* [libmultipath] add vector_del_slot
+	* revert multipath.rules change : devmap_name still takes
+	  "major minor" and not "major:minor" as argument
+	* Makefile refinement : you can now enter any tool directory
+	  and build from here, deps are solved
+
 2004-10-26 multipath-tools-0.3.5
 
 	* [multipathd] fix broken test for path going up or shaky
@@ -41,6 +80,7 @@
 		* group_by_serial | multibus | failover | group_by_prio
 		* sort_pg_by_summed_prio
 	  thus remove duplicated failedpath logic in pgpolicies
+	* [libmultipath] add vector_insert_slot
 	* [checkers] framework for arbitrate checkers return values
 	* [multipathd] scrap yet another reinvented wheel in the 
 	  name of the LOG macro :  learn the existance of setloglevel
