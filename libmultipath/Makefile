@@ -9,7 +9,7 @@ include ../Makefile.inc
 OBJS = memory.o parser.o vector.o devmapper.o callout.o \
        hwtable.o blacklist.o util.o dmparser.o config.o \
        structs.o cache.o discovery.o propsel.o dict.o \
-       pgpolicies.o debug.o
+       pgpolicies.o debug.o regex.o
 
 ifeq ($(strip $(BUILD)),klibc)
 	CFLAGS += -I/usr/include

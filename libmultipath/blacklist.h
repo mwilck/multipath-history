@@ -3,13 +3,22 @@
 
 #define BLIST_ENTRY_SIZE 255
 
-#define VECTOR_ADDSTR(a, b) \
-	str = zalloc(6 * sizeof(char)); \
-	snprintf(str, 6, b); \
-	vector_alloc_slot(a); \
-	vector_set_slot(a, str);
+struct blentry {
+	char * str;
+	void * preg;
+};
+
+#define VECTOR_ADDSTR(vec, string, len) \
+	ble = zalloc(sizeof(struct blentry)); \
+	ble->str = zalloc(len * sizeof(char)); \
+	ble->preg = zalloc(sizeof(regex_t)); \
+	snprintf(ble->str, len, string); \
+	regcomp((regex_t *)ble->preg, ble->str, REG_EXTENDED|REG_NOSUB); \
+	vector_alloc_slot(vec); \
+	vector_set_slot(vec, ble);
 
 void setup_default_blist (vector blist);
 int blacklist (vector blist, char * dev);
+void store_regex (vector blist, char * regex);
 
 #endif /* _BLACKLIST_H */

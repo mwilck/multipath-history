@@ -75,27 +75,16 @@ defaults {
 }
 	
 #
-# name    : devnode_blacklist
+# name    : blacklist
 # scope   : multipath & multipathd
 # desc    : list of device names to discard as not multipath candidates
 # default : cciss, fd, hd, md, dm, sr, scd, st, ram, raw, loop
 #
-devnode_blacklist {
-	devnode c0d
-	devnode c1d
-	devnode c2d
-	devnode ub
-	devnode nbd
-	devnode fd
-	devnode hd
-	devnode md
-	devnode dm
-	devnode sr
-	devnode scd
-	devnode st
-	devnode ram
-	devnode raw
-	devnode loop
+blacklist {
+        wwid 26353900f02796769
+	devnode "(ram|raw|loop|fd|md|dm-|sr|scd|st)[0-9]*"
+	devnode "hd[a-z][[0-9]*]"
+	devnode "cciss!c[0-9]d[0-9]*[p[0-9]*]"
 }
 
 #
