@@ -612,6 +612,7 @@ pidfile (pid_t pid)
 	if (!stat(DEFAULT_PIDFILE, buf)) {
 		log_safe(LOG_ERR, "already running : out");
 		FREE(buf);
+		log_thread_stop();
 		exit(1);
 	}
 		
@@ -620,6 +621,7 @@ pidfile (pid_t pid)
 
 	if (pid < -1) {
 		log_safe(LOG_ERR, "setsid() error");
+		log_thread_stop();
 		exit(1);
 	}
 	
@@ -705,11 +707,6 @@ child (void * param)
 
 	mlockall(MCL_CURRENT | MCL_FUTURE);
 
-#if 0
-	openlog("multipathd", 0, LOG_DAEMON);
-	setlogmask(LOG_UPTO(LOGLEVEL));
-	log_safe(LOG_NOTICE, "--------start up--------");
-#endif
 	log_thread_start();
 	log_safe(LOG_NOTICE, "--------start up--------");
 
