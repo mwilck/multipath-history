@@ -512,10 +512,9 @@ pgcmp2 (struct multipath * mpp, struct multipath * cmpp)
 				if (found)
 					break;
 			}
-			if (found) {
+			if (found)
 				found = 0;
-				break;
-			} else
+			else
 				return 1;
 		}
 	}
