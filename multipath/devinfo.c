@@ -14,6 +14,9 @@
 #include "debug.h"
 #include "config.h"
 
+#define readattr(a,b) \
+	sysfs_read_attribute_value(a, b, sizeof(b))
+
 void
 basename (char * str1, char * str2)
 {
@@ -28,8 +31,8 @@ static int
 opennode (char * devt, int mode)
 {
 	char devpath[FILE_NAME_SIZE];
-	uint32_t major;
-	uint32_t minor;
+	unsigned int major;
+	unsigned int minor;
 	int fd;
 
 	sscanf(devt, "%u:%u", &major, &minor);
@@ -68,8 +71,8 @@ static void
 closenode (char * devt, int fd)
 {
 	char devpath[FILE_NAME_SIZE];
-	uint32_t major;
-	uint32_t minor;
+	unsigned int major;
+	unsigned int minor;
 
 	if (fd >= 0)		/* as it should always be */
 		close(fd);
@@ -197,52 +200,69 @@ sysfs_devinfo(struct path * curpath)
 		if(stat(attr_path, &buf))
 			return 1;
 
-		/* sysfs style */
+		/*
+		 * vendor string
+		 */
 		if(safe_sprintf(attr_path, "%s/block/%s/device/vendor",
 			sysfs_path, curpath->dev)) {
 			fprintf(stderr, "attr_path too small\n");
 			return 1;
 		}
-		if (0 > sysfs_read_attribute_value(attr_path,
-			attr_buff, sizeof(attr_buff))) return 1;
+		if (0 > readattr(attr_path, attr_buff))
+			return 1;
 		memcpy(curpath->vendor_id, attr_buff, 8);
  
+		/*
+		 * model string
+		 */
 		if(safe_sprintf(attr_path, "%s/block/%s/device/model",
 			sysfs_path, curpath->dev)) {
 			fprintf(stderr, "attr_path too small\n");
 			return 1;
 		}
-		if (0 > sysfs_read_attribute_value(attr_path,
-			attr_buff, sizeof(attr_buff))) return 1;
+		if (0 > readattr(attr_path, attr_buff))
+			return 1;
 		memcpy(curpath->product_id, attr_buff, 16);
  
+		/*
+		 * revision string
+		 */
 		if(safe_sprintf(attr_path, "%s/block/%s/device/rev",
 			sysfs_path, curpath->dev)) {
 			fprintf(stderr, "attr_path too small\n");
 			return 1;
 		}
-		if (0 > sysfs_read_attribute_value(attr_path,
-			attr_buff, sizeof(attr_buff))) return 1;
+		if (0 > readattr(attr_path, attr_buff))
+			return 1;
 		memcpy(curpath->rev, attr_buff, 4);
  
+		/*
+		 * bdev major:minor string
+		 */
 		if(safe_sprintf(attr_path, "%s/block/%s/dev",
 			sysfs_path, curpath->dev)) {
 			fprintf(stderr, "attr_path too small\n");
 			return 1;
 		}
-		if (0 > sysfs_read_attribute_value(attr_path,
-			attr_buff, sizeof(attr_buff))) return 1;
+		if (0 > readattr(attr_path, attr_buff))
+			return 1;
 		if (strlen(attr_buff) > 1)
 			strncpy(curpath->dev_t, attr_buff,
 				strlen(attr_buff) - 1);
 
+		/*
+		 * sg dev major:minor string
+		 */
 		if(safe_sprintf(attr_path, "%s/block/%s/device/generic/dev",
 			sysfs_path, curpath->dev)) {
 			fprintf(stderr, "attr_path too small\n");
 			return 1;
 		}
-		if (0 > sysfs_read_attribute_value(attr_path,
-			attr_buff, sizeof(attr_buff))) return 1;
+		if (0 > readattr(attr_path, attr_buff)) {
+			fprintf(stderr, "please load the sg driver\n");
+			return 1;
+		}
+
 		if (strlen(attr_buff) > 1)
 			strncpy(curpath->sg_dev_t, attr_buff,
 				strlen(attr_buff) - 1);
