@@ -106,41 +106,6 @@ strvec_free (vector vec)
 }
 
 static int
-select_checkfn(struct path *pp, char *devname)
-{
-	char vendor[SCSI_VENDOR_SIZE];
-	char product[SCSI_PRODUCT_SIZE];
-	char rev[SCSI_REV_SIZE];
-	char checker_name[CHECKER_NAME_SIZE];
-	int r;
-	struct hwentry * hwe;
-
-	/*
-	 * default checkfn
-	 */
-	pp->checkfn = &readsector0;
-	
-	r = get_lun_strings(vendor, product, rev, devname);
-
-	if (r) {
-		log_safe(LOG_ERR, "can not get scsi strings");
-		return r;
-	}
-	hwe = find_hwe(hwtable, vendor, product);
-
-	if (hwe && hwe->checker_index > 0) {
-		get_checker_name(checker_name, hwe->checker_index);
-		log_safe(LOG_INFO, "set %s path checker for %s",
-		     checker_name, devname);
-		pp->checkfn = get_checker_addr(hwe->checker_index);
-		return 0;
-	}
-	log_safe(LOG_INFO, "set readsector0 path checker for %s (default)",
-		devname);
-	return 0;
-}
-
-static int
 exit_daemon (int status)
 {
 	if (status != 0)

@@ -27,21 +27,6 @@
 	vector_alloc_slot(a); \
 	vector_set_slot(a, hwe);
 
-struct hwentry {
-        int selector_args;
-        int pgpolicy;
-        int checker_index;
-
-        char * vendor;
-        char * product;
-        char * selector;
-        char * getuid;
-        char * getprio;
-        char * features;
-        char * hwhandler;
-};
-
 void setup_default_hwtable (vector hw);
-struct hwentry * find_hwe (vector hwtable, char * vendor, char * product);
 
 #endif /* _HWTABLE_H */

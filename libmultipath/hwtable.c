@@ -5,26 +5,11 @@
 #include "vector.h"
 #include "structs.h"
 #include "defaults.h"
+#include "config.h"
 #include "hwtable.h"
-#include "util.h"
+#include "pgpolicies.h"
 
 #include "../libcheckers/checkers.h"
-#include "../multipath/pgpolicies.h"
-
-extern struct hwentry *
-find_hwe (vector hwtable, char * vendor, char * product)
-{
-	int i;
-	struct hwentry * hwe;
-
-	vector_foreach_slot (hwtable, hwe, i) {
-		if (strcmp_chomp(hwe->vendor, vendor) == 0 &&
-		    (hwe->product[0] == '*' ||
-		    strcmp_chomp(hwe->product, product) == 0))
-			return hwe;
-	}
-	return NULL;
-}
 
 void
 setup_default_hwtable (vector hw)
