@@ -163,6 +163,7 @@ init_keywords(void)
 	install_keyword("product", &product_handler);
 	install_keyword("path_checker", &path_checker_handler);
 	install_keyword("getuid_callout", &default_tool_handler);
+	install_keyword("getprio_callout", &default_tool_handler);
 	install_sublevel_end();
 
 	return keywords;
