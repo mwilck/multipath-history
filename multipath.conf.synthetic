@@ -9,7 +9,11 @@ defaults {
 	default_features	"0"
 }
 devnode_blacklist {
-	devnode cciss
+	devnode c0d
+	devnode c1d
+	devnode c2d
+	devnode ub
+	devnode nbd
 	devnode fd
 	devnode hd
 	devnode md
