@@ -8,7 +8,8 @@ include ../Makefile.inc
 
 CFLAGS += -I$(klibcdir)/klibc/arch/$(arch)/include
 
-OBJS = pgpolicies.o configfile.o devinfo.o main.o
+OBJS = pgpolicies.o devinfo.o main.o \
+       vector.o parser.o dict.o memory.o
 
 $(EXEC): $(OBJS)
 	$(LD) -o $(EXEC) $(CRT0) $(OBJS) $(SYSFSOBJS) $(DMOBJS) $(LIB) $(LIBGCC)

@@ -3,12 +3,13 @@
 #include <string.h>
 #include "main.h"
 #include "pgpolicies.h"
+#include "vector.h"
 
 #define SELECTOR	"round-robin"
 #define SELECTOR_ARGS	0
 
 extern void
-group_by_tur (struct multipath * mp, struct path * all_paths, char * str) {
+group_by_tur (struct multipath * mp, vector pathvec, char * str) {
 	int left_path_count = 0;
 	int right_path_count = 0;
 	int i;
@@ -16,20 +17,22 @@ group_by_tur (struct multipath * mp, struct path * all_paths, char * str) {
 	char right_path_buff[FILE_NAME_SIZE];
 	char * left_path_buff_p = &left_path_buff[0];
 	char * right_path_buff_p = &right_path_buff[0];
+	struct path * pp;
 
 	for (i = 0; i <= mp->npaths; i++) {
+		pp = VECTOR_SLOT(pathvec, mp->pindex[i]);
 
-		if (all_paths[mp->pindex[i]].tur) {
+		if (pp->tur) {
 			
 			left_path_buff_p += sprintf (left_path_buff_p, " %s",
-						all_paths[mp->pindex[i]].dev);
+						pp->dev);
 			
 			left_path_count++;
 
 		} else {
 
 			right_path_buff_p += sprintf (right_path_buff_p, " %s",
-						all_paths[mp->pindex[i]].dev);
+						pp->dev);
 
 			right_path_count++;
 		}
@@ -51,7 +54,7 @@ group_by_tur (struct multipath * mp, struct path * all_paths, char * str) {
 }
 
 extern void
-group_by_serial (struct multipath * mp, struct path * all_paths, char * str) {
+group_by_serial (struct multipath * mp, vector pathvec, char * str) {
 	int path_count, pg_count = 0;
 	int i, k;
 	int * bitmap;
@@ -59,6 +62,7 @@ group_by_serial (struct multipath * mp, struct path * all_paths, char * str) {
 	char pg_buff[FILE_NAME_SIZE];
 	char * path_buff_p = &path_buff[0];
 	char * pg_buff_p = &pg_buff[0];
+	struct path * pp;
 
 	/* init the bitmap */
 	bitmap = malloc ((mp->npaths + 1) * sizeof (int));
@@ -68,15 +72,15 @@ group_by_serial (struct multipath * mp, struct path * all_paths, char * str) {
 		if (bitmap[i])
 			continue;
 
+		pp = VECTOR_SLOT(pathvec, mp->pindex[i]);
+
 		/* here, we really got a new pg */
 		pg_count++;
 		path_count = 1;
 		memset (&path_buff, 0, FILE_NAME_SIZE * sizeof (char));
 		path_buff_p = &path_buff[0];
 
-		path_buff_p += sprintf (path_buff_p, " %s",
-					all_paths[mp->pindex[i]].dev);
-
+		path_buff_p += sprintf (path_buff_p, " %s", pp->dev);
 		bitmap[i] = 1;
 
 		for (k = i + 1; k <= mp->npaths; k++) {
@@ -84,11 +88,9 @@ group_by_serial (struct multipath * mp, struct path * all_paths, char * str) {
 			if (bitmap[k])
 				continue;
 
-			if (0 == strcmp (all_paths[mp->pindex[i]].serial,
-					 all_paths[mp->pindex[k]].serial)) {
-				
+			if (0 == strcmp (pp->serial, pp->serial)) {
 				path_buff_p += sprintf (path_buff_p, " %s",
-						all_paths[mp->pindex[k]].dev);
+							pp->dev);
 
 				bitmap[k] = 1;
 				path_count++;
@@ -107,40 +109,40 @@ group_by_serial (struct multipath * mp, struct path * all_paths, char * str) {
 
 
 extern void
-one_path_per_group (struct multipath * mp, struct path * all_paths, char * str)
+one_path_per_group (struct multipath * mp, vector pathvec, char * str)
 {
 	int i;
 	char * p;
+	struct path * pp;
 
 	p = str;
 
 	p += sprintf (p, " %i", mp->npaths + 1);
 
 	for (i=0; i <= mp->npaths; i++) {
+		pp = VECTOR_SLOT(pathvec, mp->pindex[i]);
 
-		if (0 != all_paths[mp->pindex[i]].sg_id.scsi_type)
+		if (0 != pp->sg_id.scsi_type)
 			continue;
 
 		p += sprintf (p, " " SELECTOR);
-
 		p += sprintf (p, " 1 %i", SELECTOR_ARGS);
-
-		p += sprintf (p, " %s",
-			      all_paths[mp->pindex[i]].dev);
+		p += sprintf (p, " %s", pp->dev);
 	}
-
 }
 
 extern void
-one_group (struct multipath * mp, struct path * all_paths, char * str)
+one_group (struct multipath * mp, vector pathvec, char * str)
 {
 	int i, np = 0;
 	char * p;
+	struct path * pp = NULL;
 
 	p = str;
 
 	for (i=0; i <= mp->npaths; i++) {
-		if (0 == all_paths[mp->pindex[i]].sg_id.scsi_type)
+		pp = VECTOR_SLOT(pathvec, mp->pindex[i]);
+		if (0 == pp->sg_id.scsi_type)
 		np++;
 	}
 	
@@ -148,11 +150,9 @@ one_group (struct multipath * mp, struct path * all_paths, char * str)
 	
 	for (i=0; i<= mp->npaths; i++) {
 
-		if (0 != all_paths[mp->pindex[i]].sg_id.scsi_type)
+		if (0 != pp->sg_id.scsi_type)
 			continue;
 
-		p += sprintf (p, " %s",
-			      all_paths[mp->pindex[i]].dev);
+		p += sprintf (p, " %s", pp->dev);
 	}
 }
-

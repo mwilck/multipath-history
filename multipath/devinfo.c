@@ -45,10 +45,8 @@ do_inq(int sg_fd, int cmddt, int evpd, unsigned int pg_op,
         io_hdr.sbp = sense_b;
         io_hdr.timeout = DEF_TIMEOUT;
  
-        if (ioctl(sg_fd, SG_IO, &io_hdr) < 0) {
-                perror("SG_IO (inquiry) error");
+        if (ioctl(sg_fd, SG_IO, &io_hdr) < 0)
                 return -1;
-        }
  
         /* treat SG_ERR here to get rid of sg_err.[ch] */
         io_hdr.status &= 0x7e;

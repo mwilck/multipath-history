@@ -1,3 +1,47 @@
+#ifndef HWTABLE_H
+#define HWTABLE_H
+
+#include "devinfo.h"
+#include "vector.h"
+
+/* Storage controlers capabilities */
+#define FAILOVER	0
+#define MULTIBUS	1
+#define GROUP_BY_SERIAL	2
+#define GROUP_BY_TUR	3
+
+/* lists */
+static struct {
+	char * name;
+	int iopolicy;
+} iopolicy_list[] = {
+	{"failover", FAILOVER},
+	{"multibus", MULTIBUS},
+	{"group_by_serial", GROUP_BY_SERIAL},
+	{"group_by_tur", GROUP_BY_TUR},
+	{NULL, -1},
+};
+
+static struct {
+	char * name;
+	int (*getuid) (char *, char *);
+} getuid_list[] = {
+	{"get_null_uid", &get_null_uid},
+	{"get_evpd_wwid", &get_evpd_wwid},
+	{NULL, NULL},
+};
+
+struct hwentry {
+	char * vendor;
+	char * product;
+	int iopolicy;
+	int (*getuid) (char *, char *);
+};
+
+/* External vars */ 
+vector hwtable;
+vector blist;
+
 #define setup_default_hwtable struct hwentry defhwtable[] = { \
 	{"COMPAQ  ", "HSV110 (C)COMPAQ", GROUP_BY_TUR, &get_evpd_wwid}, \
 	{"COMPAQ  ", "MSA1000         ", GROUP_BY_TUR, &get_evpd_wwid}, \
@@ -21,3 +65,5 @@
 }; \
 
 #define default_hwtable_addr &defhwtable[0]
+
+#endif

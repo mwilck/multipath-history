@@ -35,9 +35,7 @@
 /* global defs */
 #define WWID_SIZE	33
 #define SERIAL_SIZE	14
-#define MAX_DEVS	128
-#define MAX_MP		MAX_DEVS / 2
-#define MAX_MP_PATHS	MAX_DEVS / 4
+#define MAX_MP_PATHS	32
 #define FILE_NAME_SIZE	256
 #define DEF_TIMEOUT	60000
 #define EBUFF_SZ	256
@@ -45,17 +43,8 @@
 #define DM_TARGET	"multipath"
 #define PIDFILE		"/var/run/multipathd.pid"
 #define RUN		"/var/run/multipath.run"
+#define CONFIGFILE	"/etc/multipath.conf"
 #define MAXTRY		50
-#define MAXHWENTRIES	100
-
-/* Storage controlers capabilities */
-#define FAILOVER	0
-#define MULTIBUS	1
-#define GROUP_BY_SERIAL	2
-#define GROUP_BY_TUR	3
-#define HIGHESTPOLICY	3
-
-#define PINDEX(x,y)	mp[(x)].pindex[(y)]
 
 /* global types */
 struct scsi_idlun {
@@ -103,15 +92,7 @@ struct multipath {
 	int pindex[MAX_MP_PATHS];
 };
 
-struct hwentry {
-	char vendor[8];
-	char product[16];
-	int iopolicy;
-	int (*getuid) (char *, char *);
-};
-
 struct env {
-	int max_devs;
 	int verbose;
 	int quiet;
 	int dry_run;
@@ -121,7 +102,6 @@ struct env {
 	int minor;
 	char sysfs_path[FILE_NAME_SIZE];
 	char hotplugdev[FILE_NAME_SIZE];
-	struct hwentry * hwtable;
 	int signal;
 };
 

@@ -32,20 +32,17 @@
 #include "../libdevmapper/libdevmapper.h"
 #include "main.h"
 #include "devinfo.h"
-#include "configfile.h"
 #include "hwtable.h"
 #include "pgpolicies.h"
+#include "parser.h"
+#include "dict.h"
+#include "vector.h"
+#include "memory.h"
 
-/* argv parser helper */
+/* helpers */
 #define argis(x) if (0 == strcmp (x, argv[i]))
+#define MATCH(x,y) 0 == strncmp (x, y, sizeof (y))
 
-/* not nice */
-void *getuid_list[] = {
-	&get_null_uid,	/* returns 0x0 */
-	&get_evpd_wwid,	/* returns the LU WWID stored in EVPD page 0x83 */
-	NULL,		/* array terminator */
-};
-        
 static int
 sysfsdevice2devname (char *devname, char *device)
 {
@@ -112,34 +109,22 @@ devt2devname (char *devname, int major, int minor)
 static int
 blacklist (char * dev) {
 	int i;
-	static struct {
-		char * headstr;
-		int lengh;
-	} blist[] = {
-		{"cciss", 5},
-		{"fd", 2},
-		{"hd", 2},
-		{"md", 2},
-		{"dm", 2},
-		{"sr", 2},
-		{"scd", 3},
-		{"ram", 3},
-		{"raw", 3},
-		{"loop", 4},
-		{NULL, 0},
-	};
+	char *p;
 
-	for (i = 0; blist[i].lengh; i++) {
-		if (strncmp (dev, blist[i].headstr, blist[i].lengh) == 0)
+	for (i = 0; i < VECTOR_SIZE(blist); i++) {
+		p = VECTOR_SLOT(blist, i);
+
+		if (memcmp(dev, p, strlen(p)) == 0)
 			return 1;
 	}
 	return 0;
 }
 
 static int
-devinfo (struct path *curpath, struct hwentry * hwtable)
+devinfo (struct path *curpath)
 {
 	int i;
+	struct hwentry * hwe;
 
 	get_lun_strings (curpath->vendor_id,
 			curpath->product_id,
@@ -149,14 +134,14 @@ devinfo (struct path *curpath, struct hwentry * hwtable)
 	get_serial (curpath->serial, curpath->sg_dev);
 	curpath->tur = do_tur (curpath->sg_dev);
 
-	for (i = 0; hwtable[i].getuid; i++) {
+	for (i = 0; i < VECTOR_SIZE(hwtable); i++) {
+		hwe = VECTOR_SLOT(hwtable, i);
 
-		if (strncmp (curpath->vendor_id, hwtable[i].vendor, 8) == 0 &&
-		    strncmp (curpath->product_id, hwtable[i].product, 16) == 0) {
-			
-			curpath->iopolicy = hwtable[i].iopolicy;
+		if (MATCH (curpath->vendor_id, hwe->vendor) &&
+		    MATCH (curpath->product_id, hwe->product)) {
+			curpath->iopolicy = hwe->iopolicy;
 
-			if (hwtable[i].getuid (curpath->sg_dev, curpath->wwid))
+			if (hwe->getuid (curpath->sg_dev, curpath->wwid))
 				return 1;
 		}
 	}
@@ -165,9 +150,8 @@ devinfo (struct path *curpath, struct hwentry * hwtable)
 }
 
 static int
-get_all_paths_sysfs (struct env * conf, struct path * all_paths)
+get_pathvec_sysfs (struct env * conf, vector pathvec)
 {
-	int k=0;
 	struct sysfs_directory * sdir;
 	struct sysfs_directory * devp;
 	struct sysfs_link * linkp;
@@ -175,7 +159,7 @@ get_all_paths_sysfs (struct env * conf, struct path * all_paths)
 	char empty_buff[WWID_SIZE];
 	char buff[FILE_NAME_SIZE];
 	char path[FILE_NAME_SIZE];
-	struct path curpath;
+	struct path * curpath;
 
 	memset (empty_buff, 0, WWID_SIZE);
 	memset (refwwid, 0, WWID_SIZE);
@@ -187,13 +171,14 @@ get_all_paths_sysfs (struct env * conf, struct path * all_paths)
 		if (sysfsdevice2devname (buff, conf->hotplugdev))
 			return 0;
 
-		sprintf (curpath.sg_dev, "/dev/%s", buff);
+		curpath = zalloc (sizeof (struct path));
+		sprintf (curpath->sg_dev, "/dev/%s", buff);
 
-		if (devinfo (&curpath, conf->hwtable))
+		if (devinfo (curpath))
 			return 0;
 
-		memcpy (refwwid, curpath.wwid, WWID_SIZE);
-		memset (&curpath, 0, sizeof (struct path));
+		memcpy (refwwid, curpath->wwid, WWID_SIZE);
+		free (curpath);
 	}
 
 	/* if major/minor specified on the cmd line,
@@ -203,13 +188,14 @@ get_all_paths_sysfs (struct env * conf, struct path * all_paths)
 		if (devt2devname (buff, conf->major, conf->minor))
 			return 0;
 		
-		sprintf (curpath.sg_dev, "/dev/%s", buff);
+		curpath = zalloc (sizeof (struct path));
+		sprintf (curpath->sg_dev, "/dev/%s", buff);
 
-		if (devinfo (&curpath, conf->hwtable))
+		if (devinfo (curpath))
 			return 0;
 
-		memcpy (refwwid, curpath.wwid, WWID_SIZE);
-		memset (&curpath, 0, sizeof (struct path));
+		memcpy (refwwid, curpath->wwid, WWID_SIZE);
+		free (curpath);
 	}
 		
 
@@ -236,152 +222,32 @@ get_all_paths_sysfs (struct env * conf, struct path * all_paths)
 		}
 
 		basename (devp->path, buff);
-		sprintf (curpath.sg_dev, "/dev/%s", buff);
+		curpath = zalloc (sizeof (struct path));
+		sprintf (curpath->sg_dev, "/dev/%s", buff);
+		sprintf (curpath->dev, "/dev/%s", buff);
 
-		if (devinfo (&curpath, conf->hwtable)) {
-			memset (&curpath, 0, sizeof (struct path));
+		if (devinfo (curpath)) {
+			free (curpath);
 			continue;
 		}
 
 		if (memcmp (empty_buff, refwwid, WWID_SIZE) != 0 && 
-		    strncmp (curpath.wwid, refwwid, WWID_SIZE) != 0) {
-			memset (&curpath, 0, sizeof (struct path));
+		    memcmp (curpath->wwid, refwwid, WWID_SIZE) != 0) {
+			free (curpath);
 			continue;
 		}
-
-		strcpy (all_paths[k].sg_dev, curpath.sg_dev);
-		strcpy (all_paths[k].dev, curpath.sg_dev);
-		strcpy (all_paths[k].wwid, curpath.wwid);
-		memcpy (all_paths[k].vendor_id, curpath.vendor_id, 8);
-		memcpy (all_paths[k].product_id, curpath.product_id, 16);
-		all_paths[k].iopolicy = curpath.iopolicy;
-		all_paths[k].tur = curpath.tur;
-
-		/* done with curpath, zero for reuse */
-		memset (&curpath, 0, sizeof (struct path));
 
 		basename (linkp->target, buff);
 		sscanf (buff, "%i:%i:%i:%i",
-			&all_paths[k].sg_id.host_no,
-			&all_paths[k].sg_id.channel,
-			&all_paths[k].sg_id.scsi_id,
-			&all_paths[k].sg_id.lun);
-		k++;
+			&curpath->sg_id.host_no,
+			&curpath->sg_id.channel,
+			&curpath->sg_id.scsi_id,
+			&curpath->sg_id.lun);
+
+		vector_alloc_slot (pathvec);
+		vector_set_slot (pathvec, curpath);
 	}
 	sysfs_close_directory (sdir);
-	return 0;
-}
-
-static int
-get_all_scsi_ids (struct env * conf, struct scsi_dev * all_scsi_ids)
-{
-	int k, big, little, res, host_no, fd;
-	char buff[64];
-	char fname[FILE_NAME_SIZE];
-	struct scsi_idlun my_scsi_id;
-
-	for (k = 0; k < conf->max_devs; k++) {
-		strcpy (fname, "/dev/sd");
-		if (k < 26) {
-			buff[0] = 'a' + (char) k;
-			buff[1] = '\0';
-			strcat (fname, buff);
-		} else if (k <= 255) {
-			/* assumes sequence goes x,y,z,aa,ab,ac etc */
-			big = k / 26;
-			little = k - (26 * big);
-			big = big - 1;
-
-			buff[0] = 'a' + (char) big;
-			buff[1] = 'a' + (char) little;
-			buff[2] = '\0';
-			strcat (fname, buff);
-		} else
-			strcat (fname, "xxxx");
-
-		if ((fd = open (fname, O_RDONLY)) < 0) {
-			if (conf->verbose)
-				fprintf (stderr, "can't open %s. mknod ?",
-					fname); 
-			continue;
-		}
-
-		res = ioctl (fd, SCSI_IOCTL_GET_IDLUN, &my_scsi_id);
-		if (res < 0) {
-			close (fd);
-			printf ("Could not get scsi idlun\n");
-			continue;
-		}
-
-		res = ioctl (fd, SCSI_IOCTL_GET_BUS_NUMBER, &host_no);
-		if (res < 0) {
-			close (fd);
-			printf ("Could not get host_no\n");
-			continue;
-		}
-
-		close (fd);
-
-		strcpy (all_scsi_ids[k].dev, fname);
-		all_scsi_ids[k].scsi_id = my_scsi_id;
-		all_scsi_ids[k].host_no = host_no;
-	}
-	return 0;
-}
-
-static int
-get_all_paths_nosysfs (struct env * conf, struct path * all_paths)
-{
-	int k, i, fd;
-	char buff[FILE_NAME_SIZE];
-	char file_name[FILE_NAME_SIZE];
-	struct scsi_dev * all_scsi_ids;
-
-	/* get all scsi ids for pivoting sd / sg */
-	all_scsi_ids = malloc (conf->max_devs * sizeof (struct scsi_dev));
-
-	if (all_scsi_ids == NULL) {
-		fprintf (stderr, "can not allocate memory\n");
-		unlink (RUN);
-		exit (1);
-	}
-
-	get_all_scsi_ids (conf, all_scsi_ids);
-
-	for (k = 0; k < conf->max_devs; k++) {
-		strcpy (file_name, "/dev/sg");
-		sprintf (buff, "%d", k);
-		strncat (file_name, buff, FILE_NAME_SIZE);
-		strcpy (all_paths[k].sg_dev, file_name);
-
-		devinfo (&all_paths[k], conf->hwtable);
-
-		if ((fd = open (all_paths[k].sg_dev, O_RDONLY)) < 0)
-			return 0;
-
-		if (0 > ioctl (fd, SG_GET_SCSI_ID, &(all_paths[k].sg_id)))
-			printf ("device %s failed on sg ioctl, skip\n",
-			       file_name);
-
-		close (fd);
-
-		for (i = 0; i < conf->max_devs; i++) {
-			if ((all_paths[k].sg_id.host_no ==
-			     all_scsi_ids[i].host_no)
-			    && (all_paths[k].sg_id.scsi_id ==
-				(all_scsi_ids[i].scsi_id.dev_id & 0xff))
-			    && (all_paths[k].sg_id.lun ==
-				((all_scsi_ids[i].scsi_id.dev_id >> 8) & 0xff))
-			    && (all_paths[k].sg_id.channel ==
-				((all_scsi_ids[i].scsi_id.
-				  dev_id >> 16) & 0xff))) {
-				strcpy (all_paths[k].dev, all_scsi_ids[i].dev);
-				break;
-			}
-		}
-	}
-
-	free (all_scsi_ids);
 	return 0;
 }
 
@@ -390,84 +256,94 @@ get_all_paths_nosysfs (struct env * conf, struct path * all_paths)
 #define NOWWID	1
 
 static void
-print_path (struct path * all_paths, int k, int style)
+print_path (struct path * pp, int style)
 {
 	if (style != NOWWID)
-		printf ("%s ", all_paths[k].wwid);
+		printf ("%s ", pp->wwid);
 	else
 		printf (" \\_");
 
 	printf ("(%i %i %i %i) ",
-	       all_paths[k].sg_id.host_no,
-	       all_paths[k].sg_id.channel,
-	       all_paths[k].sg_id.scsi_id,
-	       all_paths[k].sg_id.lun);
+	       pp->sg_id.host_no,
+	       pp->sg_id.channel,
+	       pp->sg_id.scsi_id,
+	       pp->sg_id.lun);
 
 	/* for 2.4 kernels, sg_dev should be printed */
-	if (0 != strcmp (all_paths[k].sg_dev, all_paths[k].dev))
-		printf ("%s ", all_paths[k].sg_dev);
+	if (0 != strcmp (pp->sg_dev, pp->dev))
+		printf ("%s ", pp->sg_dev);
 
-	printf ("%s ", all_paths[k].dev);
-	printf ("[%.16s]\n", all_paths[k].product_id);
+	printf ("%s ", pp->dev);
+	printf ("[%.16s]\n", pp->product_id);
 }
 
 static void
-print_all_path (struct env * conf, struct path * all_paths)
+print_all_path (struct env * conf, vector pathvec)
 {
 	int k;
 	char empty_buff[WWID_SIZE];
+	struct path * pp;
 
 	/* initialize a cmp 0-filled buffer */
 	memset (empty_buff, 0, WWID_SIZE);
 
 	fprintf (stdout, "# all paths :\n");
 
-	for (k = 0; k < conf->max_devs; k++) {
+	for (k = 0; k < VECTOR_SIZE(pathvec); k++) {
+		pp = VECTOR_SLOT(pathvec, k);
 		
 		/* leave out paths with incomplete devinfo */
-		if (memcmp (empty_buff, all_paths[k].wwid, WWID_SIZE) == 0)
+		if (memcmp (empty_buff, pp->wwid, WWID_SIZE) == 0)
 			continue;
 
-		print_path (all_paths, k, ALL);
+		print_path (pp, ALL);
 	}
 }
 
 static void
-print_all_mp (struct path * all_paths, struct multipath * mp, int nmp)
+print_all_mp (vector pathvec, vector mp)
 {
 	int k, i;
+	struct multipath * mpp;
+	struct path * pp = NULL;
 
 	fprintf (stdout, "# all multipaths :\n");
 
-	for (k = 0; k <= nmp; k++) {
-		printf ("%s\n", mp[k].wwid);
+	for (k = 0; k < VECTOR_SIZE(mp); k++) {
+		mpp = VECTOR_SLOT(mp, k);
+		printf ("%s\n", mpp->wwid);
 
-		for (i = 0; i <= mp[k].npaths; i++)
-			print_path (all_paths, PINDEX(k,i), NOWWID);
+		for (i = 0; i <= mpp->npaths; i++) {
+			pp = VECTOR_SLOT(pathvec, mpp->pindex[i]);
+			print_path (pp, NOWWID);
+		}
 	}
 }
 
-static int
-coalesce_paths (struct env * conf, struct multipath * mp,
-	       struct path * all_paths)
+static void
+coalesce_paths (struct env * conf, vector mp, vector pathvec)
 {
-	int k, i, nmp, np, already_done;
+	int k, i, np, already_done;
 	char empty_buff[WWID_SIZE];
+	struct multipath * mpp;
+	struct path * pp1;
+	struct path * pp2;
 
-	nmp = -1;
 	already_done = 0;
 	memset (empty_buff, 0, WWID_SIZE);
 
-	for (k = 0; k < conf->max_devs - 1; k++) {
+	for (k = 0; k < VECTOR_SIZE(pathvec) - 1; k++) {
+		pp1 = VECTOR_SLOT(pathvec, k);
 		/* skip this path for some reason */
 
 		/* 1. if path has no unique id */
-		if (memcmp (empty_buff, all_paths[k].wwid, WWID_SIZE) == 0)
+		if (memcmp (empty_buff, pp1->wwid, WWID_SIZE) == 0)
 			continue;
 
 		/* 2. if mp with this uid already instanciated */
-		for (i = 0; i <= nmp; i++) {
-			if (0 == strcmp (mp[i].wwid, all_paths[k].wwid))
+		for (i = 0; i < VECTOR_SIZE(mp); i++) {
+			mpp = VECTOR_SLOT(mp, i);
+			if (0 == strcmp (mpp->wwid, pp1->wwid))
 				already_done = 1;
 		}
 		if (already_done) {
@@ -477,22 +353,24 @@ coalesce_paths (struct env * conf, struct multipath * mp,
 
 		/* at this point, we know we really got a new mp */
 		np = 0;
-		nmp++;
-		strcpy (mp[nmp].wwid, all_paths[k].wwid);
-		PINDEX(nmp,np) = k;
+		vector_alloc_slot(mp);
+		mpp = malloc(sizeof(struct multipath));
+		strcpy (mpp->wwid, pp1->wwid);
+		mpp->pindex[np] = k;
 
-		if (mp[nmp].size == 0)
-			mp[nmp].size = get_disk_size (all_paths[k].dev);
+		if (mpp->size == 0)
+			mpp->size = get_disk_size (pp1->dev);
 
-		for (i = k + 1; i < conf->max_devs; i++) {
-			if (0 == strcmp (all_paths[k].wwid, all_paths[i].wwid)) {
+		for (i = k + 1; i < VECTOR_SIZE(pathvec); i++) {
+			pp2 = VECTOR_SLOT(pathvec, i);
+			if (0 == strcmp (pp1->wwid, pp2->wwid)) {
 				np++;
-				PINDEX(nmp,np) = i;
-				mp[nmp].npaths = np;
+				mpp->pindex[np] = i;
+				mpp->npaths = np;
 			}
 		}
+		vector_set_slot(mp, mpp);
 	}
-	return nmp;
 }
 
 static int
@@ -536,34 +414,36 @@ dm_addmap (int task, const char *name, const char *params, long size) {
 
 /* helper for grouping policy selection */
 
-#define policyis(x) (all_paths[mp->pindex[0]].iopolicy == x && conf->iopolicy == -1) \
-		    || conf->iopolicy == x
+#define policyis(x) params_p == &params[0] && \
+		    (conf->iopolicy == x || \
+		    (pp->iopolicy == x && conf->iopolicy == -1))
 
 static int
-setup_map (struct env * conf, struct path * all_paths,
-	struct multipath * mp, int op)
+setup_map (struct env * conf, vector pathvec, struct multipath * mpp, int op)
 {
 	char params[255];
 	char * params_p;
+	struct path * pp;
 
+	pp = VECTOR_SLOT(pathvec, mpp->pindex[0]);
 	params_p = &params[0];
 
 	/* paths grouping policy selector */
 	/* implementations in pgpolicies.c */
 
 	if (policyis (MULTIBUS))
-		one_group (mp, all_paths, params_p);
+		one_group (mpp, pathvec, params_p);
 
 	if (policyis (FAILOVER))
-		one_path_per_group (mp, all_paths, params_p);
+		one_path_per_group (mpp, pathvec, params_p);
 
 	if (policyis (GROUP_BY_SERIAL))
-		group_by_serial (mp, all_paths, params_p);
+		group_by_serial (mpp, pathvec, params_p);
 
 	if (policyis (GROUP_BY_TUR))
-		group_by_tur (mp, all_paths, params_p);
+		group_by_tur (mpp, pathvec, params_p);
 
-	if (mp->size < 0)
+	if (mpp->size < 0)
 		return 0;
 
 	if (!conf->quiet) {
@@ -575,16 +455,16 @@ setup_map (struct env * conf, struct path * all_paths,
 			printf ("N:");
 
 		printf ("%s:0 %li %s%s\n",
-			mp->wwid, mp->size, DM_TARGET, params);
+			mpp->wwid, mpp->size, DM_TARGET, params);
 	}
 
 	if (op == DM_DEVICE_RELOAD)
-		dm_simplecmd (DM_DEVICE_SUSPEND, mp->wwid);
+		dm_simplecmd (DM_DEVICE_SUSPEND, mpp->wwid);
 
-	dm_addmap (op, mp->wwid, params, mp->size);
+	dm_addmap (op, mpp->wwid, params, mpp->size);
 
 	if (op == DM_DEVICE_RELOAD)
-		dm_simplecmd (DM_DEVICE_RESUME, mp->wwid);
+		dm_simplecmd (DM_DEVICE_RESUME, mpp->wwid);
 
 	return 1;
 }
@@ -660,27 +540,27 @@ static void
 usage (char * progname)
 {
 	fprintf (stderr, VERSION_STRING);
-	fprintf (stderr, "Usage: %s [-v|-q] [-d] [-m max_devs]\n",
+	fprintf (stderr, "Usage: %s\t[-v|-q] [-d] [-D major minor] [-S]\n",
 		progname);
-	fprintf (stderr,	"                   [-p failover|multibus|group_by_serial]\n" \
-			"                   [device]\n" \
-			"\n" \
-			"\t-v\t\tverbose, print all paths and multipaths\n" \
-			"\t-q\t\tquiet, no output at all\n" \
-			"\t-d\t\tdry run, do not create or update devmaps\n" \
-			"\t-m max_devs\tscan {max_devs} devices at most\n" \
-			"\n" \
-			"\t-p policy\tforce maps to specified policy :\n" \
-			"\t   failover\t\t- 1 path per priority group\n" \
-			"\t   multibus\t\t- all paths in 1 priority group\n" \
-			"\t   group_by_serial\t- 1 priority group per serial\n" \
-			"\t   group_by_tur\t\t- 1 priority group per TUR state\n" \
-			"\n" \
-			"\t-D maj min\tlimit scope to the device's multipath\n" \
-			"\t\t\t(major minor device reference)\n"
-			"\tdevice\t\tlimit scope to the device's multipath\n" \
-			"\t\t\t(hotplug-style $DEVPATH reference)\n" \
-			"\t-S inhibit signal sending to multipathd\n"
+	fprintf (stderr,
+		"\t\t\t[-p failover|multibus|group_by_serial]\n" \
+		"\t\t\t[device]\n" \
+		"\n" \
+		"\t-v\t\tverbose, print all paths and multipaths\n" \
+		"\t-q\t\tquiet, no output at all\n" \
+		"\t-d\t\tdry run, do not create or update devmaps\n" \
+		"\t-D maj min\tlimit scope to the device's multipath\n" \
+		"\t\t\t(major minor device reference)\n"
+		"\t-S\t\tinhibit signal sending to multipathd\n"
+		"\n" \
+		"\t-p policy\tforce all maps to specified policy :\n" \
+		"\t   failover\t\t- 1 path per priority group\n" \
+		"\t   multibus\t\t- all paths in 1 priority group\n" \
+		"\t   group_by_serial\t- 1 priority group per serial\n" \
+		"\t   group_by_tur\t\t- 1 priority group per TUR state\n" \
+		"\n" \
+		"\tdevice\t\tlimit scope to the device's multipath\n" \
+		"\t\t\t(hotplug-style $DEVPATH reference)\n" \
 		);
 
 	unlink (RUN);
@@ -690,10 +570,11 @@ usage (char * progname)
 int
 main (int argc, char *argv[])
 {
-	struct multipath * mp;
-	struct path * all_paths;
+	vector mp;
+	struct multipath * mpp;
+	vector pathvec;
 	struct env conf;
-	int i, k, nmp;
+	int i, k;
 	int try = 0;
 
 	/* Don't run in parallel */
@@ -712,14 +593,12 @@ main (int argc, char *argv[])
 	}
 		
 	/* Default behaviour */
-	conf.max_devs = MAX_DEVS;
 	conf.dry_run = 0;	/* 1 == Do not Create/Update devmaps */
-	conf.verbose = 0;	/* 1 == Print all_paths and mp */
+	conf.verbose = 0;	/* 1 == Print pathvec and mp */
 	conf.quiet = 0;		/* 1 == Do not even print devmaps */
 	conf.iopolicy = -1;	/* do not override defaults */
 	conf.major = -1;
 	conf.minor = -1;
-	conf.hwtable = NULL;
 	conf.signal = 1;	/* 1 == Do send a signal to multipathd */
 
 	/* argv parser */
@@ -729,12 +608,6 @@ main (int argc, char *argv[])
 			if (conf.quiet == 1)
 				usage (argv[0]);
 			conf.verbose = 1;
-		}
-		
-		else argis ("-m") {
-			conf.max_devs = atoi (argv[++i]);
-			if (conf.max_devs < 2)
-				usage (argv[0]);
 		}
 		
 		else argis ("-D") {
@@ -778,43 +651,27 @@ main (int argc, char *argv[])
 			strncpy (conf.hotplugdev, argv[i], FILE_NAME_SIZE);
 	}
 
-	/* if we have a config file read it (overwrite hwtable) */
-	if (check_config () && conf.iopolicy < 0) {
-		conf.hwtable = read_config (getuid_list);
-
-		/* read_config went nuts, fall back to defaults */
-		if (conf.hwtable == NULL) {
-			setup_default_hwtable;
-			conf.hwtable = default_hwtable_addr;
-		}
-
-	} else {
-		setup_default_hwtable;
-		conf.hwtable = default_hwtable_addr;
-	}
-
+	init_data (CONFIGFILE, init_keywords);
 
 	/* dynamic allocations */
-	mp = malloc (conf.max_devs * sizeof (struct multipath));
-	all_paths = malloc (conf.max_devs * sizeof (struct path));
+	mp = vector_alloc();
+	pathvec = vector_alloc();
 
-	if (mp == NULL || all_paths == NULL) {
+	if (mp == NULL || pathvec == NULL) {
 		fprintf (stderr, "can not allocate memory\n");
 		unlink (RUN);
 		exit (1);
 	}
 
-	if (sysfs_get_mnt_path (conf.sysfs_path, FILE_NAME_SIZE)) {
-		get_all_paths_nosysfs (&conf, all_paths);
-	} else {
-		get_all_paths_sysfs (&conf, all_paths);
-	}
+	if (sysfs_get_mnt_path (conf.sysfs_path, FILE_NAME_SIZE))
+		exit (1);
 
-	nmp = coalesce_paths (&conf, mp, all_paths);
+	get_pathvec_sysfs (&conf, pathvec);
+	coalesce_paths (&conf, mp, pathvec);
 
 	if (conf.verbose) {
-		print_all_path (&conf, all_paths);
-		print_all_mp (all_paths, mp, nmp);
+		print_all_path (&conf, pathvec);
+		print_all_mp (pathvec, mp);
 	}
 
 	/* last chance to quit before messing with devmaps */
@@ -826,11 +683,12 @@ main (int argc, char *argv[])
 	if (conf.verbose)
 		fprintf (stdout, "# device maps :\n");
 
-	for (k=0; k<=nmp; k++) {
-		if (map_present (mp[k].wwid)) {
-			setup_map (&conf, all_paths, &mp[k], DM_DEVICE_RELOAD);
+	for (k = 0; k < VECTOR_SIZE(mp); k++) {
+		mpp = VECTOR_SLOT(mp, k);
+		if (map_present (mpp->wwid)) {
+			setup_map (&conf, pathvec, mpp, DM_DEVICE_RELOAD);
 		} else {
-			setup_map (&conf, all_paths, &mp[k], DM_DEVICE_CREATE);
+			setup_map (&conf, pathvec, mpp, DM_DEVICE_CREATE);
 		}
 	}
 
@@ -840,7 +698,7 @@ main (int argc, char *argv[])
 	
 	/* free allocs */
 	free (mp);
-	free (all_paths);
+	free (pathvec);
 
 	/* release runfile */
 	unlink (RUN);
