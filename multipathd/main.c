@@ -599,7 +599,8 @@ checkerloop (void *ap)
 				 * path going down. It will be handled
 				 * in due time by DM event waiters
 				 */
-				if (newstate & (PATH_DOWN | PATH_SHAKY))
+				if (newstate == PATH_DOWN ||
+				    newstate == PATH_SHAKY)
 					continue;
 
 				/*
