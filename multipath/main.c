@@ -49,6 +49,61 @@
 #define argis(x) if (0 == strcmp (x, argv[i]))
 #define MATCH(x,y) 0 == strncmp (x, y, strlen(y))
 
+
+/*
+ * selectors :
+ * traverse the configuration layers from most specific to most generic
+ * stop at first explicit setting found
+ */
+static int
+select_pgpolicy (struct multipath * mp)
+{
+	int i;
+	struct mpentry * mpe = NULL;
+	struct hwentry * hwe = NULL;
+	struct path * pp;
+	char pgpolicy_name[POLICY_NAME_SIZE];
+
+	pp = VECTOR_SLOT(mp->paths, 0);
+
+	if (conf->pgpolicy_flag > 0) {
+		mp->pgpolicy = conf->pgpolicy_flag;
+		get_pgpolicy_name(pgpolicy_name, mp->pgpolicy);
+		dbg("pgpolicy = %s (cmd line flag)", pgpolicy_name);
+		return 0;
+	}
+	vector_foreach_slot (conf->mptable, mpe, i) {
+		if (mpe->wwid && strcmp(mpe->wwid, mp->wwid) == 0 &&
+		    mpe->pgpolicy > 0) {
+			mp->pgpolicy = mpe->pgpolicy;
+			get_pgpolicy_name(pgpolicy_name, mp->pgpolicy);
+			dbg("pgpolicy = %s (LUN setting)", pgpolicy_name);
+			return 0;
+		}
+	}
+	vector_foreach_slot (conf->hwtable, hwe, i) {
+		if (hwe->vendor && hwe->product &&
+		    MATCH (pp->vendor_id, hwe->vendor) &&
+		    MATCH (pp->product_id, hwe->product) &&
+		    hwe->pgpolicy > 0) {
+			mp->pgpolicy = hwe->pgpolicy;
+			get_pgpolicy_name(pgpolicy_name, mp->pgpolicy);
+			dbg("pgpolicy = %s (controler setting)", pgpolicy_name);
+			return 0;
+		}
+	}
+	if (conf->default_pgpolicy > 0) {
+		mp->pgpolicy = conf->default_pgpolicy;
+		get_pgpolicy_name(pgpolicy_name, mp->pgpolicy);
+		dbg("pgpolicy = %s (config file default)", pgpolicy_name);
+		return 0;
+	}
+	mp->pgpolicy = FAILOVER;
+	get_pgpolicy_name(pgpolicy_name, FAILOVER);
+	dbg("pgpolicy = %s (internal default)", pgpolicy_name);
+	return 0;
+}
+
 static int
 devt2devname (char *devname, char *devt)
 {
@@ -703,69 +758,9 @@ setup_map (vector pathvec, struct multipath * mpp)
 	pp = VECTOR_SLOT(mpp->paths, 0);
 
 	/*
-	 * iopolicy selection logic :
-	 *  1) set internal default
-	 *  2) override by config file default
-	 *  3) override by controler wide setting
-	 *  4) override by LUN specific setting
-	 *  5) cmd line flag has the last word
+	 * properties selectors
 	 */
-	dbg("iopolicy selector :");
-	dbg("===================");
-
-	/*
-	 * 1) set internal default
-	 */
-	iopolicy = FAILOVER;
-	get_pgpolicy_name(iopolicy_name, FAILOVER);
-	dbg("internal default)\tiopolicy = %s", iopolicy_name);
-
-	/*
-	 * 2) override by config file default
-	 */
-	if (conf->default_iopolicy > 0) {
-		iopolicy = conf->default_iopolicy;
-		get_pgpolicy_name(iopolicy_name, iopolicy);
-		dbg("config file default)\tiopolicy = %s", iopolicy_name);
-	}
-	
-	/*
-	 * 3) override by controler wide setting
-	 */
-	vector_foreach_slot (conf->hwtable, hwe, i) {
-		if (MATCH (pp->vendor_id, hwe->vendor) &&
-		    MATCH (pp->product_id, hwe->product) &&
-		    hwe->iopolicy > 0) {
-			iopolicy = hwe->iopolicy;
-			get_pgpolicy_name(iopolicy_name, iopolicy);
-			dbg("controler override)\tiopolicy = %s", iopolicy_name);
-		}
-	}
-
-	/*
-	 * 4) override by LUN specific setting
-	 */
-	vector_foreach_slot (conf->mptable, mpe, i) {
-		if (mpe->wwid && strcmp(mpe->wwid, mpp->wwid) == 0 &&
-		    mpe->iopolicy > 0) {
-			iopolicy = mpe->iopolicy;
-			get_pgpolicy_name(iopolicy_name, iopolicy);
-			dbg("lun override)\t\tiopolicy = %s", iopolicy_name);
-		}
-	}
-
-	/*
-	 * 5) cmd line flag has the last word
-	 */
-	if (conf->iopolicy_flag > 0) {
-		iopolicy = conf->iopolicy_flag;
-		get_pgpolicy_name(iopolicy_name, iopolicy);
-		dbg("cmd flag override)\tiopolicy = %s", iopolicy_name);
-	}
-
-	/*
-	 * select the appropriate path group selector and args
-	 */
+	select_pgpolicy(mpp);
 	select_selector(mpp);
 
 	/*
@@ -779,26 +774,26 @@ setup_map (vector pathvec, struct multipath * mpp)
 	/*
 	 * 1) & 2)
 	 */
-	group_by_status(mpp, PATH_DOWN);
-	group_by_status(mpp, PATH_SHAKY);
+	//group_by_status(mpp, PATH_DOWN);
+	//group_by_status(mpp, PATH_SHAKY);
 
 	/*
 	 * 3) apply selected grouping policy
 	 */
-	if (iopolicy == MULTIBUS)
+	if (mpp->pgpolicy == MULTIBUS)
 		one_group (mpp);
 
-	if (iopolicy == FAILOVER)
+	if (mpp->pgpolicy == FAILOVER)
 		one_path_per_group (mpp);
 
-	if (iopolicy == GROUP_BY_SERIAL)
+	if (mpp->pgpolicy == GROUP_BY_SERIAL)
 		group_by_serial (mpp);
 
-	if (iopolicy == GROUP_BY_PRIO)
+	if (mpp->pgpolicy == GROUP_BY_PRIO)
 		group_by_prio (mpp);
 
 	if (mpp->pg == NULL) {
-		dbg("iopolicy failed to produce a ->pg vector");
+		dbg("pgpolicy failed to produce a ->pg vector");
 		return 1;
 	}
 
@@ -940,7 +935,7 @@ setup_default_blist (vector blist)
 	snprintf (hwe->vendor, SCSI_VENDOR_SIZE, b); \
 	hwe->product = zalloc (SCSI_PRODUCT_SIZE * sizeof(char)); \
 	snprintf (hwe->product, SCSI_PRODUCT_SIZE, c); \
-	hwe->iopolicy = d; \
+	hwe->pgpolicy = d; \
 	hwe->getuid = e; \
 	vector_alloc_slot(a); \
 	vector_set_slot(a, hwe);
@@ -1072,15 +1067,16 @@ main (int argc, char *argv[])
 	/*
 	 * internal defaults
 	 */
+	conf->list = 0;
 	conf->dry_run = 0;		/* 1 == Do not Create/Update devmaps */
-	conf->verbosity = 1;		/* 1 == Print mp names */
-	conf->iopolicy_flag = 0;	/* do not override defaults */
+	conf->verbosity = 1;
+	conf->pgpolicy_flag = 0;	/* do not override defaults */
 	conf->signal = 1;		/* 1 == Send a signal to multipathd */
 	conf->dev = NULL;
 	conf->devt = NULL;
 	conf->default_selector = NULL;
 	conf->default_selector_args = 0;
-	conf->default_iopolicy = 0;
+	conf->default_pgpolicy = 0;
 	conf->mptable = NULL;
 	conf->hwtable = NULL;
 	conf->blist = NULL;
@@ -1105,13 +1101,13 @@ main (int argc, char *argv[])
 			break;
 		case 'p':
 			if (strcmp(optarg, "failover") == 0)
-				conf->iopolicy_flag = FAILOVER;
+				conf->pgpolicy_flag = FAILOVER;
 			else if (strcmp(optarg, "multibus") == 0)
-				conf->iopolicy_flag = MULTIBUS;
+				conf->pgpolicy_flag = MULTIBUS;
 			else if (strcmp(optarg, "group_by_serial") == 0)
-				conf->iopolicy_flag = GROUP_BY_SERIAL;
+				conf->pgpolicy_flag = GROUP_BY_SERIAL;
 			else if (strcmp(optarg, "group_by_prio") == 0)
-				conf->iopolicy_flag = GROUP_BY_PRIO;
+				conf->pgpolicy_flag = GROUP_BY_PRIO;
 			else
 			{
 				if (optarg)

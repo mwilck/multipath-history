@@ -90,7 +90,7 @@ struct path {
 struct multipath {
 	char wwid[WWID_SIZE];
 	char * alias;
-	int iopolicy;
+	int pgpolicy;
 	unsigned long size;
 	vector paths;
 	vector pg;
