@@ -16,7 +16,7 @@ arch        = i386
 klibcarch   = $(klibcdir)/klibc/arch/$(arch)/include
 
 CC = gcc
-GZIP = /bin/gzip -c
+GZIP = /bin/gzip -9 -c
 
 GCCINCDIR := ${shell $(CC) -print-search-dirs | sed -ne "s/install: \(.*\)/\1include/gp"}
 KERNEL_DIR = /lib/modules/${shell uname -r}/build

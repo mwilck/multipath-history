@@ -1,8 +1,12 @@
+2004-03-06 multipath-tools-0.1.1
+	* include dlist.h in multipath main.c (PM Hahn)
+	* typo in hotplug script (PM Hahn)
+	* pass -9 opt to gzip for manpages (PM Hahn)
 2004-03-05 multipath-tools-0.1.0
 	* add the group_by_tur policy
 	* add the multipathd daemon for pathchecking & DM hot-reconfig
 	* multipath doesn't run twice
-	* massive cleanups
+	* massive cleanups, and code restructuring
 	* Avoid Kernel Bug when passing too small a buffer in do_inq()
 	* Sync with 2.6.3-udm4 target synthax (no more PG prio)
 2004-02-21 multipath-018

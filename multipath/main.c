@@ -26,6 +26,7 @@
 #include <string.h>
 #include <signal.h>
 #include <sys/ioctl.h>
+#include <dlist.h>
 #include <sysfs/libsysfs.h>
 #include "../libdevmapper/libdevmapper.h"
 #include "main.h"

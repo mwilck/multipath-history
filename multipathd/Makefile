@@ -1,7 +1,7 @@
 EXEC = multipathd
 
 CC = gcc
-GZIP = /bin/gzip -c
+GZIP = /bin/gzip -9 -c
 
 bindir = /usr/bin
 mandir = /usr/share/man/man8
