@@ -975,7 +975,7 @@ setup_map (vector pathvec, struct multipath * mpp)
 			goto out;
 	}
 
-	if (dm_addmap(op, mapname, DM_TARGET, mpp->params, mpp->size)) {
+	if (!dm_addmap(op, mapname, DM_TARGET, mpp->params, mpp->size)) {
 		dm_simplecmd(DM_DEVICE_REMOVE, mapname);
 		goto out;
 	}
