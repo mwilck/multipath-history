@@ -5,7 +5,7 @@ EXEC = multipathd
 # debug verbosity, same as syslog.h
 # nothing to below 5, full debug at 7
 #
-LOGLEVEL = 7
+LOGLEVEL = 5
 
 include ../Makefile.inc
 
