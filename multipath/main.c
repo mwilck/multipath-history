@@ -166,56 +166,9 @@ get_pathvec_sysfs (vector pathvec)
 {
 	struct sysfs_directory * sdir;
 	struct sysfs_directory * devp;
-	struct sysfs_link * linkp;
-	char refwwid[WWID_SIZE];
-	char empty_buff[WWID_SIZE];
-	char buff[FILE_NAME_SIZE];
 	char path[FILE_NAME_SIZE];
-	char sysfs_path[FILE_NAME_SIZE];
 	struct path * curpath;
 
-	memset (empty_buff, 0, WWID_SIZE);
-	memset (refwwid, 0, WWID_SIZE);
-
-	if (sysfs_get_mnt_path(sysfs_path, FILE_NAME_SIZE)) {
-		fprintf(stderr, "multipath tools need sysfs\n");
-		exit(1);
-	}
-	
-	/*
-	 * if called from /etc/dev.d or pathcheckers, only consider the paths
-	 * that relate to the device pointed by conf->dev
-	 */
-	if (conf->dev_type == DEV_DEVNODE) {
-		dbg("limited scope = %s", conf->dev);
-		curpath = zalloc(sizeof (struct path));
-		basename(conf->dev, curpath->dev);
-
-		if (devinfo(curpath))
-			return 1;
-
-		memcpy(refwwid, curpath->wwid, WWID_SIZE);
-		free(curpath);
-	}
-
-	/*
-	 * if devt specified on the cmd line,
-	 * only consider affiliated paths
-	 */
-	if (conf->dev_type == DEV_DEVT && !devt2devname(buff, conf->dev)) {
-		dbg("limited scope = %s", conf->dev);
-		curpath = zalloc(sizeof (struct path));
-		if(safe_sprintf(curpath->dev, "%s", buff)) {
-			fprintf(stderr, "curpath->dev too small\n");
-			exit(1);
-		}
-		if (devinfo(curpath))
-			return 1;
-
-		memcpy(refwwid, curpath->wwid, WWID_SIZE);
-		free(curpath);
-	}
-		
 	if(safe_sprintf(path, "%s/block", sysfs_path)) {
 		fprintf(stderr, "path too small\n");
 		exit(1);
@@ -227,41 +180,28 @@ get_pathvec_sysfs (vector pathvec)
 		if (blacklist(conf->blist, devp->name))
 			continue;
 
-		sysfs_read_directory(devp);
-
-		if (devp->links == NULL)
-			continue;
-
-		dlist_for_each_data(devp->links, linkp, struct sysfs_link) {
-			if (!strncmp(linkp->name, "device", 6))
-				break;
-		}
-		if (linkp == NULL) {
-			continue;
-		}
-		basename(devp->path, buff);
-		curpath = zalloc(sizeof(struct path));
-
-		if(safe_sprintf(curpath->dev, "%s", buff)) {
-			fprintf(stderr, "curpath->dev too small\n");
+		if(safe_sprintf(path, "%s/block/%s/device", sysfs_path,
+				devp->name)) {
+			fprintf(stderr, "path too small\n");
 			exit(1);
 		}
-		if (devinfo(curpath)) {
-			fprintf(stderr, "pb getting path info, free %s\n",
-					curpath->dev);
-			free (curpath);
+				
+		if (!filepresent(path))
 			continue;
+
+		curpath = find_path_by_dev(pathvec, devp->name);
+
+		if (!curpath) {
+			curpath = zalloc(sizeof(struct path));
+			vector_alloc_slot(pathvec);
+			vector_set_slot(pathvec, curpath);
+
+			if(safe_sprintf(curpath->dev, "%s", devp->name)) {
+				fprintf(stderr, "curpath->dev too small\n");
+				exit(1);
+			}
+			devinfo(curpath);
 		}
-		if (memcmp(empty_buff, refwwid, WWID_SIZE) != 0 && 
-		    memcmp(curpath->wwid, refwwid, WWID_SIZE) != 0) {
-			dbg("skip path %s : out of scope", curpath->dev);
-			free(curpath);
-			continue;
-		}
-		curpath->hwe = find_hwe(conf->hwtable, curpath->vendor_id,
-						      curpath->product_id);
-		vector_alloc_slot(pathvec);
-		vector_set_slot(pathvec, curpath);
 	}
 	sysfs_close_directory(sdir);
 	return 0;
@@ -1080,6 +1020,7 @@ main (int argc, char *argv[])
 	int arg;
 	extern char *optarg;
 	extern int optind;
+	char * refwwid;
 
 	if (dm_prereq(DEFAULT_TARGET, 1, 0, 3)) {
 		fprintf(stderr, "device mapper prerequisites not met.\n");
@@ -1090,7 +1031,10 @@ main (int argc, char *argv[])
 		exit(1);
 	}
 	conf = zalloc(sizeof(struct config));
-				
+
+	if (!conf)
+		exit(1);
+
 	/*
 	 * internal defaults
 	 */
@@ -1226,16 +1170,15 @@ main (int argc, char *argv[])
 	if (get_pathvec_sysfs(pathvec) || VECTOR_SIZE(pathvec) == 0)
 		exit(1);
 
-	if (VECTOR_SIZE(pathvec) == 0 && conf->verbosity > 0) {
-		fprintf(stdout, "no path found\n");
-		exit(0);
-	}
 #if DEBUG
 	fprintf(stdout, "#\n# all paths :\n#\n");
 	print_all_paths(pathvec);
 #endif
 
-	get_current_mp(curmp, pathvec);
+	refwwid = get_refwwid(pathvec);
+	get_current_mp(curmp, pathvec, refwwid);
+	cache_dump(pathvec);
+	filter_pathvec(pathvec, refwwid);
 
 	if (conf->list)
 		goto out;
