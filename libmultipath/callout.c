@@ -6,7 +6,6 @@
 #include <stdlib.h>
 #include <sys/wait.h>
 #include <errno.h>
-#include "debug.h"
 
 #define PROGRAM_SIZE	100
 #define FIELD_PROGRAM
@@ -43,17 +42,15 @@ int execute_program(char *path, char *value, int len)
 		} else {
 				argv[i] = strsep(&pos, " ");
 			}
-			dbg("arg[%i] '%s'", i, argv[i]);
 			i++;
 		}
 	}
 	argv[i] =  NULL;
 
 	retval = pipe(fds);
-	if (retval != 0) {
-		dbg("pipe failed");
+
+	if (retval != 0)
 		return -1;
-	}
 
 
 	pid = fork();
@@ -66,13 +63,10 @@ int execute_program(char *path, char *value, int len)
 		/* dup write side of pipe to STDOUT */
 		dup(fds[1]);
 
-		dbg("execute '%s' with given arguments", argv[0]);
 		retval = execv(argv[0], argv);
 
-		dbg(FIELD_PROGRAM " execution of '%s' failed", path);
 		exit(-1);
 	case -1:
-		dbg("fork failed");
 		return -1;
 	default:
 		/* parent reads from fds[0] */
@@ -86,29 +80,23 @@ int execute_program(char *path, char *value, int len)
 
 			i += count;
 			if (i >= len-1) {
-				dbg("result len %d too short", len);
 				retval = -1;
 				break;
 			}
 		}
 
-		if (count < 0) {
-			dbg("read failed with '%s'", strerror(errno));
+		if (count < 0)
 			retval = -1;
-		}
 
 		if (i > 0 && value[i-1] == '\n')
 			i--;
 		value[i] = '\0';
-		dbg("result is '%s'", value);
 
 		close(fds[0]);
 		wait(&status);
 
-		if (!WIFEXITED(status) || (WEXITSTATUS(status) != 0)) {
-			dbg("exec program status 0x%x", status);
+		if (!WIFEXITED(status) || (WEXITSTATUS(status) != 0))
 			retval = -1;
-		}
 	}
 	return retval;
 }

@@ -9,7 +9,7 @@ ifeq ($(strip $(BUILD)),klibc)
 	CFLAGS = ${REQFLAGS} ${OPTFLAGS} -DDEBUG=${DEBUG} \
 		 -DVERSION=$(VERSION) -I$(multipathdir) \
 		 -I$(libdmdir) -I$(sysfsdir) -I$(checkersdir)
-	OBJS = pgpolicies.o devinfo.o main.o callout.o dict.o \
+	OBJS = pgpolicies.o devinfo.o main.o dict.o \
 	       $(MULTIPATHLIB)-$(BUILD).a $(CHECKERSLIB)-$(BUILD).a \
 	       $(SYSFSLIB)-$(BUILD).a $(DMLIB)-$(BUILD).a
 else
@@ -17,7 +17,7 @@ else
 		 -DDEBUG=$(DEBUG) -I$(multipathdir) -I$(checkersdir) \
 		 -DVERSION=$(VERSION)
 	LDFLAGS = -ldevmapper -lsysfs
-	OBJS = pgpolicies.o devinfo.o main.o callout.o dict.o \
+	OBJS = pgpolicies.o devinfo.o main.o dict.o \
 	       $(MULTIPATHLIB)-$(BUILD).a $(CHECKERSLIB)-$(BUILD).a
 endif
 
