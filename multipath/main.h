@@ -22,6 +22,7 @@
 /* local includes */
 #include "sg_include.h"
 #include "devinfo.h"
+#include "vector.h"
 
 /* exerpt from "sg_err.h" */
 #define SCSI_CHECK_CONDITION 	0x2
@@ -87,9 +88,8 @@ struct path {
 
 struct multipath {
 	char wwid[WWID_SIZE];
-	int npaths;
 	long size;
-	int pindex[MAX_MP_PATHS];
+	vector paths;
 };
 
 struct env {
@@ -100,7 +100,6 @@ struct env {
 	int with_sysfs;
 	int major;
 	int minor;
-	char sysfs_path[FILE_NAME_SIZE];
 	char hotplugdev[FILE_NAME_SIZE];
 	int signal;
 };
