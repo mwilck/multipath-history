@@ -308,6 +308,19 @@ sysfs_devinfo(struct path * curpath)
 	dbg("dev_t = %s", curpath->dev_t);
 
 	/*
+	 * size
+	 */
+	if(safe_sprintf(attr_path, "%s/block/%s/size",
+		sysfs_path, curpath->dev)) {
+		fprintf(stderr, "attr_path too small\n");
+		return 1;
+	}
+	if (0 > readattr(attr_path, attr_buff))
+		return 1;
+	curpath->size = strtoul(attr_buff, NULL, 0);
+	dbg("size = %lu", curpath->size);
+
+	/*
 	 * host / bus / target / lun
 	 */
 	if(safe_sprintf(attr_path, "%s/block/%s/device",
@@ -554,6 +567,7 @@ static int fill_0x83_id(char *page_83, char *serial)
 	return 0;
 }
 
+#if 0
 unsigned long
 get_disk_size (char * devname) {
 	unsigned long size;
@@ -577,6 +591,7 @@ get_disk_size (char * devname) {
 	dbg("get_disk_size need sysfs");
 	return -1;
 }
+#endif
 
 /*
  * get EVPD page 0x83 off 8

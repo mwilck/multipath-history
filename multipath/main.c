@@ -361,7 +361,7 @@ coalesce_paths (vector mp, vector pathvec)
 		/* skip this path for some reason */
 
 		/* 1. if path has no unique id */
-		if (memcmp (empty_buff, pp1->wwid, WWID_SIZE) == 0)
+		if (memcmp(empty_buff, pp1->wwid, WWID_SIZE) == 0)
 			continue;
 
 		/* 2. if mp with this uid already instanciated */
@@ -377,33 +377,41 @@ coalesce_paths (vector mp, vector pathvec)
 		/*
 		 * at this point, we know we really got a new mp
 		 */
-		vector_alloc_slot(mp);
 		mpp = zalloc(sizeof(struct multipath));
-		strcpy (mpp->wwid, pp1->wwid);
+		pp1->mpp = mpp;
+		strcpy(mpp->wwid, pp1->wwid);
+		mpp->size = pp1->size;
 
 		mpp->mpe = find_mp(pp1->wwid);
 		mpp->hwe = find_hw(pp1->vendor_id, pp1->product_id);
 
 		mpp->paths = vector_alloc();
 		vector_alloc_slot (mpp->paths);
-		vector_set_slot (mpp->paths, VECTOR_SLOT(pathvec, k));
-
-		if (mpp->size == 0 && pp1->state == PATH_UP)
-			mpp->size = get_disk_size(pp1->dev);
+		vector_set_slot (mpp->paths, pp1);
 
 		for (i = k + 1; i < VECTOR_SIZE(pathvec); i++) {
 			pp2 = VECTOR_SLOT(pathvec, i);
-			if (0 == strcmp(pp1->wwid, pp2->wwid)) {
-				vector_alloc_slot(mpp->paths);
-				vector_set_slot(mpp->paths,
-						VECTOR_SLOT(pathvec, i));
 
-				if (mpp->size == 0 && pp2->state == PATH_UP)
-					mpp->size = get_disk_size(pp2->dev);
+			if (strcmp(pp1->wwid, pp2->wwid))
+				continue;
+			
+			pp2->mpp = mpp;
 
+			if (pp2->size != mpp->size) {
+				/*
+				 * ouch, avoid feeding that to the DM
+				 */
+				dbg("path size mismatch : discard %s",
+				     mpp->wwid);
+				mpp->action = ACT_NOTHING;
 			}
+			vector_alloc_slot(mpp->paths);
+			vector_set_slot(mpp->paths, VECTOR_SLOT(pathvec, i));
 		}
-		vector_set_slot(mp, mpp);
+		if (mpp) {
+			vector_alloc_slot(mp);
+			vector_set_slot(mp, mpp);
+		}
 	}
 }
 
