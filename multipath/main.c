@@ -35,13 +35,14 @@
 #include <devmapper.h>
 #include <checkers.h>
 #include <path_state.h>
+#include <safe_printf.h>
+#include <callout.h>
 
 #include "main.h"
 #include "devinfo.h"
 #include "config.h"
 #include "pgpolicies.h"
 #include "dict.h"
-#include "callout.h"
 #include "debug.h"
 
 /* helpers */

@@ -6,7 +6,7 @@
 #include <sys/ioctl.h>
 #include <sysfs/libsysfs.h>
 
-#include "safe.h"
+#include <safe_printf.h>
 #include "devinfo.h"
 
 #define FILE_NAME_SIZE 255
