@@ -103,6 +103,13 @@ struct multipath {
 	int pindex[MAX_MP_PATHS];
 };
 
+struct hwentry {
+	char vendor[8];
+	char product[16];
+	int iopolicy;
+	int (*getuid) (char *, char *);
+};
+
 struct env {
 	int max_devs;
 	int verbose;
@@ -114,13 +121,7 @@ struct env {
 	int minor;
 	char sysfs_path[FILE_NAME_SIZE];
 	char hotplugdev[FILE_NAME_SIZE];
-};
-
-struct hwentry {
-	char vendor[8];
-	char product[16];
-	int iopolicy;
-	int (*getuid) (char *, char *);
+	struct hwentry * hwtable;
 };
 
 /* Build version */
