@@ -305,7 +305,7 @@ updatepaths (struct paths *allpaths, char *sysfs_path)
 			continue;
 		}
 		if (0 > sysfs_read_attribute_value(attr_path, attr_buff, 17)) {
-			syslog(LOG_DEBUG, "no such attribute : %s",
+			syslog(LOG_ERR, "no such attribute : %s",
 				attr_path);
 			continue;
 		}
@@ -315,8 +315,8 @@ updatepaths (struct paths *allpaths, char *sysfs_path)
 		 * state persistance
 		 */
 		vector_foreach_slot (allpaths->pathvec, pp, i)
-			if (0 == strncmp(pp->dev_t, attr_buff,
-					strlen(pp->dev_t)))
+			if (!strncmp(pp->dev_t, attr_buff,
+					strlen(pp->dev_t) + 1))
 				break;
 
 		if (i < VECTOR_SIZE(allpaths->pathvec)) {
@@ -514,7 +514,7 @@ waiterloop (void *ap)
 			 */
 			if (j == VECTOR_SIZE(waiters)) {
 				wp = MALLOC (sizeof (struct event_thread));
-				strcpy (wp->mapname, devmap);
+				strncpy (wp->mapname, devmap, MAPNAMESIZE);
 				wp->thread = MALLOC (sizeof (pthread_t));
 				wp->waiter_lock = (pthread_mutex_t *) 
 					MALLOC (sizeof (pthread_mutex_t));
@@ -538,7 +538,8 @@ waiterloop (void *ap)
 				pthread_mutex_unlock (wp->waiter_lock);
 			}
 			
-			syslog(LOG_NOTICE, "event checker startup : %s", wp->mapname);
+			syslog(LOG_NOTICE, "event checker startup : %s",
+					wp->mapname);
 			pthread_create (wp->thread, &attr, waitevent, wp);
 			pthread_detach (*wp->thread);
 		}
@@ -576,6 +577,10 @@ checkerloop (void *ap)
 		syslog(LOG_DEBUG, "checking paths");
 
 		vector_foreach_slot (allpaths->pathvec, pp, i) {
+			if (!pp->checkfn) {
+				syslog(LOG_ERR, "checkfn is void");
+				continue;
+			}
 			newstate = pp->checkfn(pp->dev_t, checker_msg,
 					       &pp->checker_context);
 			
@@ -619,7 +624,6 @@ checkerloop (void *ap)
 		pthread_mutex_unlock(allpaths->lock);
 		sleep(checkint);
 	}
-
 	return (NULL);
 }
 
