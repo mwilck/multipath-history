@@ -24,7 +24,8 @@ CFLAGS = -pipe -g -O2 -Wall -Wunused -Wstrict-prototypes -nostdinc \
          -I$(klibcdir)/klibc/include -I$(klibcdir)/klibc/include/bits32 \
          -I$(GCCINCDIR) -I$(KERNEL_DIR)/include -I$(sysfsdir) -I. -I$(klibcarch)
 
-OBJS = configfile.o devinfo.o main.o
+OBJS = pgpolicies.o configfile.o devinfo.o main.o
+
 CRT0 = $(klibcdir)/klibc/crt0.o
 LIB = $(klibcdir)/klibc/libc.a
 LIBGCC := $(shell $(CC) -print-libgcc-file-name )

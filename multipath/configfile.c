@@ -60,7 +60,7 @@ extern int check_config (void)
 {
 	struct stat buf;
 
-	if(stat(CONFIG, &buf) < 0)
+	if (stat (CONFIG, &buf) < 0)
 		return 0;
 
 	return 1;
