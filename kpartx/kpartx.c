@@ -45,7 +45,7 @@ struct pt {
 	ptreader *fn;
 } pts[MAXTYPES];
 
-int ptct;
+int ptct = 0;
 
 static void
 addpts(char *t, ptreader f)
@@ -204,8 +204,7 @@ main(int argc, char **argv){
 	char *p, *type, *diskdevice, *device;
 	int lower, upper;
 	int verbose = 0;
-	struct dm_task *dmt;
-	char partname[PARTNAME_SIZE], params[30];
+	char partname[PARTNAME_SIZE], params[PARTNAME_SIZE + 16];
 	char * loopdev = NULL;
 	char * delim = NULL;
 	int loopro = 0;
@@ -216,6 +215,8 @@ main(int argc, char **argv){
 
 	lower = upper = 0;
 	type = device = diskdevice = NULL;
+	memset(&all, 0, sizeof(all));
+	memset(&partname, 0, sizeof(partname));
 	
 	if (argc < 2) {
 		usage();
@@ -359,8 +360,11 @@ main(int argc, char **argv){
 
 		case DELETE:
 			for (j = 0; j < n; j++) {
-				sprintf(partname, "%s%s%d",
-					device + off , delim, j+1);
+				if (safe_sprintf(partname, "%s%s%d",
+					     device + off , delim, j+1)) {
+					fprintf(stderr, "partname too small\n");
+					exit(1);
+				}
 				strip_slash(partname);
 
 				if (!slices[j].size || !map_present(partname))
@@ -368,7 +372,7 @@ main(int argc, char **argv){
 
 				if (!dm_simplecmd(DM_DEVICE_REMOVE, partname))
 					continue;
-				
+
 				if (verbose)
 					printf("del devmap : %s\n", partname);
 			}
@@ -389,11 +393,18 @@ main(int argc, char **argv){
 				if (slices[j].size == 0)
 					continue;
 
-				sprintf(partname, "%s%s%d", 
-					device + off , delim, j+1);
+				if (safe_sprintf(partname, "%s%s%d",
+					     device + off , delim, j+1)) {
+					fprintf(stderr, "partname too small\n");
+					exit(1);
+				}
 				strip_slash(partname);
-				sprintf(params, "%s %lu",
-					device, (unsigned long)slices[j].start);
+				
+				if (safe_sprintf(params, "%s %lu", device,
+					     (unsigned long)slices[j].start)) {
+					fprintf(stderr, "params too small\n");
+					exit(1);
+				}
 
 				op = (map_present(partname) ?
 					DM_DEVICE_RELOAD : DM_DEVICE_CREATE);
