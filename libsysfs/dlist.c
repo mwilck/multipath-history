@@ -28,7 +28,7 @@
 
 */
 #include <stdlib.h>
-#include "dlist.h"
+#include "sysfs/dlist.h"
 
 /*
  * Return pointer to node at marker.

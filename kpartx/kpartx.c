@@ -20,8 +20,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <ctype.h>
+#include <libdevmapper.h>
 
-#include "../libdevmapper/libdevmapper.h"
 #include "crc32.h"
 
 /* loop devices */

@@ -31,7 +31,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
-#include "dlist.h"
+#include "sysfs/dlist.h"
 
 /* Debugging */
 #ifdef DEBUG
