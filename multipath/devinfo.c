@@ -411,6 +411,9 @@ devinfo (struct path *pp)
 	pp->claimed = get_claimed(pp->dev_t);
 	dbg("claimed = %i", pp->claimed);
 
+	/* get and store hwe pointer */
+	pp->hwe = find_hwe(conf->hwtable, pp->vendor_id, pp->product_id);
+
 	/*
 	 * get path state, no message collection, no context
 	 */
