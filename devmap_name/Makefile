@@ -7,9 +7,10 @@ EXEC = devmap_name
 include ../Makefile.inc
 
 OBJS = devmap_name.o
+CFLAGS = ${REQFLAGS} ${OPTFLAGS}
 
 $(EXEC): $(OBJS)
-	$(LD) -o $(EXEC) $(CRT0) $(OBJS) $(DMOBJS) $(LIB) $(LIBGCC)
+	$(LD) -o $(EXEC) $(CRT0) $(OBJS) $(DMOBJS) $(KLIBC) $(LIBGCC)
 	$(STRIP) $(EXEC)
 	$(GZIP) $(EXEC).8 > $(EXEC).8.gz
 

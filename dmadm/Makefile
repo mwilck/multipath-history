@@ -4,8 +4,10 @@ OBJS = util.o dmadm.o
 
 include ../Makefile.inc
 
+CFLAGS = -I../libsysfs ${REQFLAGS} ${OPTFLAGS}
+
 $(EXEC): $(OBJS)
-	$(LD) -o $(EXEC) $(CRT0) $(OBJS) $(SYSFSOBJS) $(DMOBJS) $(LIB) $(LIBGCC)
+	$(LD) -o $(EXEC) $(CRT0) $(OBJS) $(SYSFSOBJS) $(DMOBJS) $(KLIBC) $(LIBGCC)
 	$(STRIP) $(EXEC)
 
 clean:

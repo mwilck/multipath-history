@@ -4,7 +4,7 @@
 
 include ../Makefile.inc
 
-CFLAGS += -Iioctl -Iinclude
+CFLAGS += -I. -Iioctl -Iinclude ${REQFLAGS} ${OPTFLAGS}
 
 OBJS = ioctl/libdm-iface.o libdm-common.o
 
