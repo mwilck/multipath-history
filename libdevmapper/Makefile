@@ -4,9 +4,9 @@
 
 include ../Makefile.inc
 
-CFLAGS += -Iioctl
+CFLAGS += -Iioctl -Iinclude
 
-OBJS = ioctl/libdevmapper.o libdm-common.o
+OBJS = ioctl/libdm-iface.o libdm-common.o
 
 all:	$(OBJS)
 

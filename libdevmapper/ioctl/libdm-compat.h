@@ -1,15 +1,24 @@
 /*
- * Copyright (C) 2001 Sistina Software (UK) Limited.
+ * Copyright (C) 2001-2004 Sistina Software, Inc. All rights reserved.
+ * Copyright (C) 2004 Red Hat, Inc. All rights reserved.
  *
- * This file is released under the LGPL.
+ * This file is part of the device-mapper userspace tools.
+ *
+ * This copyrighted material is made available to anyone wishing to use,
+ * modify, copy, or redistribute it subject to the terms and conditions
+ * of the GNU Lesser General Public License v.2.1.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program; if not, write to the Free Software Foundation,
+ * Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #ifndef _LINUX_LIBDM_COMPAT_H
 #define _LINUX_LIBDM_COMPAT_H
 
+#include "kdev_t.h"
 #include <inttypes.h>
 #include <linux/dm-ioctl.h>
-#include <linux/kdev_t.h>
 #include <sys/ioctl.h>
 
 struct dm_task;
@@ -89,22 +98,24 @@ enum {
 
 /* *INDENT-OFF* */
 static struct cmd_data _cmd_data_v1[] = {
-        { "create",	DM_DEV_CREATE_V1,	{1, 0, 0} },
-        { "reload",	DM_DEV_RELOAD_V1,	{1, 0, 0} },
-        { "remove",	DM_DEV_REMOVE_V1,	{1, 0, 0} },
-        { "remove_all",	DM_REMOVE_ALL_V1,	{1, 0, 0} },
-        { "suspend",	DM_DEV_SUSPEND_V1,	{1, 0, 0} },
-        { "resume",	DM_DEV_SUSPEND_V1,	{1, 0, 0} },
-        { "info",	DM_DEV_STATUS_V1,	{1, 0, 0} },
-        { "deps",	DM_DEV_DEPS_V1,		{1, 0, 0} },
-        { "rename",	DM_DEV_RENAME_V1,	{1, 0, 0} },
-        { "version",	DM_VERSION_V1,		{1, 0, 0} },
-        { "status",	DM_TARGET_STATUS_V1,	{1, 0, 0} },
-        { "table",	DM_TARGET_STATUS_V1,	{1, 0, 0} },
-        { "waitevent",	DM_TARGET_WAIT_V1,	{1, 0, 0} },
-        { "names",	0,			{4, 0, 0} },
-        { "clear",	0,			{4, 0, 0} },
-        { "mknodes",	0,			{4, 0, 0} },
+	{ "create",	DM_DEV_CREATE_V1,	{1, 0, 0} },
+	{ "reload",	DM_DEV_RELOAD_V1,	{1, 0, 0} },
+	{ "remove",	DM_DEV_REMOVE_V1,	{1, 0, 0} },
+	{ "remove_all",	DM_REMOVE_ALL_V1,	{1, 0, 0} },
+	{ "suspend",	DM_DEV_SUSPEND_V1,	{1, 0, 0} },
+	{ "resume",	DM_DEV_SUSPEND_V1,	{1, 0, 0} },
+	{ "info",	DM_DEV_STATUS_V1,	{1, 0, 0} },
+	{ "deps",	DM_DEV_DEPS_V1,		{1, 0, 0} },
+	{ "rename",	DM_DEV_RENAME_V1,	{1, 0, 0} },
+	{ "version",	DM_VERSION_V1,		{1, 0, 0} },
+	{ "status",	DM_TARGET_STATUS_V1,	{1, 0, 0} },
+	{ "table",	DM_TARGET_STATUS_V1,	{1, 0, 0} },
+	{ "waitevent",	DM_TARGET_WAIT_V1,	{1, 0, 0} },
+	{ "names",	0,			{4, 0, 0} },
+	{ "clear",	0,			{4, 0, 0} },
+	{ "mknodes",	0,			{4, 0, 0} },
+	{ "versions",	0,			{4, 1, 0} },
+	{ "message",	0,			{4, 2, 0} },
 };
 /* *INDENT-ON* */
 

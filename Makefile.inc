@@ -34,7 +34,7 @@ CRT0 = $(klibcdir)/klibc/crt0.o
 LIB = $(klibcdir)/klibc/libc.a
 LIBGCC := $(shell $(CC) -print-libgcc-file-name )
 
-DMOBJS = $(libdmdir)/libdm-common.o $(libdmdir)/ioctl/libdevmapper.o
+DMOBJS = $(libdmdir)/libdm-common.o $(libdmdir)/ioctl/libdm-iface.o
 SYSFSOBJS = $(sysfsdir)/dlist.o $(sysfsdir)/sysfs_bus.o \
             $(sysfsdir)/sysfs_class.o $(sysfsdir)/sysfs_device.o \
             $(sysfsdir)/sysfs_dir.o $(sysfsdir)/sysfs_driver.o \
