@@ -21,6 +21,7 @@
 #include <sys/types.h>
 #include <ctype.h>
 #include <libdevmapper.h>
+#include <devmapper.h>
 
 #include "crc32.h"
 
@@ -83,78 +84,6 @@ usage(void) {
 	printf("\t-p set device name-partition number delimiter\n");
 	printf("\t-v verbose\n");
 	return 1;
-}
-
-static int
-dm_simplecmd (int task, const char *name) {
-	int r = 0;
-	struct dm_task *dmt;
-
-	if (!(dmt = dm_task_create (task)))
-		return 0;
-
-	if (!dm_task_set_name (dmt, name))
-		goto out;
-
-	r = dm_task_run (dmt);
-
-	out:
-	dm_task_destroy (dmt);
-	return r;
-}
-
-static int
-dm_addmap (int task, const char *name, const char *params, unsigned long size) {
-        struct dm_task *dmt;
-
-        if (!(dmt = dm_task_create (task)))
-                return 0;
-
-        if (!dm_task_set_name (dmt, name))
-                goto addout;
-
-        if (!dm_task_add_target (dmt, 0, size, DM_TARGET, params))
-                goto addout;
-
-        if (!dm_task_run (dmt))
-                goto addout;
-
-        addout:
-        dm_task_destroy (dmt);
-        return 1;
-}
-
-static int
-map_present (char * str)
-{
-	int r = 0;
-	struct dm_task *dmt;
-	struct dm_names *names;
-	unsigned next = 0;
-
-	if (!(dmt = dm_task_create (DM_DEVICE_LIST)))
-		return 0;
-
-        if (!dm_task_run (dmt))
-		goto out;
-
-	if (!(names = dm_task_get_names (dmt)))
-		goto out;
-
-	if (!names->dev)
-		goto out;
-
-	do {
-		if (0 == strcmp (names->name, str))
-			r = 1;
-
-		next = names->next;
-		names = (void *) names + next;
-	} while (next);
-
-	out:
-	dm_task_destroy (dmt);
-	return r;
 }
 
 static void
@@ -256,6 +185,11 @@ main(int argc, char **argv){
 		default:
 			usage();
 			exit(1);
+	}
+
+	if (dm_prereq(DM_TARGET, 0, 0, 0) && (what == ADD || what == DELETE)) {
+		fprintf(stderr, "device mapper prerequisites not met\n"); 
+		exit(1);
 	}
 
 	if (optind == argc-2) {
@@ -367,7 +301,7 @@ main(int argc, char **argv){
 				}
 				strip_slash(partname);
 
-				if (!slices[j].size || !map_present(partname))
+				if (!slices[j].size || !dm_map_present(partname))
 					continue;
 
 				if (!dm_simplecmd(DM_DEVICE_REMOVE, partname))
@@ -406,10 +340,11 @@ main(int argc, char **argv){
 					exit(1);
 				}
 
-				op = (map_present(partname) ?
+				op = (dm_map_present(partname) ?
 					DM_DEVICE_RELOAD : DM_DEVICE_CREATE);
 
-				dm_addmap(op, partname, params, slices[j].size);
+				dm_addmap(op, partname, DM_TARGET, params,
+					  slices[j].size);
 
 				if (op == DM_DEVICE_RELOAD)
 					dm_simplecmd(DM_DEVICE_RESUME,
