@@ -4,10 +4,13 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <sysfs/libsysfs.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include "devinfo.h"
 #include "sg_include.h"
-
-#define FILE_NAME_SIZE 255
+#include "debug.h"
+#include "global.h"
 
 void
 basename(char * str1, char * str2)
