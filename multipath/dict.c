@@ -5,6 +5,12 @@
 /* data handlers */
 /* Global def handlers */
 static void
+udev_dir_handler(vector strvec)
+{
+	conf->udev_dir = set_value(strvec);
+}
+
+static void
 def_selector_handler(vector strvec)
 {
 	conf->default_selector = set_value(strvec);
@@ -54,14 +60,16 @@ device_handler(vector strvec)
 static void
 vendor_handler(vector strvec)
 {
-	struct hwentry * hwe = VECTOR_SLOT(conf->hwtable, VECTOR_SIZE(conf->hwtable) - 1);
+	struct hwentry * hwe =
+		VECTOR_SLOT(conf->hwtable, VECTOR_SIZE(conf->hwtable) - 1);
 	hwe->vendor = set_value(strvec);
 }
 
 static void
 product_handler(vector strvec)
 {
-	struct hwentry * hwe = VECTOR_SLOT(conf->hwtable, VECTOR_SIZE(conf->hwtable) - 1);
+	struct hwentry * hwe =
+		VECTOR_SLOT(conf->hwtable, VECTOR_SIZE(conf->hwtable) - 1);
 	hwe->product = set_value(strvec);
 }
 
@@ -70,7 +78,8 @@ hw_iopolicy_handler(vector strvec)
 {
 	char * buff;
 	int i = 0;
-	struct hwentry * hwe = VECTOR_SLOT(conf->hwtable, VECTOR_SIZE(conf->hwtable) - 1);
+	struct hwentry * hwe =
+		VECTOR_SLOT(conf->hwtable, VECTOR_SIZE(conf->hwtable) - 1);
 
 	buff = set_value(strvec);
 	while (iopolicy_list[i].name) {
@@ -84,21 +93,12 @@ hw_iopolicy_handler(vector strvec)
 }
 
 static void
-hw_getuid_function_handler(vector strvec)
+hw_getuid_callout_handler(vector strvec)
 {
-	char * buff;
-	int i = 0;
-	struct hwentry * hwe = VECTOR_SLOT(conf->hwtable, VECTOR_SIZE(conf->hwtable) - 1);
+	struct hwentry * hwe =
+		VECTOR_SLOT(conf->hwtable, VECTOR_SIZE(conf->hwtable) - 1);
 
-	buff = set_value(strvec);
-	while (getuid_list[i].name) {
-		if (0 == strcmp(getuid_list[i].name, buff)) {
-			hwe->getuid = getuid_list[i].getuid;
-			break;
-		}
-		i++;
-	}
-	free(buff);
+	hwe->getuid = set_value(strvec);
 }
 
 static void
@@ -147,7 +147,7 @@ mp_iopolicy_handler(vector strvec)
 {
 	char * buff;
 	int i = 0;
-	struct hwentry * mpe = VECTOR_SLOT(conf->mptable, VECTOR_SIZE(conf->mptable) - 1);
+	struct mpentry * mpe = VECTOR_SLOT(conf->mptable, VECTOR_SIZE(conf->mptable) - 1);
 
 	buff = set_value(strvec);
 	while (iopolicy_list[i].name) {
@@ -183,7 +183,8 @@ init_keywords(void)
 {
 	keywords = vector_alloc();
 
-	install_keyword_root("device_maps", NULL);
+	install_keyword_root("defaults", NULL);
+	install_keyword("udev_dir", &udev_dir_handler);
 	install_keyword("default_selector", &def_selector_handler);
 	install_keyword("default_selector_args", &def_selector_args_handler);
 	
@@ -196,7 +197,7 @@ init_keywords(void)
 	install_keyword("vendor", &vendor_handler);
 	install_keyword("product", &product_handler);
 	install_keyword("path_grouping_policy", &hw_iopolicy_handler);
-	install_keyword("getuid_function", &hw_getuid_function_handler);
+	install_keyword("getuid_callout", &hw_getuid_callout_handler);
 	install_keyword("path_selector", &hw_selector_handler);
 	install_keyword("path_selector_args", &hw_selector_args_handler);
 	install_sublevel_end();

@@ -24,6 +24,7 @@ struct hwentry {
 /* External vars */ 
 vector hwtable;
 vector blist;
+vector binvec;
 int checkint;
 
 #endif

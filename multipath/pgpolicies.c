@@ -3,7 +3,6 @@
 #include <string.h>
 #include "main.h"
 #include "global.h"
-#include "vector.h"
 #include "memory.h"
 
 #define PATH_STR_SIZE	16
@@ -55,15 +54,16 @@ assemble_map (struct multipath * mp, char * str, vector pg)
 	}
 
 	p = str;
-	p += sprintf (p, " %i", VECTOR_SIZE(pg));
+	p += sprintf(p, " %i", VECTOR_SIZE(pg));
 
 	for (i = 0; i < VECTOR_SIZE(pg); i++) {
 		pgpaths = VECTOR_SLOT(pg, i);
-		p += sprintf (p, " %s %i %i", selector, VECTOR_SIZE(pgpaths), selector_args);
+		p += sprintf(p, " %s %i %i",
+			     selector, VECTOR_SIZE(pgpaths), selector_args);
 
 		for (j = 0; j < VECTOR_SIZE(pgpaths); j++)
-			p += sprintf (p, " %s",
-					(char *)VECTOR_SLOT(pgpaths, j));
+			p += sprintf(p, " %s",
+				     (char *)VECTOR_SLOT(pgpaths, j));
 	}
 }
 
@@ -85,32 +85,32 @@ group_by_tur (struct multipath * mp, char * str) {
 
 	for (i = 0; i < VECTOR_SIZE(mp->paths); i++) {
 		pp = VECTOR_SLOT(mp->paths, i);
-		pathstr = zalloc (PATH_STR_SIZE);
-		strncpy (pathstr, pp->dev, strlen(pp->dev));
+		pathstr = zalloc(PATH_STR_SIZE);
+		strncpy(pathstr, pp->dev_t, strlen(pp->dev_t) - 1);
 
 		if (pp->tur) {
-			vector_alloc_slot (pgpaths_left);
-			vector_set_slot (pgpaths_left, pathstr);
+			vector_alloc_slot(pgpaths_left);
+			vector_set_slot(pgpaths_left, pathstr);
 		} else {
-			vector_alloc_slot (pgpaths_right);
-			vector_set_slot (pgpaths_right, pathstr);
+			vector_alloc_slot(pgpaths_right);
+			vector_set_slot(pgpaths_right, pathstr);
 		}
 	}
 	pg = vector_alloc();
-	vector_alloc_slot (pg);
+	vector_alloc_slot(pg);
 
 	if (!VECTOR_SIZE(pgpaths_left))
-		vector_set_slot (pg, pgpaths_right);
+		vector_set_slot(pg, pgpaths_right);
 
 	else if (!VECTOR_SIZE(pgpaths_right))
-		vector_set_slot (pg, pgpaths_left);
+		vector_set_slot(pg, pgpaths_left);
 
 	else {
-		vector_set_slot (pg, pgpaths_left);
-		vector_alloc_slot (pg);
-		vector_set_slot (pg, pgpaths_right);
+		vector_set_slot(pg, pgpaths_left);
+		vector_alloc_slot(pg);
+		vector_set_slot(pg, pgpaths_right);
 	}
-	assemble_map (mp, str, pg);
+	assemble_map(mp, str, pg);
 }
 
 /*
@@ -130,7 +130,7 @@ group_by_serial (struct multipath * mp, int slot, char * str) {
 	pg = vector_alloc();
 
 	/* init the bitmap */
-	bitmap = zalloc (VECTOR_SIZE(mp->paths) * sizeof (int));
+	bitmap = zalloc(VECTOR_SIZE(mp->paths) * sizeof (int));
 
 	if (slot % 2)
 		goto even;
@@ -144,14 +144,14 @@ group_by_serial (struct multipath * mp, int slot, char * str) {
 
 		/* here, we really got a new pg */
 		pgpaths = vector_alloc();
-		vector_alloc_slot (pg);
-		vector_set_slot (pg, pgpaths);
+		vector_alloc_slot(pg);
+		vector_set_slot(pg, pgpaths);
 
 		/* feed the first path */
-		pathstr = zalloc (PATH_STR_SIZE);
-		strncpy (pathstr, pp->dev, strlen(pp->dev));
-		vector_alloc_slot (pgpaths);
-		vector_set_slot (pgpaths, pathstr);
+		pathstr = zalloc(PATH_STR_SIZE);
+		strncpy(pathstr, pp->dev_t, strlen(pp->dev_t) - 1);
+		vector_alloc_slot(pgpaths);
+		vector_set_slot(pgpaths, pathstr);
 				
 		bitmap[i] = 1;
 
@@ -162,11 +162,12 @@ group_by_serial (struct multipath * mp, int slot, char * str) {
 
 			pp2 = VECTOR_SLOT(mp->paths, k);
 			
-			if (0 == strcmp (pp->serial, pp2->serial)) {
-				pathstr = zalloc (PATH_STR_SIZE);
-				strncpy (pathstr, pp2->dev, strlen(pp2->dev));
-				vector_alloc_slot (pgpaths);
-				vector_set_slot (pgpaths, pathstr);
+			if (0 == strcmp(pp->serial, pp2->serial)) {
+				pathstr = zalloc(PATH_STR_SIZE);
+				strncpy(pathstr, pp2->dev_t,
+					strlen(pp2->dev_t) - 1);
+				vector_alloc_slot(pgpaths);
+				vector_set_slot(pgpaths, pathstr);
 
 				bitmap[k] = 1;
 			}
@@ -183,14 +184,14 @@ even:
 
 		/* here, we really got a new pg */
 		pgpaths = vector_alloc();
-		vector_alloc_slot (pg);
-		vector_set_slot (pg, pgpaths);
+		vector_alloc_slot(pg);
+		vector_set_slot(pg, pgpaths);
 
 		/* feed the first path */
-		pathstr = zalloc (PATH_STR_SIZE);
-		strncpy (pathstr, pp->dev, strlen(pp->dev));
-		vector_alloc_slot (pgpaths);
-		vector_set_slot (pgpaths, pathstr);
+		pathstr = zalloc(PATH_STR_SIZE);
+		strncpy(pathstr, pp->dev_t, strlen(pp->dev_t) - 1);
+		vector_alloc_slot(pgpaths);
+		vector_set_slot(pgpaths, pathstr);
 				
 		bitmap[i] = 1;
 
@@ -201,18 +202,19 @@ even:
 
 			pp2 = VECTOR_SLOT(mp->paths, k);
 			
-			if (0 == strcmp (pp->serial, pp2->serial)) {
-				pathstr = zalloc (PATH_STR_SIZE);
-				strncpy (pathstr, pp2->dev, strlen(pp2->dev));
-				vector_alloc_slot (pgpaths);
-				vector_set_slot (pgpaths, pathstr);
+			if (0 == strcmp(pp->serial, pp2->serial)) {
+				pathstr = zalloc(PATH_STR_SIZE);
+				strncpy(pathstr, pp2->dev_t,
+					strlen(pp2->dev_t) - 1);
+				vector_alloc_slot(pgpaths);
+				vector_set_slot(pgpaths, pathstr);
 
 				bitmap[k] = 1;
 			}
 		}
 	}
-	free (bitmap);
-	assemble_map (mp, str, pg);
+	free(bitmap);
+	assemble_map(mp, str, pg);
 }
 
 /*
@@ -235,15 +237,15 @@ one_path_per_group (struct multipath * mp, char * str)
 		if (0 != pp->sg_id.scsi_type)
 			continue;
 
-		pathstr = zalloc (PATH_STR_SIZE);
-		strncpy (pathstr, pp->dev, strlen(pp->dev));
+		pathstr = zalloc(PATH_STR_SIZE);
+		strncpy(pathstr, pp->dev_t, strlen(pp->dev_t) - 1);
 		pgpaths = vector_alloc();
-		vector_alloc_slot (pgpaths);
-		vector_set_slot (pgpaths, pathstr);
-		vector_alloc_slot (pg);
-		vector_set_slot (pg, pgpaths);
+		vector_alloc_slot(pgpaths);
+		vector_set_slot(pgpaths, pathstr);
+		vector_alloc_slot(pg);
+		vector_set_slot(pg, pgpaths);
 	}
-	assemble_map (mp, str, pg);
+	assemble_map(mp, str, pg);
 }
 
 /*
@@ -260,8 +262,8 @@ one_group (struct multipath * mp, char * str)
 
 	pgpaths = vector_alloc();
 	pg = vector_alloc();
-	vector_alloc_slot (pg);
-	vector_set_slot (pg, pgpaths);
+	vector_alloc_slot(pg);
+	vector_set_slot(pg, pgpaths);
 
 	for (i = 0; i < VECTOR_SIZE(mp->paths); i++) {
 		pp = VECTOR_SLOT(mp->paths, i);
@@ -269,10 +271,10 @@ one_group (struct multipath * mp, char * str)
 		if (0 != pp->sg_id.scsi_type)
 			continue;
 
-		pathstr = zalloc (PATH_STR_SIZE);
-		strncpy (pathstr, pp->dev, strlen(pp->dev));
-		vector_alloc_slot (pgpaths);
-		vector_set_slot (pgpaths, pathstr);
+		pathstr = zalloc(PATH_STR_SIZE);
+		strncpy(pathstr, pp->dev_t, strlen(pp->dev_t) - 1);
+		vector_alloc_slot(pgpaths);
+		vector_set_slot(pgpaths, pathstr);
 	}
-	assemble_map (mp, str, pg);
+	assemble_map(mp, str, pg);
 }

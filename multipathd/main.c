@@ -10,6 +10,11 @@
 #include <syslog.h>
 #include <signal.h>
 #include <wait.h>
+#include <sched.h>
+#include <asm/unistd.h>
+#include <errno.h>
+#include <sys/mount.h>
+#include <sys/mman.h>
 #include "libsysfs/sysfs/libsysfs.h"
 #include "libsysfs/dlist.h"
 
@@ -32,6 +37,7 @@
 #define MULTIPATH "/sbin/multipath"
 #define PIDFILE "/var/run/multipathd.pid"
 #define CONFIGFILE "/etc/multipath.conf"
+#define CALLOUT_DIR "/var/cache/multipathd"
 
 #ifndef DEBUG
 #define DEBUG 1
@@ -39,9 +45,22 @@
 #define LOG(x, y, z...) if (DEBUG>=x) syslog(x, "[%lu] " y, pthread_self(), ##z)
 #define MATCH(x, y) strncmp(x, y, strlen(y)) == 0
 
-/* global */
-int from_sighup;
+/*
+ * for sys_clone use
+ */
+#define __NR_sys_clone __NR_clone 
+static inline _syscall2(int,sys_clone, int,flag, void*,stack);
 
+/*
+ * global vars
+ */
+int from_sighup;
+pthread_mutex_t *event_lock;
+pthread_cond_t *event;
+
+/*
+ * structs
+ */
 struct path
 {
 	int major;
@@ -63,11 +82,11 @@ struct event_thread
 	char mapname[MAPNAMESIZE];
 };
 
-/* global var */
-pthread_mutex_t *event_lock;
-pthread_cond_t *event;
-
-int makenode (char *devnode, int major, int minor)
+/*
+ * helpers functions
+ */
+static int
+makenode (char *devnode, int major, int minor)
 {
 	dev_t dev;
 	
@@ -91,7 +110,8 @@ blacklist (char * dev) {
 	return 0;
 }
 
-static void strvec_free (vector vec)
+static void
+strvec_free (vector vec)
 {
 	int i;
 	char * str;
@@ -103,7 +123,8 @@ static void strvec_free (vector vec)
 	vector_free(vec);
 }
 
-static void pathvec_free (vector vec)
+static void
+pathvec_free (vector vec)
 {
 	int i;
 	struct path * pp;
@@ -114,7 +135,8 @@ static void pathvec_free (vector vec)
 	vector_free(vec);
 }
 
-int select_checkfn(struct path *path_p, char *devname)
+static int
+select_checkfn(struct path *path_p, char *devname)
 {
 	char vendor[8];
 	char product[16];
@@ -122,7 +144,9 @@ int select_checkfn(struct path *path_p, char *devname)
 	int i, r;
 	struct hwentry * hwe;
 
-	/* default checkfn */
+	/*
+	 * default checkfn
+	 */
 	path_p->checkfn = &readsector0;
 	
 	r = get_lun_strings(vendor, product, rev, devname);
@@ -146,7 +170,21 @@ int select_checkfn(struct path *path_p, char *devname)
 	return 0;
 }
 
-void * get_devmaps (void)
+static int
+exit_daemon (int status)
+{
+	if (status != 0)
+		fprintf(stderr, "bad exit status. see daemon.log\n");
+	LOG (2, "umount ramfs");
+	umount(CALLOUT_DIR);
+	LOG (2, "unlink pidfile");
+	unlink (PIDFILE);
+	LOG (1, "--------shut down-------");
+	exit(status);
+}
+
+static void *
+get_devmaps (void)
 {
 	char *devmap;
 	struct dm_task *dmt, *dmt1;
@@ -179,8 +217,9 @@ void * get_devmaps (void)
 	}
 
 	do {
-		/* keep only multipath maps */
-
+		/*
+		 * keep only multipath maps
+		 */
 		names = (void *) names + next;
 		nexttgt = NULL;
 		LOG (3, "iterate on devmap names : %s", names->name);
@@ -227,7 +266,8 @@ out:
 	return devmaps;
 }
 
-int checkpath (struct path *path_p)
+static int
+checkpath (struct path *path_p)
 {
 	char devnode[FILENAMESIZE];
 	int r;
@@ -250,7 +290,8 @@ int checkpath (struct path *path_p)
 	return r;
 }
 
-int updatepaths (struct paths *failedpaths)
+static int
+updatepaths (struct paths *failedpaths)
 {
 	struct path *path_p;
 	struct sysfs_directory * sdir;
@@ -334,7 +375,8 @@ int updatepaths (struct paths *failedpaths)
 	return 0;
 }
 
-int geteventnr (char *name)
+static int
+geteventnr (char *name)
 {
 	struct dm_task *dmt;
 	struct dm_info info;
@@ -365,10 +407,12 @@ out:
 	return info.event_nr;
 }
 
-void *waitevent (void * et)
+static void *
+waitevent (void * et)
 {
 	struct event_thread *waiter;
 
+	mlockall(MCL_CURRENT | MCL_FUTURE);
 	waiter = (struct event_thread *)et;
 	pthread_mutex_lock (waiter->waiter_lock);
 
@@ -392,19 +436,24 @@ out:
 	dm_task_destroy(dmt);
 	LOG (1, "devmap event on %s", waiter->mapname);
 
-	/* tell waiterloop we have an event */
+	/*
+	 * tell waiterloop we have an event
+	 */
 	pthread_mutex_lock (event_lock);
 	pthread_cond_signal(event);
 	pthread_mutex_unlock (event_lock);
 	
-	/* release waiter_lock so that waiterloop knows we are gone */
+	/*
+	 * release waiter_lock so that waiterloop knows we are gone
+	 */
 	pthread_mutex_unlock (waiter->waiter_lock);
 	pthread_exit(waiter->thread);
 
 	return (NULL);
 }
 
-void *waiterloop (void *ap)
+static void *
+waiterloop (void *ap)
 {
 	struct paths *failedpaths;
 	vector devmaps = NULL;
@@ -416,50 +465,65 @@ void *waiterloop (void *ap)
 	char *cmdargs[4] = {MULTIPATH, "-q", "-S"};
 	int i, j, status;
 
-	/* inits */
+	mlockall(MCL_CURRENT | MCL_FUTURE);
+
+	/*
+	 * inits
+	 */
 	failedpaths = (struct paths *)ap;
 	waiters = vector_alloc ();
 	pthread_attr_init (&attr);
 	pthread_attr_setstacksize (&attr, 32 * 1024);
 
 	while (1) {
-		/* upon waiter events and initial startup, do a preliminary
-		   multipath exec, no signal to avoid recursion.
-		   don't run multipath if we are waked from SIGHUP
-		   (oper exec / checkers / hotplug) because it already ran */
-		
+		/*
+		 * upon waiter events and initial startup, do a preliminary
+		 * multipath exec, no signal to avoid recursion.
+		 * don't run multipath if we are waked from SIGHUP
+		 * (oper exec / checkers / hotplug) because it already ran
+		 */
 		if (!from_sighup) {
 			LOG (2, "exec multipath helper");
 			if (fork () == 0)
 				execve (cmdargs[0], cmdargs, NULL);
 			wait (&status);
+			LOG (2, "exec status = %s", status ? "failed" : "ok");
 		} else
 			from_sighup = 0;
 		
-		/* update devmap list */
+		/*
+		 * update devmap list
+		 */
 		LOG (2, "refresh devmaps list");
 		if (devmaps != NULL)
 			strvec_free(devmaps);
 
-		devmaps = get_devmaps();
-
-		if (devmaps == NULL) {
-			LOG (1, "can't get devmaps ... bad bad");
-			exit(1);
+		while ((devmaps = get_devmaps()) == NULL) {
+			/*
+			 * we're not allowed to fail here
+			 */
+			LOG (1, "can't get devmaps ... retry later");
+			sleep(5);
 		}
 
-		/* update failed paths list */
+		/*
+		 * update failed paths list
+		 */
 		LOG (2, "refresh failpaths list");
 		updatepaths (failedpaths);
 		
-		/* start waiters on all devmaps */
+		/*
+		 * start waiters on all devmaps
+		 */
 		LOG (2, "start up event loops");
 
 		for (i = 0; i < VECTOR_SIZE(devmaps); i++) {
 			devmap = VECTOR_SLOT (devmaps, i);
 			
-			/* find out if devmap already has
-			   a running waiter thread */
+			/*
+			 * find out if devmap already has
+			 * a running waiter thread
+			 */
 			for (j = 0; j < VECTOR_SIZE(waiters); j++) {
 				wp = VECTOR_SLOT (waiters, j);
 
@@ -467,7 +531,9 @@ void *waiterloop (void *ap)
 					break;
 			}
 					
-			/* no event_thread struct : init it */
+			/*
+			 * no event_thread struct : init it
+			 */
 			if (j == VECTOR_SIZE(waiters)) {
 				wp = zalloc (sizeof (struct event_thread));
 				strcpy (wp->mapname, devmap);
@@ -478,11 +544,15 @@ void *waiterloop (void *ap)
 				vector_set_slot (waiters, wp);
 			}
 			
-			/* event_thread struct found */
+			/*
+			 * event_thread struct found
+			 */
 			if (j < VECTOR_SIZE(waiters)) {
 				r = pthread_mutex_trylock (wp->waiter_lock);
 
-				/* thread already running : next devmap */
+				/*
+				 * thread already running : next devmap
+				 */
 				if (r)
 					continue;
 				
@@ -493,7 +563,9 @@ void *waiterloop (void *ap)
 			pthread_create (wp->thread, &attr, waitevent, wp);
 			pthread_detach (*wp->thread);
 		}
-		/* wait event condition */
+		/*
+		 * wait event condition
+		 */
 		pthread_mutex_lock (event_lock);
 		pthread_cond_wait(event, event_lock);
 		pthread_mutex_unlock (event_lock);
@@ -502,12 +574,14 @@ void *waiterloop (void *ap)
 	return (NULL);
 }
 
-void *checkerloop (void *ap)
+static void *
+checkerloop (void *ap)
 {
 	struct paths *failedpaths;
 	struct path *path_p;
 	int i;
 
+	mlockall(MCL_CURRENT | MCL_FUTURE);
 	failedpaths = (struct paths *)ap;
 
 	LOG (1, "path checkers start up");
@@ -520,7 +594,9 @@ void *checkerloop (void *ap)
 			path_p = VECTOR_SLOT (failedpaths->pathvec, i);
 			
 			if (checkpath (path_p)) {
-				/* tell waiterloop we have an event */
+				/*
+				 * tell waiterloop we have an event
+				 */
 				LOG (1, "path checker event on device %i:%i",
 					 path_p->major, path_p->minor);
 				pthread_mutex_lock (event_lock);
@@ -535,7 +611,8 @@ void *checkerloop (void *ap)
 	return (NULL);
 }
 
-struct paths *initpaths (void)
+static struct paths *
+initpaths (void)
 {
 	struct paths *failedpaths;
 
@@ -613,7 +690,112 @@ setup_default_hwtable (vector hwtable)
 	VECTOR_ADDHWE(hwtable, "SUN", "T4", 0);
 }
 
-void pidfile (pid_t pid)
+/*
+ * this logic is all about keeping callouts working in case of
+ * system disk outage (think system over SAN)
+ */
+static int
+prepare_namespace(void)
+{
+	mode_t mode;
+	struct stat *buf;
+	char ramfs_args[64];
+	int i;
+	int fd;
+	char * bin;
+	size_t size = 10;
+	struct stat statbuf;
+	
+	buf = malloc (sizeof (struct stat));
+	
+	/*
+	 * create a temp mount point for ramfs
+	 */
+	if (stat (CALLOUT_DIR, buf) < 0) {
+		if (mkdir(CALLOUT_DIR, mode) < 0) {
+			LOG(1, "cannot create " CALLOUT_DIR);
+			return -1;
+		}
+		LOG(3, "created " CALLOUT_DIR);
+	}
+
+	/*
+	 * compute the optimal ramdisk size (TODO)
+	 */
+	for (i = 0; i < VECTOR_SIZE(binvec); i++) {
+		bin = VECTOR_SLOT(binvec, i);
+
+		if ((fd = open(bin, O_RDONLY)) < 0) {
+			LOG(1, "cannot open %s", bin);
+			return -1;
+		}
+		if (fstat(fd, &statbuf) < 0) {
+			LOG(1, "cannot stat %s", bin);
+			return -1;
+		}
+		size += statbuf.st_size;
+		close(fd);
+	}
+	if ((fd = open(MULTIPATH, O_RDONLY)) < 0) {
+		LOG(1, "cannot open %s", bin);
+		return -1;
+	}
+	if (fstat(fd, &statbuf) < 0) {
+		LOG(1, "cannot stat %s", MULTIPATH);
+		return -1;
+	}
+	size += statbuf.st_size;
+	close(fd);
+
+	LOG(3, "computed a ramfs maxsize of %i", size);
+	
+	/*
+	 * mount the ramfs
+	 */
+	sprintf(ramfs_args, "maxsize=%i", size);
+	if (mount(NULL, CALLOUT_DIR, "ramfs", MS_SYNCHRONOUS, ramfs_args) < 0) {
+		LOG(1, "cannot mount ramfs on " CALLOUT_DIR);
+		return -1;
+	}
+	LOG(3, "mounted ramfs on " CALLOUT_DIR);
+
+	/*
+	 * populate the ramfs with callout binaries
+	 */
+	for (i = 0; i < VECTOR_SIZE(binvec); i++) {
+		bin = VECTOR_SLOT(binvec, i);
+		
+		if (copytodir(bin, CALLOUT_DIR) < 0) {
+			LOG(1, "cannot copy %s in ramfs", bin);
+			exit_daemon(1);
+		}
+		LOG(3, "copied %s in ramfs", bin);
+	}
+	if (copytodir(MULTIPATH, CALLOUT_DIR) < 0) {
+		LOG(1, "cannot copy " MULTIPATH " in ramfs");
+		exit_daemon(1);
+	}
+	LOG(3, "copied " MULTIPATH " in ramfs");
+
+	/*
+	 * bind the ramfs to /sbin & /bin
+	 */
+	if (mount(CALLOUT_DIR, "/sbin", NULL, MS_BIND, NULL) < 0) {
+		LOG(1, "cannot bind ramfs on /sbin");
+		return -1;
+	}
+	LOG(3, "bound ramfs on /sbin");
+	if (mount(CALLOUT_DIR, "/bin", NULL, MS_BIND, NULL) < 0) {
+		LOG(1, "cannot bind ramfs on /bin");
+		return -1;
+	}
+	LOG(3, "bound ramfs on /bin");
+
+	return 0;
+}
+
+static void
+pidfile (pid_t pid)
 {
 	FILE *file;
 	struct stat *buf;
@@ -640,7 +822,7 @@ void pidfile (pid_t pid)
 	free (buf);
 }
 
-void *
+static void *
 signal_set(int signo, void (*func) (int))
 {
 	int r;
@@ -659,28 +841,32 @@ signal_set(int signo, void (*func) (int))
 		return (osig.sa_handler);
 }
 
-void sighup (int sig)
+static void
+sighup (int sig)
 {
 	LOG (1, "SIGHUP received from multipath or operator");
 
-	/* signal updatepaths() that we come from SIGHUP */
+	/*
+	 * signal updatepaths() that we come from SIGHUP
+	 */
 	from_sighup = 1;
 
-	/* ask for failedpaths refresh */
+	/*
+	 * ask for failedpaths refresh
+	 */
 	pthread_mutex_lock (event_lock);
 	pthread_cond_signal(event);
 	pthread_mutex_unlock (event_lock);
 }
 
-void sigend (int sig)
+static void
+sigend (int sig)
 {
-	LOG (1, "unlink pidfile");
-	unlink (PIDFILE);
-	LOG (1, "--------shut down-------");
-	exit (0);
+	exit_daemon(0);
 }
 
-void signal_init(void)
+static void
+signal_init(void)
 {
 	signal_set(SIGHUP, sighup);
 	signal_set(SIGINT, sigend);
@@ -688,24 +874,27 @@ void signal_init(void)
 	signal_set(SIGKILL, sigend);
 }
 
-int main (int argc, char *argv[])
+int
+main (int argc, char *argv[])
 {
 	pthread_t wait, check;
 	pthread_attr_t attr;
 	struct paths *failedpaths;
 	pid_t pid;
 
-	pid = fork();
-
-	/* can't fork */
+	pid = sys_clone(CLONE_NEWNS, 0);
 	if (pid < 0)
 		exit (1);
 
-	/* let the parent die happy */
+	/*
+	 * let the parent die happy
+	 */
 	if (pid > 0)
 		exit(0);
 	
-	/* child's play */
+	/*
+	 * child's play
+	 */
 	openlog(argv[0], 0, LOG_DAEMON);
 	LOG(1, "--------start up--------");
 
@@ -717,7 +906,9 @@ int main (int argc, char *argv[])
 	LOG(2, "read " CONFIGFILE);
 	init_data(CONFIGFILE, init_keywords);
 
-	/* fill the voids left in the config file */
+	/*
+	 * fill the voids left in the config file
+	 */
 	if (hwtable == NULL) {
 		hwtable = vector_alloc();
 		setup_default_hwtable(hwtable);
@@ -728,7 +919,18 @@ int main (int argc, char *argv[])
 		setup_default_blist(blist);
 	}
 
-	/* start threads */
+	if (binvec == NULL)
+		binvec = vector_alloc();
+
+	if (prepare_namespace() < 0) {
+		LOG(1, "cannot prepare namespace");
+		exit_daemon(1);
+	}
+
+	mlockall(MCL_CURRENT | MCL_FUTURE);
+	/*
+	 * start threads
+	 */
 	pthread_attr_init(&attr);
 	pthread_attr_setstacksize(&attr, 64 * 1024);
 	
