@@ -8,9 +8,10 @@
 #include <sys/ioctl.h>
 #include <errno.h>
 
-#include "sg_include.h"
 #include "path_state.h"
 #include "checkers.h"
+
+#include "../libmultipath/sg_include.h"
 
 #define TUR_CMD_LEN 6
 #define HEAVY_CHECK_COUNT       10
