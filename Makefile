@@ -2,6 +2,8 @@
 #
 # Copyright (C) 2003 Christophe Varoqui, <christophe.varoqui@free.fr>
 
+VERSION = $(shell basename ${PWD} | cut -d'-' -f3)
+
 BUILDDIRS = klibc libsysfs libdevmapper \
           devmap_name multipath multipathd kpartx
 
@@ -31,9 +33,13 @@ all: recurse
 
 clean:	recurse_clean
 	rm -rf rpms
+	rm -f multipath-tools.spec
 
 install:	recurse_install
 
 uninstall:	recurse_uninstall
 
-rpm:	rpmbuild -bb multipath-tools.spec
+rpm:
+	sed -e "s/__VERSION__/${VERSION}/" \
+	multipath-tools.spec.in > multipath-tools.spec
+	rpmbuild -bb multipath-tools.spec
