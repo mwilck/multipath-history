@@ -52,10 +52,15 @@ path_discovery (vector pathvec, struct config * conf)
 		curpath = find_path_by_dev(pathvec, devp->name);
 
 		if (!curpath) {
-			curpath = zalloc(sizeof(struct path));
-			vector_alloc_slot(pathvec);
-			vector_set_slot(pathvec, curpath);
+			curpath = alloc_path();
 
+			if (!curpath)
+				return 1;
+
+			if (store_path(pathvec, curpath)) {
+				free_path(curpath);
+				return 1;
+			}
 			if(safe_sprintf(curpath->dev, "%s", devp->name)) {
 				fprintf(stderr, "curpath->dev too small\n");
 				exit(1);

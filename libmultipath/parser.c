@@ -25,24 +25,32 @@
 /* local vars */
 static int sublevel = 0;
 
-void
-keyword_alloc(vector keywords, char *string, void (*handler) (vector))
+int
+keyword_alloc(vector keywords, char *string, int (*handler) (vector))
 {
 	struct keyword *keyword;
 
-	vector_alloc_slot(keywords);
-
 	keyword = (struct keyword *) zalloc(sizeof (struct keyword));
+
+	if (!keyword)
+		return 1;
+	
+	if (!vector_alloc_slot(keywords)) {
+		free(keyword);
+		return 1;
+	}
 	keyword->string = string;
 	keyword->handler = handler;
 
 	vector_set_slot(keywords, keyword);
+
+	return 0;
 }
 
-void
-install_keyword_root(char *string, void (*handler) (vector))
+int
+install_keyword_root(char *string, int (*handler) (vector))
 {
-	keyword_alloc(keywords, string, handler);
+	return keyword_alloc(keywords, string, handler);
 }
 
 void
@@ -57,8 +65,8 @@ install_sublevel_end(void)
 	sublevel--;
 }
 
-void
-install_keyword(char *string, void (*handler) (vector))
+int
+install_keyword(char *string, int (*handler) (vector))
 {
 	int i = 0;
 	struct keyword *keyword;
@@ -75,8 +83,11 @@ install_keyword(char *string, void (*handler) (vector))
 	if (!keyword->sub)
 		keyword->sub = vector_alloc();
 
+	if (!keyword->sub)
+		return 1;
+
 	/* add new sub keyword */
-	keyword_alloc(keyword->sub, string, handler);
+	return keyword_alloc(keyword->sub, string, handler);
 }
 
 void
@@ -122,12 +133,22 @@ alloc_strvec(char *string)
 	/* Create a vector and alloc each command piece */
 	strvec = vector_alloc();
 
+	if (!strvec)
+		return NULL;
+
 	in_string = 0;
 	while (1) {
+		if (!vector_alloc_slot(strvec))
+			goto out;
+
 		start = cp;
 		if (*cp == '"') {
 			cp++;
 			token = zalloc(2);
+
+			if (!token)
+				goto out;
+
 			*(token) = '"';
 			*(token + 1) = '\0';
 			if (in_string)
@@ -141,12 +162,13 @@ alloc_strvec(char *string)
 				cp++;
 			strlen = cp - start;
 			token = zalloc(strlen + 1);
+
+			if (!token)
+				goto out;
+
 			memcpy(token, start, strlen);
 			*(token + strlen) = '\0';
 		}
-
-		/* Alloc & set the slot */
-		vector_alloc_slot(strvec);
 		vector_set_slot(strvec, token);
 
 		while (isspace((int) *cp) && *cp != '\0')
@@ -154,6 +176,9 @@ alloc_strvec(char *string)
 		if (*cp == '\0' || *cp == '!' || *cp == '#')
 			return strvec;
 	}
+out:
+	vector_free(strvec);
+	return NULL;
 }
 
 int
@@ -184,6 +209,13 @@ read_value_block(void)
 	vector elements = vector_alloc();
 
 	buf = (char *) zalloc(MAXBUF);
+
+	if (!buf)
+		return NULL;
+
+	if (!elements)
+		goto out;
+
 	while (read_line(buf, MAXBUF)) {
 		vec = alloc_strvec(buf);
 		if (vec) {
@@ -208,9 +240,12 @@ read_value_block(void)
 
 	free(buf);
 	return elements;
+out:
+	free(buf);
+	return NULL;
 }
 
-void
+int
 alloc_value_block(vector strvec, void (*alloc_func) (vector))
 {
 	char *buf;
@@ -218,6 +253,10 @@ alloc_value_block(vector strvec, void (*alloc_func) (vector))
 	vector vec = NULL;
 
 	buf = (char *) zalloc(MAXBUF);
+
+	if (!buf)
+		return 1;
+
 	while (read_line(buf, MAXBUF)) {
 		vec = alloc_strvec(buf);
 		if (vec) {
@@ -235,6 +274,7 @@ alloc_value_block(vector strvec, void (*alloc_func) (vector))
 		memset(buf, 0, MAXBUF);
 	}
 	free(buf);
+	return 0;
 }
 
 void *
@@ -275,23 +315,27 @@ set_value(vector strvec)
 
 /* non-recursive configuration stream handler */
 static int kw_level = 0;
-void
+int
 process_stream(vector keywords)
 {
 	int i;
+	int r = 0;
 	struct keyword *keyword;
 	char *str;
 	char *buf;
 	vector strvec;
 
 	buf = zalloc(MAXBUF);
+
+	if (!buf)
+		return 1;
+
 	while (read_line(buf, MAXBUF)) {
 		strvec = alloc_strvec(buf);
 		memset(buf,0, MAXBUF);
 
-		if (!strvec) {
+		if (!strvec)
 			continue;
-		}
 
 		str = VECTOR_SLOT(strvec, 0);
 
@@ -305,11 +349,11 @@ process_stream(vector keywords)
 
 			if (!strcmp(keyword->string, str)) {
 				if (keyword->handler)
-					(*keyword->handler) (strvec);
+					r += (*keyword->handler) (strvec);
 
 				if (keyword->sub) {
 					kw_level++;
-					process_stream(keyword->sub);
+					r += process_stream(keyword->sub);
 					kw_level--;
 				}
 				break;
@@ -320,18 +364,19 @@ process_stream(vector keywords)
 	}
 
 	free(buf);
-	return;
-
+	return r;
 }
 
 /* Data initialization */
-void
+int
 init_data(char *conf_file, vector (*init_keywords) (void))
 {
+	int r;
+
 	stream = fopen(conf_file, "r");
 	if (!stream) {
 		syslog(LOG_WARNING, "Configuration file open problem");
-		return;
+		return 1;
 	}
 
 	/* Init Keywords structure */
@@ -343,7 +388,9 @@ init_data(char *conf_file, vector (*init_keywords) (void))
 */
 
 	/* Stream handling */
-	process_stream(keywords);
+	r = process_stream(keywords);
 	fclose(stream);
 	free_keywords(keywords);
+
+	return r;
 }
