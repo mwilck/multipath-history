@@ -1,3 +1,8 @@
+	* add a StorageTek array in the sample multipath.conf
+	* [multipathd] strcmp fix from <j@pureftpd.org>
+	* [multipathd] convert to vector api
+	* [multipathd] add a configfile option for path checking
+	  interval. See sample configfile for synthax.
 2004-06-07 multipath-tools-0.2.2
 	* [multipath] leave out 2.4 compat code. Is there
 	  interest anyway ?
