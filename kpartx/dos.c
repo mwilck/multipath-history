@@ -1,4 +1,5 @@
 #include "kpartx.h"
+#include "byteorder.h"
 #include <stdio.h>
 #include "dos.h"
 
@@ -18,7 +19,7 @@ read_extended_partition(int fd, struct partition *ep,
 	int moretodo = 1;
 	int i, n=0;
 
-	here = start = ep->start_sect;
+	here = start = le32_to_cpu(ep->start_sect);
 
 	while (moretodo) {
 		moretodo = 0;
@@ -38,8 +39,8 @@ read_extended_partition(int fd, struct partition *ep,
 			if (p->nr_sects == 0 || is_extended(p->sys_type))
 				continue;
 			if (n < ns) {
-				sp[n].start = here + p->start_sect;
-				sp[n].size = p->nr_sects;
+				sp[n].start = here + le32_to_cpu(p->start_sect);
+				sp[n].size = le32_to_cpu(p->nr_sects);
 				n++;
 			} else {
 				fprintf(stderr,
@@ -52,7 +53,7 @@ read_extended_partition(int fd, struct partition *ep,
 		p -= 2;
 		for (i=0; i<2; i++, p++) {
 			if(p->nr_sects != 0 && is_extended(p->sys_type)) {
-				here = start + p->start_sect;
+				here = start + le32_to_cpu(p->start_sect);
 				moretodo = 1;
 				break;
 			}
@@ -91,8 +92,8 @@ read_dos_pt(int fd, struct slice all, struct slice *sp, int ns) {
 	for (i=0; i<4; i++) {
 		/* always add, even if zero length */
 		if (n < ns) {
-			sp[n].start = p->start_sect;
-			sp[n].size = p->nr_sects;
+			sp[n].start =  le32_to_cpu(p->start_sect);
+			sp[n].size = le32_to_cpu(p->nr_sects);
 			n++;
 		} else {
 			fprintf(stderr,

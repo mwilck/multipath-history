@@ -31,6 +31,13 @@
 #include "lopart.h"
 #include "xstrncpy.h"
 
+#if !defined (__alpha__) && !defined (__ia64__) && !defined (__x86_64__) \
+        && !defined (__s390x__)
+#define int2ptr(x)	(x)
+#else
+#define int2ptr(x)	((void *) ((long) x))
+#endif
+
 static char *
 xstrdup (const char *s)
 {
@@ -244,7 +251,7 @@ set_loop (const char *device, const char *file, int offset, int *loopro)
 	loopinfo.lo_encrypt_type = LO_CRYPT_NONE;
 	loopinfo.lo_encrypt_key_size = 0;
 
-	if (ioctl (fd, LOOP_SET_FD, ffd) < 0) {
+	if (ioctl (fd, LOOP_SET_FD, int2ptr(ffd)) < 0) {
 		perror ("ioctl: LOOP_SET_FD");
 		close (fd);
 		close (ffd);
