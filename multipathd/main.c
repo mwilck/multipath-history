@@ -34,8 +34,8 @@
 #ifndef DEBUG
 #define DEBUG 1
 #endif
-#define LOG(x, y, z...) if (DEBUG >= x) syslog(x, y, ##z)
-#define MATCH(x, y) strncmp(x, y, sizeof(y)) == 0
+#define LOG(x, y, z...) if (DEBUG>=x) syslog(x, "[%lu] " y, pthread_self(), ##z)
+#define MATCH(x, y) strncmp(x, y, strlen(y)) == 0
 
 /* global */
 int from_sighup;
@@ -107,15 +107,15 @@ int select_checkfn(struct path *path_p, char *devname)
 	r = get_lun_strings(vendor, product, rev, devname);
 
 	if (r) {
-		LOG(2, "[select_checkfn] can not get strings");
+		LOG(2, "can not get device strings");
 		return r;
 	}
 
 	for (i = 0; i < VECTOR_SIZE(hwtable); i++) {
 		hwe = VECTOR_SLOT(hwtable, i);
-		if (MATCH(vendor, hwe->vendor) &&
-		    MATCH(product, hwe->product)) {
-			LOG (2, "[select_checkfn] set %s path checker for %s",
+		if (MATCH(hwe->vendor, vendor) &&
+		    MATCH(hwe->product, product)) {
+			LOG (2, "set %s path checker for %s",
 			     checker_list[hwe->checker_index].name,
 			     devname);
 			path_p->checkfn = checker_list[hwe->checker_index].checker;
@@ -155,7 +155,7 @@ int get_devmaps (struct devmap *devmaps)
 	}
 
 	if (!names->dev) {
-		LOG (1, "[get_devmaps] no devmap found");
+		LOG (1, "no devmap found");
 		goto out;
 	}
 
@@ -166,34 +166,31 @@ int get_devmaps (struct devmap *devmaps)
 
 		names = (void *) names + next;
 		nexttgt = NULL;
-		LOG (3, "[get_devmaps] iterate on devmap names : %s", names->name);
+		LOG (3, "iterate on devmap names : %s", names->name);
 
-		LOG (3, "[get_devmaps]  dm_task_create(DM_DEVICE_STATUS)");
 		if (!(dmt1 = dm_task_create(DM_DEVICE_STATUS)))
 			goto out1;
 		
-		LOG (3, "[get_devmaps]  dm_task_set_name(dmt1, names->name)");
 		if (!dm_task_set_name(dmt1, names->name))
 			goto out1;
 		
-		LOG (3, "[get_devmaps]  dm_task_run(dmt1)");
 		if (!dm_task_run(dmt1))
 			goto out1;
-		LOG (3, "[get_devmaps]  DM_DEVICE_STATUS ioctl done");
+
+		LOG (3, "DM_DEVICE_STATUS ioctl done");
 		do {
-			LOG (3, "[get_devmaps]   iterate on devmap's targets");
+			LOG (3, "iterate on devmap's targets");
 			nexttgt = dm_get_next_target(dmt1, nexttgt,
 						   &start,
 						   &length,
 						   &target_type,
 						   &params);
 
-
-			LOG (3, "[get_devmaps]   test target_type existence");
+			LOG (3, "test target_type existence");
 			if (!target_type)
 				goto out1;
 			
-			LOG (3, "[get_devmaps]   test target_type is multipath");
+			LOG (3, "test if target_type is multipath");
 			if (!strncmp (target_type, "multipath", 9)) {
 				strcpy (devmaps_p->mapname, names->name);
 				devmaps_p++;
@@ -217,8 +214,6 @@ out1:
 
 out:
 	dm_task_destroy(dmt);
-
-	LOG (3, "[get_devmaps] done");
 	return r;
 }
 
@@ -232,15 +227,16 @@ int checkpath (struct path *path_p)
 	r = makenode (devnode, path_p->major, path_p->minor);
 
 	if (r < 0) {
-		LOG (2, "[checkpath] can not make node for %s", devnode);
+		LOG (2, "can not create %s", devnode);
 		return r;
 	}
 
 	r = path_p->checkfn(devnode);
 	unlink (devnode);
 				
-	LOG (2, "[checkpath] checked path %i:%i => %i",
-	     path_p->major, path_p->minor, r);
+	LOG (2, "checked path %i:%i => %s",
+	     path_p->major, path_p->minor,
+	     r ? "up" : "down");
 
 	return r;
 }
@@ -258,7 +254,7 @@ int updatepaths (struct devmap *devmaps, struct paths *failedpaths)
 	char word[5];
 	
 	if (sysfs_get_mnt_path (sysfs_path, FILENAMESIZE)) {
-		LOG (2, "[updatepaths] can not find sysfs mount point");
+		LOG (2, "can not find sysfs mount point");
 		return 1;
 	}
 
@@ -272,7 +268,7 @@ int updatepaths (struct devmap *devmaps, struct paths *failedpaths)
 
 	dlist_for_each_data (sdir->subdirs, devp, struct sysfs_directory) {
 		if (blacklist (devp->name)) {
-			LOG (2, "[updatepaths] %s blacklisted", devp->name);
+			LOG (3, "%s blacklisted", devp->name);
 			continue;
 		}
 
@@ -284,9 +280,11 @@ int updatepaths (struct devmap *devmaps, struct paths *failedpaths)
 		sprintf(attr_path, "%s/block/%s/device/generic/dev",
 			sysfs_path, devp->name);
 
-		memset (attr_buff, 0, sizeof (attr_buff));
-		if (0 > sysfs_read_attribute_value(attr_path, attr_buff, 11))
-			return 1;
+		if (0 > sysfs_read_attribute_value(attr_path, attr_buff, 17)) {
+			LOG (3, "no such attribute : %s",
+				attr_path);
+			continue;
+		}
 
 		p1 = &word[0];
 		p2 = &attr_buff[0];
@@ -416,7 +414,7 @@ void *waiterloop (void *ap)
 		   don't run multipath if we are waked from SIGHUP
 		   because it already ran */
 		if (!from_sighup) {
-			LOG (1, "[waiterloop] exec multipath");
+			LOG (2, "exec multipath helper");
 			if (fork () == 0)
 				execve (cmdargs[0], cmdargs, NULL);
 			wait (&status);
@@ -424,7 +422,7 @@ void *waiterloop (void *ap)
 			from_sighup = 0;
 		
 		/* update devmap list */
-		LOG (1, "[waiterloop] refresh devmaps list");
+		LOG (2, "refresh devmaps list");
 		get_devmaps (devmaps);
 
 		/* update failed paths list */
@@ -476,8 +474,6 @@ out:
 		pthread_mutex_lock (event_lock);
 		pthread_cond_wait(event, event_lock);
 		pthread_mutex_unlock (event_lock);
-
-		LOG (1, "[waiterloop] event caught");
 	}
 
 	return (NULL);
@@ -494,7 +490,7 @@ void *checkerloop (void *ap)
 
 	failedpaths = (struct paths *)ap;
 
-	LOG (1, "[checker thread] path checkers start up");
+	LOG (1, "path checkers start up");
 
 	while (1) {
 		path_p = failedpaths->paths_h;
@@ -556,7 +552,7 @@ void pidfile (pid_t pid)
 	buf = malloc (sizeof (struct stat));
 
 	if (!stat (PIDFILE, buf)) {
-		LOG(1, "[master thread] already running : out");
+		LOG(1, "already running : out");
 		free (buf);
 		exit (1);
 	}
@@ -565,7 +561,7 @@ void pidfile (pid_t pid)
 	pid = setsid ();
 
 	if (pid < -1) {
-		LOG(1, "[master thread] setsid() error");
+		LOG(1, "setsid() error");
 		exit (1);
 	}
 	
@@ -596,7 +592,7 @@ signal_set(int signo, void (*func) (int))
 
 void sighup (int sig)
 {
-	LOG (1, "[master thread] SIGHUP caught : refresh devmap list");
+	LOG (1, "SIGHUP received from multipath or operator");
 
 	/* signal updatepaths() that we come from SIGHUP */
 	from_sighup = 1;
@@ -609,9 +605,9 @@ void sighup (int sig)
 
 void sigend (int sig)
 {
-	LOG (1, "[master thread] unlink pidfile");
+	LOG (1, "unlink pidfile");
 	unlink (PIDFILE);
-	LOG (1, "[master thread] --------shut down-------");
+	LOG (1, "--------shut down-------");
 	exit (0);
 }
 
@@ -642,7 +638,7 @@ int main (int argc, char *argv[])
 	
 	/* child's play */
 	openlog (argv[0], 0, LOG_DAEMON);
-	LOG (1, "[master thread] --------start up--------");
+	LOG (1, "--------start up--------");
 
 	pidfile (pid);
 	signal_init ();

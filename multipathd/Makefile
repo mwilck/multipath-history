@@ -7,7 +7,7 @@ bindir = /usr/bin
 mandir = /usr/share/man/man8
 rcdir = /etc/init.d
 
-CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes -DDEBUG=2 -DFLOATING_STACKS
+CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes -DDEBUG=1 -DFLOATING_STACKS
 LDFLAGS = -lpthread -ldevmapper -lsysfs
 
 OBJS = main.o devinfo.o checkers.o parser.o vector.o dict.o memory.o
