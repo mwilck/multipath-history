@@ -25,7 +25,7 @@
 
 /* global defs */
 #define WWID_SIZE	64
-#define SERIAL_SIZE	15
+#define SERIAL_SIZE	17
 #define NODE_NAME_SIZE	19
 #define PATH_STR_SIZE   16
 #define PARAMS_SIZE	256
