@@ -1,8 +1,9 @@
+#include <syslog.h>
+#include <checkers.h>
+
 #include "parser.h"
 #include "memory.h"
 #include "hwtable.h"
-#include "log.h"
-#include "libcheckers/checkers.h"
 
 /*
  * helper function to draw a list of callout binaries found in the config file
@@ -39,7 +40,7 @@ push_callout(char * callout)
 	 */
 	bin = MALLOC(p - callout);
 	strncpy(bin, callout, p - callout);
-	LOG(3, "add %s to binvec", bin);
+	syslog(LOG_DEBUG, "add %s to binvec", bin);
 
 	vector_alloc_slot(binvec);
 	vector_set_slot(binvec, bin);

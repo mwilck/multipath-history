@@ -4,9 +4,9 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
-#include "libsysfs/sysfs/libsysfs.h"
-#include "log.h"
+#include <sysfs/libsysfs.h>
 
+#include "safe.h"
 #include "devinfo.h"
 
 #define FILE_NAME_SIZE 255

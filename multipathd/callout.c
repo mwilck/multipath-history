@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <sys/wait.h>
 #include <errno.h>
-#include "log.h"
+#include <syslog.h>
 
 #define PROGRAM_SIZE	100
 #define FIELD_PROGRAM
@@ -43,7 +43,7 @@ int execute_program(char *path, char *value, int len)
 		} else {
 				argv[i] = strsep(&pos, " ");
 			}
-			LOG(3, "arg[%i] '%s'", i, argv[i]);
+			syslog(LOG_DEBUG, "arg[%i] '%s'", i, argv[i]);
 			i++;
 		}
 	}
@@ -51,7 +51,7 @@ int execute_program(char *path, char *value, int len)
 
 	retval = pipe(fds);
 	if (retval != 0) {
-		LOG(3, "pipe failed");
+		syslog(LOG_WARNING, "pipe failed");
 		return -1;
 	}
 
@@ -66,13 +66,14 @@ int execute_program(char *path, char *value, int len)
 		/* dup write side of pipe to STDOUT */
 		dup(fds[1]);
 
-		LOG(3, "execute '%s' with given arguments", argv[0]);
+		syslog(LOG_DEBUG, "execute '%s' with given arguments", argv[0]);
 		retval = execv(argv[0], argv);
 
-		LOG(3, FIELD_PROGRAM " execution of '%s' failed", path);
+		syslog(LOG_DEBUG, FIELD_PROGRAM " execution of '%s' failed",
+		       path);
 		exit(-1);
 	case -1:
-		LOG(3, "fork failed");
+		syslog(LOG_WARNING, "fork failed");
 		return -1;
 	default:
 		/* parent reads from fds[0] */
@@ -86,27 +87,29 @@ int execute_program(char *path, char *value, int len)
 
 			i += count;
 			if (i >= len-1) {
-				LOG(3, "result len %d too short", len);
+				syslog(LOG_WARNING, "result len %d too short",
+				       len);
 				retval = -1;
 				break;
 			}
 		}
 
 		if (count < 0) {
-			LOG(3, "read failed with '%s'", strerror(errno));
+			syslog(LOG_WARNING, "read failed with '%s'",
+			       strerror(errno));
 			retval = -1;
 		}
 
 		if (i > 0 && value[i-1] == '\n')
 			i--;
 		value[i] = '\0';
-		LOG(3, "result is '%s'", value);
+		syslog(LOG_DEBUG, "result is '%s'", value);
 
 		close(fds[0]);
 		wait(&status);
 
 		if (!WIFEXITED(status) || (WEXITSTATUS(status) != 0)) {
-			LOG(3, "exec program status 0x%x", status);
+			syslog(LOG_DEBUG, "exec program status 0x%x", status);
 			retval = -1;
 		}
 	}
