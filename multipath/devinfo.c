@@ -98,88 +98,92 @@ get_serial (char * str, char * devname)
 int
 get_lun_strings(char * vendor_id, char * product_id, char * rev, char * devname)
 {
-        int fd;
-        char buff[36];
-        char attr_path[FILE_NAME_SIZE];
+	int fd;
+	char buff[36];
+	char attr_path[FILE_NAME_SIZE];
+	char attr_buff[17];
 	char sysfs_path[FILE_NAME_SIZE];
-        char basedev[FILE_NAME_SIZE];
+	char basedev[FILE_NAME_SIZE];
                                                                                                                  
 	if (0 == sysfs_get_mnt_path(sysfs_path, FILE_NAME_SIZE)) {
-                /* sysfs style */
-                basename(devname, basedev);
+		/* sysfs style */
+		basename(devname, basedev);
  
-                sprintf(attr_path, "%s/block/%s/device/vendor",
-                        sysfs_path, basedev);
-                if (0 > sysfs_read_attribute_value(attr_path,
-                    vendor_id, 8)) return 0;
+		sprintf(attr_path, "%s/block/%s/device/vendor",
+			sysfs_path, basedev);
+		if (0 > sysfs_read_attribute_value(attr_path,
+			attr_buff, 17)) return 0;
+		memcpy (vendor_id, attr_buff, 8);
  
-                sprintf(attr_path, "%s/block/%s/device/model",
-                        sysfs_path, basedev);
-                if (0 > sysfs_read_attribute_value(attr_path,
-                    product_id, 16)) return 0;
+		sprintf(attr_path, "%s/block/%s/device/model",
+			sysfs_path, basedev);
+		if (0 > sysfs_read_attribute_value(attr_path,
+			attr_buff, 17)) return 0;
+		memcpy (product_id, attr_buff, 16);
  
-                sprintf(attr_path, "%s/block/%s/device/rev",
-                        sysfs_path, basedev);
-                if (0 > sysfs_read_attribute_value(attr_path,
-                    rev, 4)) return 0;
-        } else {
-                /* ioctl style */
-                if ((fd = open(devname, O_RDONLY)) < 0)
-                        return 0;
-                if (0 != do_inq(fd, 0, 0, 0, buff, 36, 1))
-                        return 0;
-                memcpy(vendor_id, &buff[8], 8);
-                memcpy(product_id, &buff[16], 16);
-                memcpy(rev, &buff[32], 4);
-                close(fd);
-                return 1;
-        }
-        return 0;
+		sprintf(attr_path, "%s/block/%s/device/rev",
+			sysfs_path, basedev);
+		if (0 > sysfs_read_attribute_value(attr_path,
+			attr_buff, 17)) return 0;
+		memcpy (rev, attr_buff, 4);
+	} else {
+		/* ioctl style */
+		if ((fd = open(devname, O_RDONLY)) < 0)
+			return 0;
+		if (0 != do_inq(fd, 0, 0, 0, buff, 36, 1))
+			return 0;
+		memcpy(vendor_id, &buff[8], 8);
+		memcpy(product_id, &buff[16], 16);
+		memcpy(rev, &buff[32], 4);
+		close(fd);
+		return 1;
+	}
+	return 0;
 }
 
 static void
 sprint_wwid(char * buff, const char * str)
 {
-        int i;
-        const char *p;
-        char *cursor;
-        unsigned char c;
+	int i;
+	const char *p;
+	char *cursor;
+	unsigned char c;
                                                                                                                  
-        p = str;
-        cursor = buff;
-        for (i = 0; i <= WWID_SIZE / 2 - 1; i++) {
-                c = *p++;
-                sprintf(cursor, "%.2x", (int) (unsigned char) c);
-                cursor += 2;
-        }
-        buff[WWID_SIZE - 1] = '\0';
+	p = str;
+	cursor = buff;
+	for (i = 0; i <= WWID_SIZE / 2 - 1; i++) {
+		c = *p++;
+		sprintf(cursor, "%.2x", (int) (unsigned char) c);
+		cursor += 2;
+	}
+	buff[WWID_SIZE - 1] = '\0';
 }
 
 long
 get_disk_size (char * devname) {
-        long size;
-        int fd;
-        char attr_path[FILE_NAME_SIZE];
-        char sysfs_path[FILE_NAME_SIZE];
-        char buff[FILE_NAME_SIZE];
-        char basedev[FILE_NAME_SIZE];
+	long size;
+	int fd;
+	char attr_path[FILE_NAME_SIZE];
+	char sysfs_path[FILE_NAME_SIZE];
+	char buff[FILE_NAME_SIZE];
+	char basedev[FILE_NAME_SIZE];
                                                                                                                  
-        if (0 == sysfs_get_mnt_path(sysfs_path, FILE_NAME_SIZE)) {
-                basename(devname, basedev);
-                sprintf(attr_path, "%s/block/%s/size",
-                        sysfs_path, basedev);
-                if (0 > sysfs_read_attribute_value(attr_path, buff,
-                                         FILE_NAME_SIZE * sizeof(char)))
-                        return -1;
-                size = atoi(buff);
-                return size;
-        } else {
-                if ((fd = open(devname, O_RDONLY)) < 0)
-                        return -1;
-                if(!ioctl(fd, BLKGETSIZE, &size))
-                        return size;
-        }
-        return -1;
+	if (0 == sysfs_get_mnt_path(sysfs_path, FILE_NAME_SIZE)) {
+		basename(devname, basedev);
+		sprintf(attr_path, "%s/block/%s/size",
+			sysfs_path, basedev);
+		if (0 > sysfs_read_attribute_value(attr_path, buff,
+			FILE_NAME_SIZE * sizeof(char)))
+			return -1;
+		size = atoi(buff);
+		return size;
+	} else {
+		if ((fd = open(devname, O_RDONLY)) < 0)
+			return -1;
+		if(!ioctl(fd, BLKGETSIZE, &size))
+			return size;
+	}
+	return -1;
 }
 
 int

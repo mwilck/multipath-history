@@ -41,9 +41,9 @@
 
 /* not nice */
 void *getuid_list[] = {
-	&get_null_uid,
-	&get_evpd_wwid,
-	NULL,
+	&get_null_uid,	/* returns 0x0 */
+	&get_evpd_wwid,	/* returns the LU WWID stored in EVPD page 0x83 */
+	NULL,		/* array terminator */
 };
         
 static int
@@ -148,6 +148,7 @@ devinfo (struct path *curpath, struct hwentry * hwtable)
 	curpath->tur = do_tur (curpath->sg_dev);
 
 	for (i = 0; hwtable[i].getuid; i++) {
+
 		if (strncmp (curpath->vendor_id, hwtable[i].vendor, 8) == 0 &&
 		    strncmp (curpath->product_id, hwtable[i].product, 16) == 0) {
 			
@@ -163,7 +164,6 @@ devinfo (struct path *curpath, struct hwentry * hwtable)
 
 	return 0;
 }
-
 
 static int
 get_all_paths_sysfs (struct env * conf, struct path * all_paths)

@@ -16,6 +16,7 @@
 	{"SGI     ", "TP9300          ", MULTIBUS, &get_evpd_wwid}, \
 	{"SGI     ", "TP9400          ", MULTIBUS, &get_evpd_wwid}, \
 	{"SGI     ", "TP9500          ", MULTIBUS, &get_evpd_wwid}, \
+	{"3PARdata", "VV              ", GROUP_BY_TUR, &get_evpd_wwid}, \
 	{"", "", 0, NULL}, \
 }; \
 
