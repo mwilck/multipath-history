@@ -1,5 +1,6 @@
 #include "kpartx.h"
 #include <stdio.h>
+#include <sys/types.h>
 #include <time.h>		/* time_t */
 
 #define SOLARIS_X86_NUMSLICE	8
