@@ -4,6 +4,8 @@
 
 include ../Makefile.inc
 
+CFLAGS = ${REQFLAGS} ${OPTFLAGS}
+
 OBJS = dlist.o \
        sysfs_dir.o \
        sysfs_utils.o

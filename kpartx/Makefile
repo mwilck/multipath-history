@@ -1,17 +1,16 @@
 EXEC        = kpartx
 
-#klibcarch   = $(klibcdir)/klibc/arch/$(arch)/include
-
 include ../Makefile.inc
 
-OBJ = bsd.o dos.o kpartx.o solaris.o unixware.o gpt.o crc32.o lopart.o xstrncpy.o
+OBJS = bsd.o dos.o kpartx.o solaris.o unixware.o gpt.o crc32.o lopart.o xstrncpy.o
+CFLAGS = -I. ${REQFLAGS} ${OPTFLAGS}
 
-$(EXEC): $(OBJ)
-	$(LD) -o $(EXEC) $(CRT0) $(OBJ) $(DMOBJS) $(LIB) $(LIBGCC)
+$(EXEC): $(OBJS)
+	$(LD) -o $(EXEC) $(CRT0) $(OBJS) $(DMOBJS) $(KLIBC) $(LIBGCC)
 	$(STRIP) $(EXEC)
 
 clean:
-	rm -f $(OBJ) *.o $(EXEC) *~
+	rm -f $(OBJS) *.o $(EXEC) *~
 
 install:
 	install -d $(DESTDIR)$(bindir)
@@ -20,4 +19,4 @@ install:
 uninstall:
 	rm $(DESTDIR)$(bindir)/$(EXEC)
 
-$(OBJ): kpartx.h
+$(OBJS): kpartx.h

@@ -7,13 +7,13 @@ DEBUG = 0
 
 include ../Makefile.inc
 
-CFLAGS += -I$(klibcdir)/klibc/arch/$(arch)/include -DDEBUG=${DEBUG}
+CFLAGS = -I../libsysfs ${REQFLAGS} ${OPTFLAGS} -DDEBUG=${DEBUG}
 
 OBJS = pgpolicies.o devinfo.o main.o callout.o \
        vector.o parser.o dict.o memory.o
 
 $(EXEC): $(OBJS)
-	$(LD) -o $(EXEC) $(CRT0) $(OBJS) $(SYSFSOBJS) $(DMOBJS) $(LIB) $(LIBGCC)
+	$(LD) -o $(EXEC) $(CRT0) $(OBJS) $(SYSFSOBJS) $(DMOBJS) $(KLIBC) $(LIBGCC)
 	$(STRIP) $(EXEC)
 	$(GZIP) $(EXEC).8 > $(EXEC).8.gz
 

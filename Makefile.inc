@@ -2,40 +2,19 @@
 #
 # Copyright (C) 2004 Christophe Varoqui, <christophe.varoqui@free.fr>
 
-# directories
+SRCROOT=../klibc
+
+include ${SRCROOT}/MCONFIG
+
 prefix      = 
 exec_prefix = ${prefix}
 bindir      = ${exec_prefix}/sbin
 libdmdir    = ../libdevmapper
-klibcdir    = ../klibc
 sysfsdir    = ../libsysfs
 mandir      = /usr/share/man/man8
-arch        = ${shell $(CC) -dumpmachine | sed \
-              -e s'/-.*//' -e 's/i.86/i386/' -e 's/sparc.*/sparc/' \
-              -e 's/arm.*/arm/g' -e 's/m68k.*/m68k/' -e 's/powerpc/ppc/g'}
 
-# tools
-CC          = gcc
 GZIP        = /bin/gzip -9 -c
 STRIP       = strip --strip-all -R .comment -R .note
-
-# arch specific stuff
-include ${klibcdir}/klibc/arch/${arch}/MCONFIG
-
-# compilation params
-GCCINCDIR := ${shell unset LANG;$(CC) -print-search-dirs | sed -ne "s/install: \(.*\)/\1include/gp"}
-KERNEL_BUILD = /lib/modules/${shell uname -r}/build
-KERNEL_SOURCE = /lib/modules/${shell uname -r}/source
-CFLAGS = -pipe -g -O2 -Wall -Wunused -Wstrict-prototypes -nostdinc \
-         -I$(klibcdir)/include \
-	 -I$(klibcdir)/include/bits$(BITSIZE) \
-	 -I$(klibcdir)/include/arch/$(arch) \
-         -I$(GCCINCDIR) -I$(KERNEL_BUILD)/include -I$(sysfsdir) -I. \
-         -I$(KERNEL_SOURCE)/include -I$(KERNEL_BUILD)/include2
-
-CRT0 = $(klibcdir)/klibc/crt0.o
-LIB = $(klibcdir)/klibc/libc.a
-LIBGCC := $(shell $(CC) -print-libgcc-file-name )
 
 DMOBJS = $(libdmdir)/libdm-common.o \
 	 $(libdmdir)/ioctl/libdm-iface.o
@@ -43,4 +22,3 @@ DMOBJS = $(libdmdir)/libdm-common.o \
 SYSFSOBJS = $(sysfsdir)/dlist.o \
 	    $(sysfsdir)/sysfs_dir.o \
             $(sysfsdir)/sysfs_utils.o
-
