@@ -20,13 +20,12 @@
 #define MSG_TUR_DOWN	"tur checker reports path is down"
 
 struct tur_checker_context {
-	int fd;
 	int run_count;
 };
 
 
 extern int
-tur (char *devt, char *msg, void **context)
+tur (int fd, char *msg, void **context)
 {
         unsigned char turCmdBlk[TUR_CMD_LEN] = { 0x00, 0, 0, 0, 0, 0 };
         struct sg_io_hdr io_hdr;
@@ -61,14 +60,10 @@ tur (char *devt, char *msg, void **context)
 		ctxt->run_count = 0;
 		/* do stuff */
 	}
-	if (!ctxt->fd) {
-		if (devnode(CREATE_NODE, devt)) {
-			MSG("cannot create node");
-			ret = -1;
-			goto out;
-		}
-		ctxt->fd = devnode(OPEN_NODE, devt);
-		devnode(UNLINK_NODE, devt);
+	if (fd <= 0) {
+		MSG("no usable fd");
+		ret = -1;
+		goto out;
 	}
 	
         memset(&io_hdr, 0, sizeof (struct sg_io_hdr));
@@ -80,7 +75,7 @@ tur (char *devt, char *msg, void **context)
         io_hdr.sbp = sense_buffer;
         io_hdr.timeout = 20000;
         io_hdr.pack_id = 0;
-        if (ioctl(ctxt->fd, SG_IO, &io_hdr) < 0) {
+        if (ioctl(fd, SG_IO, &io_hdr) < 0) {
 		MSG(MSG_TUR_DOWN);
                 ret = PATH_DOWN;
 		goto out;
@@ -98,9 +93,8 @@ out:
 	 * caller told us he doesn't want to keep the context :
 	 * free it
 	 */
-	if (!context) {
-		close(ctxt->fd);
+	if (!context)
 		free(ctxt);
-	}
+
 	return(ret);
 }

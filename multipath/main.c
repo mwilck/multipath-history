@@ -836,7 +836,7 @@ update_pathvec (vector pathvec)
 			devinfo(pp);
 		}
 		if (pp->state == PATH_UNCHECKED)
-			pp->state = pp->checkfn(pp->dev_t, NULL, NULL);
+			pp->state = pp->checkfn(pp->fd, NULL, NULL);
 	}
 	return 0;
 }
