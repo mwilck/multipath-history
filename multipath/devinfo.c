@@ -323,7 +323,7 @@ apply_format (char * string, int maxsize, struct path * pp)
 	char * dst;
 	char * p;
 	int len;
-	int free;
+	int myfree;
 
 	if (!string)
 		return NULL;
@@ -335,16 +335,20 @@ apply_format (char * string, int maxsize, struct path * pp)
 
 	p = dst;
 	pos = strchr(string, '%');
-	free = maxsize;
+	myfree = maxsize;
 
-	if (!pos)
-		return string;
+	if (!pos) {
+		strcpy(dst, string);
+		return dst;
+	}
 
 	len = (int) (pos - string) + 1;
-	free -= len;
+	myfree -= len;
 
-	if (free < 2)
+	if (myfree < 2) {
+		free(dst);
 		return NULL;
+	}
 
 	snprintf(p, len, "%s", string);
 	p += len - 1;
@@ -353,20 +357,24 @@ apply_format (char * string, int maxsize, struct path * pp)
 	switch (*pos) {
 	case 'n':
 		len = strlen(pp->dev) + 1;
-		free -= len;
+		myfree -= len;
 
-		if (free < 2)
+		if (myfree < 2) {
+			free(dst);
 			return NULL;
+		}
 
 		snprintf(p, len, "%s", pp->dev);
 		p += len - 1;
 		break;
 	case 'd':
 		len = strlen(pp->dev_t) + 1;
-		free -= len;
+		myfree -= len;
 
-		if (free < 2)
+		if (myfree < 2) {
+			free(dst);
 			return NULL;
+		}
 
 		snprintf(p, len, "%s", pp->dev_t);
 		p += len - 1;
@@ -380,10 +388,12 @@ apply_format (char * string, int maxsize, struct path * pp)
 		return dst;
 
 	len = strlen(pos) + 1;
-	free -= len;
+	myfree -= len;
 
-	if (free < 2)
+	if (myfree < 2) {
+		free(dst);
 		return NULL;
+	}
 
 	snprintf(p, len, "%s", pos);
 	dbg("reformated callout = %s", dst);
@@ -430,6 +440,7 @@ devinfo (struct path *pp)
 	else if (execute_program(buff, prio, 16)) {
 		dbg("error calling out %s", buff);
 		pp->priority = 1;
+		free(buff);
 	} else
 		pp->priority = atoi(prio);
 
@@ -440,10 +451,13 @@ devinfo (struct path *pp)
 	 */
 	select_getuid(pp);
 	buff = apply_format(pp->getuid, CALLOUT_MAX_SIZE, pp);
-
-	if (buff && execute_program(buff, pp->wwid, WWID_SIZE) == 0) {
-		dbg("uid = %s (callout)", pp->wwid);
-		return 0;
+	if (buff) {
+		if (execute_program(buff, pp->wwid, WWID_SIZE) == 0) {
+			free(buff);
+			dbg("uid = %s (callout)", pp->wwid);
+			return 0;
+		}
+		free(buff);
 	}
 
 	/*
