@@ -1008,10 +1008,10 @@ main (int argc, char *argv[])
 	if (path_discovery(pathvec, conf) || VECTOR_SIZE(pathvec) == 0)
 		exit(1);
 
-#if DEBUG
-	fprintf(stdout, "#\n# all paths :\n#\n");
-	print_all_paths(pathvec);
-#endif
+	if (conf->verbosity > 2) {
+		fprintf(stdout, "#\n# all paths :\n#\n");
+		print_all_paths(pathvec);
+	}
 
 	refwwid = get_refwwid(pathvec);
 	get_current_mp(curmp, pathvec, refwwid);
