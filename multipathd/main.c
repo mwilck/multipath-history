@@ -10,7 +10,8 @@
 #include <syslog.h>
 #include <signal.h>
 #include <wait.h>
-#include <sysfs/libsysfs.h>
+#include "libsysfs/sysfs/libsysfs.h"
+#include "libsysfs/dlist.h"
 
 #include "hwtable.h"
 #include "dict.h"

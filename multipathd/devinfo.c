@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
-#include <sysfs/libsysfs.h>
+#include "libsysfs/sysfs/libsysfs.h"
 
 #include "devinfo.h"
 
