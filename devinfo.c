@@ -73,19 +73,25 @@ do_inq(int sg_fd, int cmddt, int evpd, unsigned int pg_op,
 }
 
 int
-get_serial (int fd, char * str)
+get_serial (char * str, char * devname)
 {
-        char buff[MX_ALLOC_LEN + 1];
+	int fd;
         int len;
+        char buff[MX_ALLOC_LEN + 1];
 
-        if (0 == do_inq(fd, 0, 1, 0x80, buff, MX_ALLOC_LEN, 0)) {
-                len = buff[3];
-                if (len > 0) {
-                        memcpy(str, buff + 4, len);
-                        buff[len] = '\0';
-                }
-                return 1;
-        }
+	if ((fd = open(devname, O_RDONLY)) < 0)
+                return 0;
+
+	if (0 == do_inq(fd, 0, 1, 0x80, buff, MX_ALLOC_LEN, 0)) {
+		len = buff[3];
+		if (len > 0) {
+			memcpy(str, buff + 4, len);
+			buff[len] = '\0';
+		}
+		close(fd);
+		return 1;
+	}
+	close(fd);
         return 0;
 }
 

@@ -33,6 +33,7 @@
 
 /* global defs */
 #define WWID_SIZE	33
+#define SERIAL_SIZE	14
 #define MAX_DEVS	128
 #define MAX_MP		MAX_DEVS / 2
 #define MAX_MP_PATHS	MAX_DEVS / 4
@@ -45,6 +46,7 @@
 /* Storage controlers cpabilities */
 #define FAILOVER	0
 #define MULTIBUS	1
+#define GROUP_BY_SERIAL	2
 
 #define PINDEX(x,y)	mp[(x)].pindex[(y)]
 
@@ -82,6 +84,7 @@ struct path {
 	char vendor_id[8];
 	char product_id[16];
 	char rev[4];
+	char serial[SERIAL_SIZE];
 	int iopolicy;
 };
 

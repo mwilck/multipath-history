@@ -1,4 +1,8 @@
 2004-02-04 multipath-016
+	* add a GROUP_BY_SERIAL flag. This should be useful for
+	  controlers that activate they spare paths on simple IO
+	  submition with a penalty. The StorageWorks HW defaults to
+	  this mode, even if the MULTIBUS mode is OK.
 	* remove unused sg_err.c
 	* big restructuring : split devinfo.c from main.c. Export :
 		* void basename (char *, char *);

@@ -41,11 +41,11 @@ get_unique_id(struct path * mypath)
 		int iopolicy;
 		int (*getuid) (char *, char *);
 	} wlist[] = {
-		{"COMPAQ  ", "HSV110 (C)COMPAQ", MULTIBUS, &get_evpd_wwid},
-		{"COMPAQ  ", "MSA1000         ", MULTIBUS, &get_evpd_wwid},
-		{"COMPAQ  ", "MSA1000 VOLUME  ", MULTIBUS, &get_evpd_wwid},
-		{"DEC     ", "HSG80           ", MULTIBUS, &get_evpd_wwid},
-		{"HP      ", "HSV100          ", MULTIBUS, &get_evpd_wwid},
+		{"COMPAQ  ", "HSV110 (C)COMPAQ", GROUP_BY_SERIAL, &get_evpd_wwid},
+		{"COMPAQ  ", "MSA1000         ", GROUP_BY_SERIAL, &get_evpd_wwid},
+		{"COMPAQ  ", "MSA1000 VOLUME  ", GROUP_BY_SERIAL, &get_evpd_wwid},
+		{"DEC     ", "HSG80           ", GROUP_BY_SERIAL, &get_evpd_wwid},
+		{"HP      ", "HSV100          ", GROUP_BY_SERIAL, &get_evpd_wwid},
 		{"HP      ", "A6189A          ", MULTIBUS, &get_evpd_wwid},
 		{"HP      ", "OPEN-           ", MULTIBUS, &get_evpd_wwid},
 		{"DDN     ", "SAN DataDirector", MULTIBUS, &get_evpd_wwid},
@@ -130,6 +130,7 @@ get_all_paths_sysfs(struct env * conf, struct path * all_paths)
 				curpath.product_id,
 				curpath.rev,
 				curpath.sg_dev);
+		get_serial(curpath.serial, curpath.sg_dev);
 		if (!get_unique_id(&curpath))
 			return 0;
 		strcpy(refwwid, curpath.wwid);
@@ -165,6 +166,7 @@ get_all_paths_sysfs(struct env * conf, struct path * all_paths)
 				curpath.product_id,
 				curpath.rev,
 				curpath.sg_dev);
+		get_serial(curpath.serial, curpath.sg_dev);
 		if(!get_unique_id(&curpath)) {
 			memset(&curpath, 0, sizeof(path));
 			continue;
@@ -216,6 +218,7 @@ get_all_paths_nosysfs(struct env * conf, struct path * all_paths,
 				all_paths[k].product_id,
 				all_paths[k].rev,
 				all_paths[k].sg_dev);
+		get_serial(all_paths[k].serial, all_paths[k].sg_dev);
 		if (!get_unique_id(&all_paths[k]))
 			continue;
 
@@ -368,7 +371,7 @@ coalesce_paths(struct env * conf, struct multipath * mp,
 		if (memcmp(empty_buff, all_paths[k].wwid, WWID_SIZE) == 0)
 			continue;
 
-		/* 2. mp with this uid already instanciated */
+		/* 2. if mp with this uid already instanciated */
 		for (i = 0; i <= nmp; i++) {
 			if (0 == strcmp(mp[i].wwid, all_paths[k].wwid))
 				already_done = 1;
@@ -396,6 +399,49 @@ coalesce_paths(struct env * conf, struct multipath * mp,
 		}
 	}
 	return nmp;
+}
+
+static void
+group_by_serial(struct multipath * mp, struct path * all_paths, char * str) {
+	int path_count, pg_count = 0;
+	int i, k;
+	int * bitmap;
+	char path_buff[FILE_NAME_SIZE];
+	char pg_buff[FILE_NAME_SIZE];
+	char * path_buff_p = &path_buff[0];
+	char * pg_buff_p = &pg_buff[0];
+
+	/* init the bitmap */
+	bitmap = malloc((mp->npaths + 1) * sizeof(int));
+	memset(bitmap, 0, (mp->npaths + 1) * sizeof(int));
+
+	for (i = 0; i <= mp->npaths; i++) {
+		if (bitmap[i])
+			continue;
+
+		/* here, we really got a new pg */
+		pg_count++;
+		path_count = 1;
+		memset(&path_buff, 0, FILE_NAME_SIZE * sizeof(char));
+		path_buff_p = &path_buff[0];
+
+		path_buff_p += sprintf(path_buff_p, " %s", all_paths[mp->pindex[i]].dev);
+		bitmap[i] = 1;
+
+		for (k = i + 1; k <= mp->npaths; k++) {
+			if (bitmap[k])
+				continue;
+			if (0 == strcmp(all_paths[mp->pindex[i]].serial,
+					all_paths[mp->pindex[k]].serial)) {
+				path_buff_p += sprintf(path_buff_p, " %s", all_paths[mp->pindex[k]].dev);
+				bitmap[k] = 1;
+				path_count++;
+			}
+		}
+		pg_buff_p += sprintf(pg_buff_p, " 1 round-robin %i 0%s",
+				     path_count, path_buff);
+	}
+	sprintf(str, " %i%s", pg_count, pg_buff);
 }
 
 static int
@@ -489,6 +535,11 @@ setup_map(struct env * conf, struct path * all_paths,
 			params_p += sprintf(params_p, " %s",
 					    all_paths[PINDEX(index,i)].dev);
 		}
+	}
+
+	if (all_paths[PINDEX(index,0)].iopolicy == GROUP_BY_SERIAL &&
+	    !conf->forcedfailover ) {
+		group_by_serial(&mp[index], all_paths, params_p);
 	}
 
 	if (mp[index].size < 0)
