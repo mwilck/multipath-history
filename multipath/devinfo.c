@@ -150,6 +150,7 @@ devt2devname (char *devname, char *devt)
 			}
 			sysfs_get_name_from_path(attr_path, devname,
 						 FILE_NAME_SIZE);
+			sysfs_close_directory(sdir);
 			return 0;
 		}
 	}
