@@ -1,26 +1,5 @@
 /*
  * Here we define the path grouping policies
- *
- * These policies are of several  type :
- * 	- intermediate or layerable policies
- * 	  ex: group_by_status
- * 	  these match certain paths in the multipath and group them
- * 	  leaving non-matching paths to following policies
- * 	  
- * 	- leaf policies
- * 	  ex: multibus | failover | group_by_serial | group_by_prio
- * 	  these take all available paths left and group them
- * 	  according to their policy, leaving no paths to subsequent
- * 	  policies
- * 	  
- * 	- path groups sorter
- * 	  ex: sort_pg_by_summed_prio
- * 	  these are used to reorder paths groups according to their
- * 	  policy. they are executed after path grouping proper. I
- * 	  guess it's clear only one can be used at a time.
- *
- * At least one leaf policy must be traversed, other are optional
- *
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -81,6 +60,7 @@ group_by_status (struct multipath * mp, int state)
 {
 	int i;
 	struct path * pp;
+	struct pathgroup * pgp;
 	vector failedpaths;
 	vector pathsleft;
 
@@ -102,8 +82,10 @@ group_by_status (struct multipath * mp, int state)
 		}
 	}
 	if (VECTOR_SIZE(failedpaths) > 0) {
+		pgp = zalloc(sizeof(struct pathgroup));
+		pgp->paths = failedpaths;
 		vector_alloc_slot(mp->pg);
-		vector_set_slot(mp->pg, failedpaths);
+		vector_set_slot(mp->pg, pgp);
 		vector_free(mp->paths);
 		mp->paths = pathsleft;
 	} else {
@@ -118,11 +100,11 @@ group_by_status (struct multipath * mp, int state)
  */
 extern void
 group_by_serial (struct multipath * mp) {
-	int i, k;
+	int i, j;
 	int * bitmap;
 	struct path * pp;
+	struct pathgroup * pgp;
 	struct path * pp2;
-	vector pgpaths;
 	
 	if (mp->pg == NULL)
 		mp->pg = vector_alloc();
@@ -138,27 +120,28 @@ group_by_serial (struct multipath * mp) {
 		pp = VECTOR_SLOT(mp->paths, i);
 
 		/* here, we really got a new pg */
-		pgpaths = vector_alloc();
+		pgp = zalloc(sizeof(struct pathgroup));
+		pgp->paths = vector_alloc();
 		vector_alloc_slot(mp->pg);
-		vector_set_slot(mp->pg, pgpaths);
+		vector_set_slot(mp->pg, pgp);
 
 		/* feed the first path */
-		vector_alloc_slot(pgpaths);
-		vector_set_slot(pgpaths, pp);
+		vector_alloc_slot(pgp->paths);
+		vector_set_slot(pgp->paths, pp);
 				
 		bitmap[i] = 1;
 
-		for (k = i + 1; k < VECTOR_SIZE(mp->paths); k++) {
+		for (j = i + 1; j < VECTOR_SIZE(mp->paths); j++) {
 			
-			if (bitmap[k])
+			if (bitmap[j])
 				continue;
 
-			pp2 = VECTOR_SLOT(mp->paths, k);
+			pp2 = VECTOR_SLOT(mp->paths, j);
 			
 			if (0 == strcmp(pp->serial, pp2->serial)) {
-				vector_alloc_slot(pgpaths);
-				vector_set_slot(pgpaths, pp2);
-				bitmap[k] = 1;
+				vector_alloc_slot(pgp->paths);
+				vector_set_slot(pgp->paths, pp2);
+				bitmap[j] = 1;
 			}
 		}
 	}
@@ -172,18 +155,19 @@ one_path_per_group (struct multipath * mp)
 {
 	int i;
 	struct path * pp;
-	vector pgpaths;
+	struct pathgroup * pgp;
 
 	if (mp->pg == NULL)
 		mp->pg = vector_alloc();
 	
 	for (i = 0; i < VECTOR_SIZE(mp->paths); i++) {
 		pp = VECTOR_SLOT(mp->paths, i);
-		pgpaths = vector_alloc();
-		vector_alloc_slot(pgpaths);
-		vector_set_slot(pgpaths, pp);
+		pgp = zalloc(sizeof(struct pathgroup));
+		pgp->paths = vector_alloc();
+		vector_alloc_slot(pgp->paths);
+		vector_set_slot(pgp->paths, pp);
 		vector_alloc_slot(mp->pg);
-		vector_set_slot(mp->pg, pgpaths);
+		vector_set_slot(mp->pg, pgp);
 	}
 	vector_free(mp->paths);
 	mp->paths = NULL;
@@ -194,23 +178,25 @@ one_group (struct multipath * mp)	/* aka multibus */
 {
 	int i;
 	struct path * pp;
-	vector pgpaths;
+	struct pathgroup * pgp;
 
-	pgpaths = vector_alloc();
+	pgp = zalloc(sizeof(struct pathgroup));
+	pgp->paths = vector_alloc();
 
 	if (mp->pg == NULL)
 		mp->pg = vector_alloc();
 
 	for (i = 0; i < VECTOR_SIZE(mp->paths); i++) {
 		pp = VECTOR_SLOT(mp->paths, i);
-		vector_alloc_slot(pgpaths);
-		vector_set_slot(pgpaths, pp);
+		vector_alloc_slot(pgp->paths);
+		vector_set_slot(pgp->paths, pp);
 	}
-	if (VECTOR_SIZE(pgpaths) > 0) {
+	if (VECTOR_SIZE(pgp->paths) > 0) {
 		vector_alloc_slot(mp->pg);
-		vector_set_slot(mp->pg, pgpaths);
+		vector_set_slot(mp->pg, pgp);
 	} else {
-		vector_free(pgpaths);
+		vector_free(pgp->paths);
+		free(pgp);
 	}
 	vector_free(mp->paths);
 	mp->paths = NULL;
@@ -223,7 +209,7 @@ group_by_prio (struct multipath * mp)
 	int i;
 	unsigned int prio;
 	struct path * pp;
-	vector pgpaths;
+	struct pathgroup * pgp;
 
 	if (mp->pg == NULL)
 		mp->pg = vector_alloc();
@@ -234,11 +220,12 @@ group_by_prio (struct multipath * mp)
 		 */
 		pp = VECTOR_SLOT(mp->paths, 0);
 		prio = pp->priority;
-		pgpaths = vector_alloc();
-		vector_alloc_slot(pgpaths);
-		vector_set_slot(pgpaths, pp);
+		pgp = zalloc(sizeof(struct pathgroup));
+		pgp->paths = vector_alloc();
+		vector_alloc_slot(pgp->paths);
+		vector_set_slot(pgp->paths, pp);
 		vector_alloc_slot(mp->pg);
-		vector_set_slot(mp->pg, pgpaths);
+		vector_set_slot(mp->pg, pgp);
 		vector_del_slot(mp->paths, 0);
 		
 		/*
@@ -247,64 +234,12 @@ group_by_prio (struct multipath * mp)
 		for (i = 0; i < VECTOR_SIZE(mp->paths); i++) {
 			pp = VECTOR_SLOT(mp->paths, i);
 			if (pp->priority == prio) {
-				vector_alloc_slot(pgpaths);
-				vector_set_slot(pgpaths, pp);
+				vector_alloc_slot(pgp->paths);
+				vector_set_slot(pgp->paths, pp);
 				vector_del_slot(mp->paths, i);
 			}
 		}
 	}
 	vector_free(mp->paths);
 	mp->paths = NULL;
-}
-
-extern void
-sort_pg_by_summed_prio (struct multipath * mp)
-{
-	int i, j, k;
-	int sum = 0, ref_sum = 0;
-	vector sortedpg;
-	vector pgpaths, ref_pgpaths;
-	struct path * pp;
-	
-	if (mp->pg == NULL)
-		return;
-	
-	if (VECTOR_SIZE(mp->pg) < 2)
-		return;
-
-	/*
-	 * fill first slot of the ordered vector
-	 */
-	pgpaths = VECTOR_SLOT(mp->pg, 0);
-
-	sortedpg = vector_alloc();
-	vector_alloc_slot(sortedpg);
-	vector_set_slot(sortedpg, pgpaths);
-	
-	for (i = 1; i < VECTOR_SIZE(mp->pg); i++) {
-		ref_pgpaths = VECTOR_SLOT(mp->pg, i);
-		for (j = 0; j < VECTOR_SIZE(ref_pgpaths); j++) {
-			pp = VECTOR_SLOT(ref_pgpaths, j);
-			if (pp->state != PATH_DOWN)
-				ref_sum += pp->priority;
-		}
-		for (j = 0; j < VECTOR_SIZE(sortedpg); j++) {
-			pgpaths = VECTOR_SLOT(sortedpg, j);
-			for (k = 0; k < VECTOR_SIZE(pgpaths); k++) {
-				pp = VECTOR_SLOT(pgpaths, k);
-				if (pp->state != PATH_DOWN)
-					sum += pp->priority;
-			}
-			if (sum > ref_sum) {
-				vector_insert_slot(sortedpg, j, ref_pgpaths);
-				break;
-			}
-		}
-		if (j == VECTOR_SIZE(sortedpg)) {
-			vector_alloc_slot(sortedpg);
-			vector_set_slot(sortedpg, ref_pgpaths);
-		}
-	}
-	vector_free(mp->pg);
-	mp->pg = sortedpg;
 }
