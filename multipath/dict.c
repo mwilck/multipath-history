@@ -26,6 +26,8 @@ def_selector_args_handler(vector strvec)
 
 	buff = set_value(strvec);
 	conf->default_selector_args = atoi(buff);
+
+	free(buff);
 }
 
 static void
@@ -142,6 +144,9 @@ hw_selector_args_handler(vector strvec)
 	buff = set_value(strvec);
 	hwe->selector_args = atoi(buff);
 
+	free(buff);
+}
+
 static void
 hw_path_checker_handler(vector strvec)
 {
@@ -216,6 +221,8 @@ mp_selector_args_handler(vector strvec)
 
 	buff = set_value(strvec);
 	mpe->selector_args = atoi(buff);
+
+	free(buff);
 }
 			
 vector
