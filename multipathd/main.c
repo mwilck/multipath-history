@@ -42,10 +42,12 @@
 
 #define MATCH(x, y) strncmp(x, y, strlen(y)) == 0
 
+#ifdef CLONE_NEWNS
 #ifdef ia64
 int  __clone2(int (*fn)(void *), void *, size_t, int, void *);
 #else
 int  __clone(int (*fn)(void *), void *, int, void *);
+#endif
 #endif
 
 /*
@@ -673,7 +675,10 @@ setup_default_hwtable (vector hwtable)
 /*
  * this logic is all about keeping callouts working in case of
  * system disk outage (think system over SAN)
+ * this needs the clone syscall, so don't bother if not present
+ * (Debian Woody)
  */
+#ifdef CLONE_NEWNS
 static int
 prepare_namespace(void)
 {
@@ -767,6 +772,7 @@ prepare_namespace(void)
 
 	return 0;
 }
+#endif
 
 static void
 pidfile (pid_t pid)
@@ -902,10 +908,12 @@ child (void * param)
 		setup_default_blist(blist);
 	}
 
+#ifdef CLONE_NEWNS
 	if (prepare_namespace() < 0) {
 		LOG(1, "cannot prepare namespace");
 		exit_daemon(1);
 	}
+#endif
 
 	mlockall(MCL_CURRENT | MCL_FUTURE);
 	/*
@@ -928,12 +936,16 @@ main (int argc, char *argv[])
 	int err;
 	void * child_stack = malloc(CHILD_SS);
 
+#ifdef CLONE_NEWNS
 #ifdef ia64
 	size_t child_ss = CHILD_SS;
 	err = __clone2(child, child_stack, child_ss, CLONE_NEWNS, NULL);
 #else
 	child_stack += CHILD_SS;
 	err = __clone(child, child_stack, CLONE_NEWNS, NULL);
+#endif
+#else
+	err = fork();
 #endif
 
 	if (err < 0)

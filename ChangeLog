@@ -1,3 +1,5 @@
+	* [multipathd] fall back to fork when clone not available
+	  like in Debian Woody
 	* [kpartx] move .start and .size from uint to ulong (Ake)
 	* briefly document system-disk-on-multipath in the FAQ file
 
