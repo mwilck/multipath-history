@@ -8,6 +8,6 @@ struct partition {
 	unsigned char eh, es, ec;
 	unsigned int start_sect;
 	unsigned int nr_sects;
-};
+} __attribute__((packed));
 
 #endif				/* DOS_H_INCLUDED */

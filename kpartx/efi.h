@@ -27,6 +27,7 @@
  *      version 1.02, 12 December, 2000
  */
 #include <stdint.h>
+#include <string.h>
 
 typedef struct {
 	uint8_t  b[16];

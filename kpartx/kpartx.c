@@ -33,6 +33,7 @@
 #define MAXSLICES	256
 #define DM_TARGET	"linear"
 #define LO_NAME_SIZE    64
+#define PARTNAME_SIZE	128
 
 struct slice slices[MAXSLICES];
 
@@ -200,7 +201,7 @@ main(int argc, char **argv){
 	int lower, upper;
 	int verbose = 0;
 	struct dm_task *dmt;
-	char partname[20], params[30];
+	char partname[PARTNAME_SIZE], params[30];
 	char * loopdev = NULL;
 	char delim[8] = "";
 	int loopro = 0;
@@ -461,7 +462,8 @@ xmalloc (size_t size) {
 /*
  * sseek: seek to specified sector
  */
-#if !defined (__alpha__) && !defined (__ia64__) && !defined (__x86_64__)
+#if !defined (__alpha__) && !defined (__ia64__) && !defined (__x86_64__) \
+	&& !defined (__s390x__)
 #include <linux/unistd.h>       /* _syscall */
 static
 _syscall5(int,  _llseek,  uint,  fd, ulong, hi, ulong, lo,
@@ -474,7 +476,8 @@ sseek(int fd, unsigned int secnr) {
 	in = ((long long) secnr << 9);
 	out = 1;
 
-#if !defined (__alpha__) && !defined (__ia64__) && !defined (__x86_64__)
+#if !defined (__alpha__) && !defined (__ia64__) && !defined (__x86_64__) \
+	&& !defined (__s390x__)
 	if (_llseek (fd, in>>32, in & 0xffffffff, &out, SEEK_SET) != 0
 	    || out != in)
 #else
