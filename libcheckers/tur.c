@@ -44,12 +44,15 @@ tur (char *devt, char *msg, void **context)
 	 * initialize it
 	 */
 	if (!ctxt) {
-		ctxt = malloc(sizeof(struct tur_checker_context *));
-		memset(ctxt, 0, sizeof(struct tur_checker_context *));
-	}
-	if (!ctxt) {
-		MSG("cannot allocate context");
-		return -1;
+		ctxt = malloc(sizeof(struct tur_checker_context));
+		memset(ctxt, 0, sizeof(struct tur_checker_context));
+
+		if (!ctxt) {
+			MSG("cannot allocate context");
+			return -1;
+		}
+		if (context)
+			*context = ctxt;
 	}
 	ctxt->run_count++;
 
@@ -66,6 +69,7 @@ tur (char *devt, char *msg, void **context)
 		ctxt->fd = devnode(OPEN_NODE, devt);
 		devnode(UNLINK_NODE, devt);
 	}
+	
         memset(&io_hdr, 0, sizeof (struct sg_io_hdr));
         io_hdr.interface_id = 'S';
         io_hdr.cmd_len = sizeof (turCmdBlk);
