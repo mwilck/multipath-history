@@ -28,7 +28,6 @@
 #define SG_ERR_DRIVER_SENSE     0x08
 
 /* exerpt from "scsi.h" */
-#define RECOVERED_ERROR     0x01
 #define SCSI_IOCTL_GET_IDLUN            0x5382
 #define SCSI_IOCTL_GET_BUS_NUMBER       0x5386
 
@@ -38,14 +37,9 @@
 #define MAX_MP		MAX_DEVS / 2
 #define MAX_MP_PATHS	MAX_DEVS / 4
 #define FILE_NAME_SIZE	256
-#define INQUIRY_CMDLEN	6
-#define INQUIRY_CMD	0x12
-#define SENSE_BUFF_LEN	32
 #define DEF_TIMEOUT	60000
 #define EBUFF_SZ	256
 #define TUR_CMD_LEN	6
-#define MX_ALLOC_LEN	255
-#define BLKGETSIZE      _IO(0x12,96)
 #define DM_TARGET	"multipath"
 
 /* Storage controlers cpabilities */

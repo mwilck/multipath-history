@@ -28,150 +28,7 @@
 #include <libsysfs.h>
 #include "libdevmapper/libdevmapper.h"
 #include "main.h"
-
-static int
-do_inq(int sg_fd, int cmddt, int evpd, unsigned int pg_op,
-       void *resp, int mx_resp_len, int noisy)
-{
-	unsigned char inqCmdBlk[INQUIRY_CMDLEN] =
-	    { INQUIRY_CMD, 0, 0, 0, 0, 0 };
-	unsigned char sense_b[SENSE_BUFF_LEN];
-	struct sg_io_hdr io_hdr;
-
-	if (cmddt)
-		inqCmdBlk[1] |= 2;
-	if (evpd)
-		inqCmdBlk[1] |= 1;
-	inqCmdBlk[2] = (unsigned char) pg_op;
-	inqCmdBlk[4] = (unsigned char) mx_resp_len;
-	memset(&io_hdr, 0, sizeof (struct sg_io_hdr));
-	io_hdr.interface_id = 'S';
-	io_hdr.cmd_len = sizeof (inqCmdBlk);
-	io_hdr.mx_sb_len = sizeof (sense_b);
-	io_hdr.dxfer_direction = SG_DXFER_FROM_DEV;
-	io_hdr.dxfer_len = mx_resp_len;
-	io_hdr.dxferp = resp;
-	io_hdr.cmdp = inqCmdBlk;
-	io_hdr.sbp = sense_b;
-	io_hdr.timeout = DEF_TIMEOUT;
-
-	if (ioctl(sg_fd, SG_IO, &io_hdr) < 0) {
-		perror("SG_IO (inquiry) error");
-		return -1;
-	}
-
-	/* treat SG_ERR here to get rid of sg_err.[ch] */
-	io_hdr.status &= 0x7e;
-	if ((0 == io_hdr.status) && (0 == io_hdr.host_status) &&
-	    (0 == io_hdr.driver_status))
-		return 0;
-	if ((SCSI_CHECK_CONDITION == io_hdr.status) ||
-	    (SCSI_COMMAND_TERMINATED == io_hdr.status) ||
-	    (SG_ERR_DRIVER_SENSE == (0xf & io_hdr.driver_status))) {
-		if (io_hdr.sbp && (io_hdr.sb_len_wr > 2)) {
-			int sense_key;
-			unsigned char * sense_buffer = io_hdr.sbp;
-			if (sense_buffer[0] & 0x2)
-				sense_key = sense_buffer[1] & 0xf;
-			else
-				sense_key = sense_buffer[2] & 0xf;
-			if(RECOVERED_ERROR == sense_key)
-				return 0;
-		}
-	}
-	return -1;
-}
-
-static void
-sprint_wwid(char * buff, const char * str)
-{
-	int i;
-	const char *p;
-	char *cursor;
-	unsigned char c;
-
-	p = str;
-	cursor = buff;
-	for (i = 0; i <= WWID_SIZE / 2 - 1; i++) {
-		c = *p++;
-		sprintf(cursor, "%.2x", (int) (unsigned char) c);
-		cursor += 2;
-	}
-	buff[WWID_SIZE - 1] = '\0';
-}
-
-static void
-basename(char * str1, char * str2)
-{
-	char *p = str1 + (strlen(str1) - 1);
-
-	while (*--p != '/')
-		continue;
-	strcpy(str2, ++p);
-}
-
-static int
-get_lun_strings(struct env * conf, struct path * mypath)
-{
-	int fd;
-	char buff[36];
-	char attr_path[FILE_NAME_SIZE];
-	char basedev[FILE_NAME_SIZE];
-
-	if(conf->with_sysfs) {
-		/* sysfs style */
-		basename(mypath->sg_dev, basedev);
-
-		sprintf(attr_path, "%s/block/%s/device/vendor",
-                        conf->sysfs_path, basedev);
-                if (0 > sysfs_read_attribute_value(attr_path,
-		    mypath->vendor_id, 8)) return 0;
-
-		sprintf(attr_path, "%s/block/%s/device/model",
-                        conf->sysfs_path, basedev);
-                if (0 > sysfs_read_attribute_value(attr_path,
-		    mypath->product_id, 16)) return 0;
-
-		sprintf(attr_path, "%s/block/%s/device/rev",
-                        conf->sysfs_path, basedev);
-                if (0 > sysfs_read_attribute_value(attr_path,
-		    mypath->rev, 4)) return 0;
-	} else {
-		/* ioctl style */
-		if ((fd = open(mypath->sg_dev, O_RDONLY)) < 0)
-			return 0;
-		if (0 != do_inq(fd, 0, 0, 0, buff, 36, 1))
-			return 0;
-		memcpy(mypath->vendor_id, &buff[8], 8);
-		memcpy(mypath->product_id, &buff[16], 16);
-		memcpy(mypath->rev, &buff[32], 4);
-		close(fd);
-		return 1;
-	}
-	return 0;
-}
-
-/* hardware vendor specifics : add support for new models below */
-
-/* this one get EVPD page 0x83 off 8 */
-/* tested ok with StorageWorks */
-static int
-get_evpd_wwid(struct path * mypath)
-{
-	int fd;
-	char buff[64];
-
-	if ((fd = open(mypath->sg_dev, O_RDONLY)) < 0)
-                        return 0;
-
-	if (0 == do_inq(fd, 0, 1, 0x83, buff, sizeof (buff), 1)) {
-		sprint_wwid(mypath->wwid, &buff[8]);
-		close(fd);
-		return 1; /* success */
-	}
-	close(fd);
-	return 0; /* not good */
-}
+#include "devinfo.h"
 
 /* White list switch */
 static int
@@ -182,7 +39,7 @@ get_unique_id(struct path * mypath)
 		char * vendor;
 		char * product;
 		int iopolicy;
-		int (*getuid) (struct path *);
+		int (*getuid) (char *, char *);
 	} wlist[] = {
 		{"COMPAQ  ", "HSV110 (C)COMPAQ", MULTIBUS, &get_evpd_wwid},
 		{"COMPAQ  ", "MSA1000         ", MULTIBUS, &get_evpd_wwid},
@@ -208,7 +65,7 @@ get_unique_id(struct path * mypath)
 		if (strncmp(mypath->vendor_id, wlist[i].vendor, 8) == 0 &&
 		    strncmp(mypath->product_id, wlist[i].product, 16) == 0) {
 			mypath->iopolicy = wlist[i].iopolicy;
-			if (!wlist[i].getuid(mypath))
+			if (!wlist[i].getuid(mypath->sg_dev, mypath->wwid))
 				return 0;
 		}
 	}
@@ -269,7 +126,10 @@ get_all_paths_sysfs(struct env * conf, struct path * all_paths)
 		basename(conf->hotplugdev, buff);
 		sprintf(curpath.sg_dev, "/dev/%s", buff);
 
-		get_lun_strings(conf, &curpath);
+		get_lun_strings(curpath.vendor_id,
+				curpath.product_id,
+				curpath.rev,
+				curpath.sg_dev);
 		if (!get_unique_id(&curpath))
 			return 0;
 		strcpy(refwwid, curpath.wwid);
@@ -301,7 +161,10 @@ get_all_paths_sysfs(struct env * conf, struct path * all_paths)
 		basename(devp->path, buff);
 		sprintf(curpath.sg_dev, "/dev/%s", buff);
 
-		get_lun_strings(conf, &curpath);
+		get_lun_strings(curpath.vendor_id,
+				curpath.product_id,
+				curpath.rev,
+				curpath.sg_dev);
 		if(!get_unique_id(&curpath)) {
 			memset(&curpath, 0, sizeof(path));
 			continue;
@@ -349,7 +212,10 @@ get_all_paths_nosysfs(struct env * conf, struct path * all_paths,
 		strncat(file_name, buff, FILE_NAME_SIZE);
 		strcpy(all_paths[k].sg_dev, file_name);
 
-		get_lun_strings(conf, &all_paths[k]);
+		get_lun_strings(all_paths[k].vendor_id,
+				all_paths[k].product_id,
+				all_paths[k].rev,
+				all_paths[k].sg_dev);
 		if (!get_unique_id(&all_paths[k]))
 			continue;
 
@@ -484,32 +350,6 @@ print_all_mp(struct path * all_paths, struct multipath * mp, int nmp)
 	}
 }
 
-static long
-get_disk_size (struct env * conf, char * dev) {
-	long size;
-	int fd;
-	char attr_path[FILE_NAME_SIZE];
-	char buff[FILE_NAME_SIZE];
-	char basedev[FILE_NAME_SIZE];
-
-	if(conf->with_sysfs) {
-		basename(dev, basedev);
-		sprintf(attr_path, "%s/block/%s/size",
-			conf->sysfs_path, basedev);
-		if (0 > sysfs_read_attribute_value(attr_path, buff,
-					 FILE_NAME_SIZE * sizeof(char)))
-			return -1;
-		size = atoi(buff);
-		return size;
-	} else {
-		if ((fd = open(dev, O_RDONLY)) < 0)
-			return -1;
-		if(!ioctl(fd, BLKGETSIZE, &size))
-			return size;
-	}
-	return -1;
-}
-
 static int
 coalesce_paths(struct env * conf, struct multipath * mp,
 	       struct path * all_paths)
@@ -545,7 +385,7 @@ coalesce_paths(struct env * conf, struct multipath * mp,
 		PINDEX(nmp,np) = k;
 
 		if (mp[nmp].size == 0)
-			mp[nmp].size = get_disk_size(conf, all_paths[k].dev);
+			mp[nmp].size = get_disk_size(all_paths[k].dev);
 
 		for (i = k + 1; i < conf->max_devs; i++) {
 			if (0 == strcmp(all_paths[k].wwid, all_paths[i].wwid)) {
