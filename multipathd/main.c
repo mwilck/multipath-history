@@ -125,7 +125,7 @@ select_checkfn(struct path *pp, char *devname)
 		syslog(LOG_ERR, "can not get scsi strings");
 		return r;
 	}
-	hwe = find_hw(hwtable, vendor, product);
+	hwe = find_hwe(hwtable, vendor, product);
 
 	if (hwe && hwe->checker_index > 0) {
 		get_checker_name(checker_name, hwe->checker_index);
