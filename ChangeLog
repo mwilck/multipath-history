@@ -1,4 +1,13 @@
+2004-05-16 multipath-tools-0.1.9
 	* break free from udev : package klibc and libsysfs
+	* add a spec file and a "make rpm" rule
+	* remove bogus -lsysfs in multipathd linking
+	* pensum on klibc changes needed :
+		* mmap.c & fork.c : invert includes
+		* make clean wipes .*.d
+		* auto create the linux symlink
+		* remove tools and specfiles (files and Makefile
+		  targets)
 2004-05-15 multipath-tools-0.1.8
 	* Makefiles cleanup and factorisation
 	* Compilation fixes for non-ix86 archs, tested on x86_64

@@ -32,6 +32,7 @@ all:	recurse
 clean:	recurse_clean
 	@echo ""
 	@echo "Make complete"
+	rm -rf rpms
 
 install:	recurse_install
 	@echo ""
@@ -40,3 +41,6 @@ install:	recurse_install
 uninstall:	recurse_uninstall
 	@echo ""
 	@echo "Make complete"
+
+rpm:
+	rpmbuild -bb multipath-tools.spec
