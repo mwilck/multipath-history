@@ -1,3 +1,4 @@
+	* dmadm exits cleanly when it has nothing to do
 2004-04-25 multipath-tools-0.1.6
 	* add the dmadm WIP tool (read MD superblocks and create
 	  corresponding devmaps when possible)
