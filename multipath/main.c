@@ -31,39 +31,40 @@
 #include "../libdevmapper/libdevmapper.h"
 #include "main.h"
 #include "devinfo.h"
+#include "configfile.h"
 
-/* White list switch */
+/* global default hardware list */
+struct hwentry defwlist[] = {
+	{"COMPAQ  ", "HSV110 (C)COMPAQ", GROUP_BY_TUR, &get_evpd_wwid},
+	{"COMPAQ  ", "MSA1000         ", GROUP_BY_TUR, &get_evpd_wwid},
+	{"COMPAQ  ", "MSA1000 VOLUME  ", GROUP_BY_TUR, &get_evpd_wwid},
+	{"DEC     ", "HSG80           ", GROUP_BY_TUR, &get_evpd_wwid},
+	{"HP      ", "HSV100          ", GROUP_BY_TUR, &get_evpd_wwid},
+	{"HP      ", "A6189A          ", MULTIBUS, &get_evpd_wwid},
+	{"HP      ", "OPEN-           ", MULTIBUS, &get_evpd_wwid},
+	{"DDN     ", "SAN DataDirector", MULTIBUS, &get_evpd_wwid},
+	{"FSC     ", "CentricStor     ", MULTIBUS, &get_evpd_wwid},
+	{"HITACHI ", "DF400           ", MULTIBUS, &get_evpd_wwid},
+	{"HITACHI ", "DF500           ", MULTIBUS, &get_evpd_wwid},
+	{"HITACHI ", "DF600           ", MULTIBUS, &get_evpd_wwid},
+	{"IBM     ", "ProFibre 4000R  ", MULTIBUS, &get_evpd_wwid},
+	{"SGI     ", "TP9100          ", MULTIBUS, &get_evpd_wwid},
+	{"SGI     ", "TP9300          ", MULTIBUS, &get_evpd_wwid},
+	{"SGI     ", "TP9400          ", MULTIBUS, &get_evpd_wwid},
+	{"SGI     ", "TP9500          ", MULTIBUS, &get_evpd_wwid},
+	{"", "", 0, NULL},
+};      
+        
+struct hwentry * wlist = &defwlist[0];
+
+void *getuid_list[] = {&get_evpd_wwid, NULL};
+        
 static int
-get_unique_id(struct path * mypath)
+get_path_tunables(struct path * mypath)
 {
 	int i;
-	static struct {
-		char * vendor;
-		char * product;
-		int iopolicy;
-		int (*getuid) (char *, char *);
-	} wlist[] = {
-		{"COMPAQ  ", "HSV110 (C)COMPAQ", GROUP_BY_TUR, &get_evpd_wwid},
-		{"COMPAQ  ", "MSA1000         ", GROUP_BY_TUR, &get_evpd_wwid},
-		{"COMPAQ  ", "MSA1000 VOLUME  ", GROUP_BY_TUR, &get_evpd_wwid},
-		{"DEC     ", "HSG80           ", GROUP_BY_TUR, &get_evpd_wwid},
-		{"HP      ", "HSV100          ", GROUP_BY_TUR, &get_evpd_wwid},
-		{"HP      ", "A6189A          ", MULTIBUS, &get_evpd_wwid},
-		{"HP      ", "OPEN-           ", MULTIBUS, &get_evpd_wwid},
-		{"DDN     ", "SAN DataDirector", MULTIBUS, &get_evpd_wwid},
-		{"FSC     ", "CentricStor     ", MULTIBUS, &get_evpd_wwid},
-		{"HITACHI ", "DF400           ", MULTIBUS, &get_evpd_wwid},
-		{"HITACHI ", "DF500           ", MULTIBUS, &get_evpd_wwid},
-		{"HITACHI ", "DF600           ", MULTIBUS, &get_evpd_wwid},
-		{"IBM     ", "ProFibre 4000R  ", MULTIBUS, &get_evpd_wwid},
-		{"SGI     ", "TP9100          ", MULTIBUS, &get_evpd_wwid},
-		{"SGI     ", "TP9300          ", MULTIBUS, &get_evpd_wwid},
-		{"SGI     ", "TP9400          ", MULTIBUS, &get_evpd_wwid},
-		{"SGI     ", "TP9500          ", MULTIBUS, &get_evpd_wwid},
-		{NULL, NULL, 0, NULL},
-	};
 
-	for (i = 0; wlist[i].vendor; i++) {
+	for (i = 0; wlist[i].getuid; i++) {
 		if (strncmp(mypath->vendor_id, wlist[i].vendor, 8) == 0 &&
 		    strncmp(mypath->product_id, wlist[i].product, 16) == 0) {
 			mypath->iopolicy = wlist[i].iopolicy;
@@ -171,8 +172,10 @@ devinfo (struct path *curpath)
 			curpath->sg_dev);
 	get_serial(curpath->serial, curpath->sg_dev);
 	curpath->tur = do_tur(curpath->sg_dev);
-	if (!get_unique_id(curpath))
+	if (!get_path_tunables(curpath)) {
+		fprintf (stderr, "get_path_tunables error\n");
 		return 1;
+	}
 
 	return 0;
 }
@@ -305,7 +308,7 @@ get_all_paths_nosysfs(struct env * conf, struct path * all_paths,
 				all_paths[k].rev,
 				all_paths[k].sg_dev);
 		get_serial(all_paths[k].serial, all_paths[k].sg_dev);
-		if (!get_unique_id(&all_paths[k]))
+		if (!get_path_tunables(&all_paths[k]))
 			continue;
 
 		if ((fd = open(all_paths[k].sg_dev, O_RDONLY)) < 0)
@@ -623,7 +626,7 @@ setup_map(struct env * conf, struct path * all_paths,
 
 	if ((all_paths[PINDEX(index,0)].iopolicy == MULTIBUS &&
 	    conf->iopolicy == -1) || conf->iopolicy == MULTIBUS) {
-		params_p += sprintf(params_p, " 1 %s %i %i",
+		params_p += sprintf(params_p, "1 %s %i %i",
 				    dm_ps_name, np, dm_ps_nr_args);
 		
 		for (i=0; i<=mp[index].npaths; i++) {
@@ -636,7 +639,7 @@ setup_map(struct env * conf, struct path * all_paths,
 
 	if ((all_paths[PINDEX(index,0)].iopolicy == FAILOVER &&
 	     conf->iopolicy == -1) || conf->iopolicy == FAILOVER) {
-		params_p += sprintf(params_p, " %i", mp[index].npaths + 1);
+		params_p += sprintf(params_p, "%i", mp[index].npaths + 1);
 		for (i=0; i<=mp[index].npaths; i++) {
 			if (0 != all_paths[PINDEX(index,i)].sg_id.scsi_type)
 				continue;
@@ -807,7 +810,7 @@ main(int argc, char *argv[])
 	conf.dry_run = 0;	/* 1 == Do not Create/Update devmaps */
 	conf.verbose = 0;	/* 1 == Print all_paths and mp */
 	conf.quiet = 0;		/* 1 == Do not even print devmaps */
-	conf.iopolicy = -1;	/* Apply the defaults in get_unique_id() */
+	conf.iopolicy = -1;	/* do not override defaults */
 	conf.major = -1;
 	conf.minor = -1;
 
@@ -845,6 +848,10 @@ main(int argc, char *argv[])
 		} else
 			strncpy(conf.hotplugdev, argv[i], FILE_NAME_SIZE);
 	}
+
+	/* if we have a config file read it (overwrite wlist) */
+	if (check_config() && conf.iopolicy < 0)
+		wlist = read_config(getuid_list);
 
 	/* dynamic allocations */
 	mp = malloc(conf.max_devs * sizeof(struct multipath));

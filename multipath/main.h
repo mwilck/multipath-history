@@ -21,6 +21,7 @@
 
 /* local includes */
 #include "sg_include.h"
+#include "devinfo.h"
 
 /* exerpt from "sg_err.h" */
 #define SCSI_CHECK_CONDITION 	0x2
@@ -45,12 +46,14 @@
 #define PIDFILE		"/var/run/multipathd.pid"
 #define RUN		"/var/run/multipath.run"
 #define MAXTRY		50
+#define MAXHWENTRIES	100
 
-/* Storage controlers cpabilities */
+/* Storage controlers capabilities */
 #define FAILOVER	0
 #define MULTIBUS	1
 #define GROUP_BY_SERIAL	2
-#define GROUP_BY_TUR	4
+#define GROUP_BY_TUR	3
+#define HIGHESTPOLICY	3
 
 #define PINDEX(x,y)	mp[(x)].pindex[(y)]
 
@@ -111,6 +114,13 @@ struct env {
 	int minor;
 	char sysfs_path[FILE_NAME_SIZE];
 	char hotplugdev[FILE_NAME_SIZE];
+};
+
+struct hwentry {
+	char vendor[8];
+	char product[16];
+	int iopolicy;
+	int (*getuid) (char *, char *);
 };
 
 /* Build version */
