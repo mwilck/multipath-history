@@ -920,36 +920,53 @@ usage (char * progname)
 	exit(1);
 }
 
-int try_lock (char * file)
+static int
+get_current_paths (struct multipath * mpp, vector pathvec)
 {
-	int fd;
-	struct flock fl;
+	int i, j;
+	struct pathgroup * pgp;
+	struct path * pp;
 
-	/*
-	 * create the file to lock if it does not exist
-	 */
-	fd = open(file, O_CREAT|O_RDWR);
-
-	if (fd < 0) {
-		fprintf(stderr, "can't create runfile\n");
-		exit(1);
+	vector_foreach_slot (mpp->pg, pgp, i) {
+		vector_foreach_slot (pgp->paths, pp, j) {
+			if (strlen(pp->dev) == 0) {
+				devt2devname(pp->dev, pp->dev_t);
+				devinfo(pp);
+			}
+			if (pp->state == PATH_UNCHECKED)
+				pp->state = pp->checkfn(pp->dev_t, NULL, NULL);
+		}
 	}
-	fl.l_type = F_WRLCK;
-	fl.l_whence = 0;
-	fl.l_start = 0;
-	fl.l_len = 0;
+	return 0;
+}
 
-	/*
-	 * set a max wait time
-	 */
-	alarm(2);
-	
-	if (fcntl(fd, F_SETLKW, &fl) == -1) {
-		fprintf(stderr, "can't take a write lease on %s\n", file);
-		return 1;
+static int
+get_current_mp (vector curmp, vector pathvec)
+{
+	int i;
+	struct multipath * mpp;
+
+	dm_get_maps(curmp, DEFAULT_TARGET);
+
+	vector_foreach_slot (curmp, mpp, i) {
+		if (conf->dev_type == DEV_DEVMAP && (
+		    (mpp->alias &&
+		    0 != strncmp(mpp->alias, conf->dev, FILE_NAME_SIZE)) &&
+		    0 != strncmp(mpp->wwid, conf->dev, FILE_NAME_SIZE)))
+			continue;
+
+		dbg("params = %s", mpp->params);
+		dbg("status = %s", mpp->status);
+		disassemble_map(pathvec, mpp->params, mpp);
+		get_current_paths(mpp, pathvec);
+		disassemble_status(mpp->status, mpp);
+
+		if (conf->list)
+			print_mp(mpp);
+
+		if (!conf->dry_run)
+			reinstate_paths(mpp);
 	}
-	alarm(0);
-
 	return 0;
 }
 
@@ -969,15 +986,6 @@ main (int argc, char *argv[])
 		exit(1);
 	}
 
-	/*
-	 * Don't run in parallel
-	 * ie, acquire a F_WRLCK-type lock on DEFAULT_RUNFILE
-	 */
-	if (try_lock(DEFAULT_RUNFILE)) {
-		fprintf(stderr, "waited for to long. exiting\n");
-		exit(1);
-	}
-	
 	/*
 	 * alloc config struct
 	 */
