@@ -148,7 +148,13 @@ sprint_wwid(char * buff, const char * str)
 	const char *p;
 	char *cursor;
 	unsigned char c;
-                                                                                                                 
+	char empty_buff[WWID_SIZE];
+
+	memset(empty_buff, 0, WWID_SIZE);
+
+	if (0 == memcmp(empty_buff, str, WWID_SIZE))
+		return;
+
 	p = str;
 	cursor = buff;
 	for (i = 0; i <= WWID_SIZE / 2 - 1; i++) {
@@ -231,7 +237,7 @@ do_tur(char *dev)
 int
 get_null_uid (char * devname, char * wwid)
 {
-	memset (wwid, 0x0, 32);
+	memset (wwid, 0, WWID_SIZE);
 	return 0;
 }
 
