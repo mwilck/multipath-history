@@ -20,7 +20,6 @@
 #define MAPNAMESIZE 64
 #define TARGETTYPESIZE 16
 #define PARAMSSIZE 2048
-#define MAXWAITERS 64
 #define MAXMAPS 512
 
 #define MULTIPATH "/sbin/multipath"
@@ -441,8 +440,8 @@ void *waiterloop (void *ap)
 	/* inits */
 	failedpaths = (struct paths *)ap;
 	devmaps = malloc (MAXMAPS * sizeof (struct devmap));
-	waiters = malloc (MAXWAITERS * sizeof (struct event_thread));
-	memset (waiters, 0, MAXWAITERS * sizeof (struct event_thread));
+	waiters = malloc (MAXMAPS * sizeof (struct event_thread));
+	memset (waiters, 0, MAXMAPS * sizeof (struct event_thread));
 
 	while (1) {
 		

@@ -1,4 +1,4 @@
-#!bin/sh
+#!/bin/sh
 . /etc/hotplug/hotplug.functions
 
 # wait for sysfs
