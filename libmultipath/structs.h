@@ -108,6 +108,7 @@ struct pathgroup {
 
 struct path * alloc_path (void);
 struct multipath * alloc_multipath (void);
+void free_path (struct path *);
 void free_multipath (struct multipath *);
 struct multipath * find_mp (vector mp, char * alias);
 struct path * find_path_by_devt (vector pathvec, char * devt);

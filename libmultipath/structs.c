@@ -1,7 +1,11 @@
+#include <stdio.h>
+#include <unistd.h>
+
 #include "memory.h"
 #include "vector.h"
 #include "util.h"
 #include "structs.h"
+#include "debug.h"
 
 struct path *
 alloc_path (void)
@@ -9,6 +13,14 @@ alloc_path (void)
 	return zalloc(sizeof(struct path));
 }
 
+void
+free_path (struct path * pp)
+{
+	if (pp->fd > 0)
+		close(pp->fd);
+
+	free(pp);
+}
 
 struct multipath *
 alloc_multipath (void)
@@ -25,9 +37,10 @@ free_multipath (struct multipath * mpp)
 	if (mpp->paths)
 		vector_free(mpp->paths);
 
-	vector_foreach_slot (mpp->pg, pgp, i)
+	vector_foreach_slot (mpp->pg, pgp, i) {
 		if (pgp->paths)
 			vector_free(pgp->paths);
+	}
 	free(mpp);
 
 	return;
@@ -63,7 +76,7 @@ find_path_by_dev (vector pathvec, char * dev)
 		if (!strcmp_chomp(pp->dev, dev))
 			return pp;
 
-//	dbg("path %s not found in pathvec\n", dev);
+	dbg("path %s not found in pathvec\n", dev);
 	return NULL;
 }
 
@@ -77,7 +90,7 @@ find_path_by_devt (vector pathvec, char * dev_t)
 		if (!strcmp_chomp(pp->dev_t, dev_t))
 			return pp;
 
-//	dbg("path %s not found in pathvec\n", dev_t);
+	dbg("path %s not found in pathvec\n", dev_t);
 	return NULL;
 }
 
