@@ -41,6 +41,8 @@
 #include <hwtable.h>
 #include <defaults.h>
 #include <structs.h>
+#include <dmparser.h>
+#include <devmapper.h>
 
 #include "main.h"
 #include "dict.h"
@@ -83,6 +85,7 @@ struct event_thread {
 	pthread_mutex_t *waiter_lock;
 	int event_nr;
 	char mapname[WWID_SIZE];
+	struct paths *allpaths;
 };
 
 /*
@@ -415,9 +418,9 @@ out:
 static void *
 waiterloop (void *ap)
 {
-	struct paths * allpaths;
+	struct paths *allpaths;
 	vector devmaps = NULL;
-	char * devmap;
+	char *devmap;
 	vector waiters;
 	struct event_thread *wp;
 	pthread_attr_t attr;
@@ -464,7 +467,7 @@ waiterloop (void *ap)
 		/*
 		 * update paths list
 		 */
-		syslog(LOG_INFO, "refresh failpaths list");
+		syslog(LOG_INFO, "refresh paths list");
 
 		while(updatepaths(allpaths, sysfs_path)) {
 			syslog(LOG_ERR, "can't update path list ... retry");
@@ -495,6 +498,7 @@ waiterloop (void *ap)
 				wp->waiter_lock = (pthread_mutex_t *) 
 					MALLOC (sizeof (pthread_mutex_t));
 				pthread_mutex_init (wp->waiter_lock, NULL);
+				wp->allpaths = allpaths;
 				vector_alloc_slot (waiters);
 				vector_set_slot (waiters, wp);
 			}
