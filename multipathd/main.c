@@ -263,28 +263,31 @@ out:
 }
 
 static int
-updatepaths (struct paths *allpaths)
+updatepaths (struct paths *allpaths, char *sysfs_path)
 {
 	int i;
 	struct path *pp;
 	struct sysfs_directory * sdir;
 	struct sysfs_directory * devp;
 	char path[FILENAMESIZE];
-	char sysfs_path[FILENAMESIZE];
 	char attr_path[FILENAMESIZE];
 	char attr_buff[17];
 	
-	if (sysfs_get_mnt_path(sysfs_path, FILENAMESIZE)) {
-		syslog(LOG_ERR, "can not find sysfs mount point");
-		return 1;
-	}
-
 	if (safe_sprintf(path, "%s/block", sysfs_path)) {
 		fprintf(stderr, "updatepaths: path too small\n");
 		return 1;
 	}
 	sdir = sysfs_open_directory(path);
-	sysfs_read_dir_subdirs(sdir);
+
+	if (!sdir) {
+		syslog(LOG_ERR, "cannot open %s/block", sysfs_path);
+		return 1;
+	}
+	if (sysfs_read_dir_subdirs(sdir) < 0) {
+		syslog(LOG_ERR, "cannot open %s/block subdirs", sysfs_path);
+		sysfs_close_directory(sdir);
+		return 1;
+	}
 	pthread_mutex_lock(allpaths->lock);
 
 	dlist_for_each_data(sdir->subdirs, devp, struct sysfs_directory) {
@@ -445,9 +448,15 @@ waiterloop (void *ap)
 	int r;
 	char buff[1];
 	int i, j;
+	char sysfs_path[FILENAMESIZE];
 
 	syslog(LOG_NOTICE, "start DM events thread");
 	mlockall(MCL_CURRENT | MCL_FUTURE);
+
+	if (sysfs_get_mnt_path(sysfs_path, FILENAMESIZE)) {
+		syslog(LOG_ERR, "can not find sysfs mount point");
+		return NULL;
+	}
 
 	/*
 	 * inits
@@ -472,7 +481,7 @@ waiterloop (void *ap)
 			/*
 			 * we're not allowed to fail here
 			 */
-			syslog(LOG_ERR, "can't get devmaps ... retry later");
+			syslog(LOG_ERR, "can't get devmaps ... retry");
 			sleep(5);
 		}
 
@@ -480,7 +489,11 @@ waiterloop (void *ap)
 		 * update paths list
 		 */
 		syslog(LOG_INFO, "refresh failpaths list");
-		updatepaths(allpaths);
+
+		while(updatepaths(allpaths, sysfs_path)) {
+			syslog(LOG_ERR, "can't update path list ... retry");
+			sleep(5);
+		}
 
 		/*
 		 * start waiters on all devmaps
