@@ -22,44 +22,34 @@ void log_safe (int prio, char * fmt, ...)
 	pthread_mutex_unlock(logev_lock);
 }
 
-void * log_thread (void * et)
+static void flush_logqueue (void)
 {
-	char * buff = log_alloc_buffer();
-	int more = 1;
+	int empty;
 
-	if (!buff)
-		exit(1);
+	do {
+		pthread_mutex_lock(logq_lock);
+		empty = log_dequeue(la->buff);
+		pthread_mutex_unlock(logq_lock);
+		log_syslog(la->buff);
+	} while (empty == 0);
+}
 
+static void * log_thread (void * et)
+{
 	mlockall(MCL_CURRENT | MCL_FUTURE);
 	logdbg(stderr,"enter log_thread\n");
-	/*
-	 * signal the caller we are ready to receive logs
-	 */
-	pthread_mutex_lock(logev_lock);
-	pthread_cond_signal(logev_cond);
-	pthread_mutex_unlock(logev_lock);
 
-	while(1) {
+	while (1) {
 		pthread_mutex_lock(logev_lock);
 		pthread_cond_wait(logev_cond, logev_lock);
 		pthread_mutex_unlock(logev_lock);
-		logdbg(stderr,"log_thread loop awaken\n");
 
-		while (more) {
-			pthread_mutex_lock(logq_lock);
-			more = log_dequeue(&buff);
-			//dump_logmsg(&buff);
-			pthread_mutex_unlock(logq_lock);
-
-			log_syslog(&buff);
-		}
-		more = 1;
+		flush_logqueue();
 	}
 }
 
 void log_thread_start (void)
 {
-	pthread_t log_thr;
 	pthread_attr_t attr;
 	
 	logdbg(stderr,"enter log_thread_start\n");
@@ -81,17 +71,22 @@ void log_thread_start (void)
 	}
 	pthread_create(&log_thr, &attr, log_thread, NULL);
 
-	/*
-	 * wait for the logger thread before returning
-	 */
-	pthread_mutex_lock(logev_lock);
-	pthread_cond_wait(logev_cond, logev_lock);
-	pthread_mutex_unlock(logev_lock);
-
 	return;
 }
 
 void log_thread_stop (void)
 {
-	pthread_cond_signal(logev_cond);
+	logdbg(stderr,"enter log_thread_stop\n");
+
+	pthread_mutex_lock(logq_lock);
+	pthread_cancel(log_thr);
+	pthread_mutex_unlock(logq_lock);
+
+	flush_logqueue();
+
+	pthread_mutex_destroy(logq_lock);
+	pthread_mutex_destroy(logev_lock);
+	pthread_cond_destroy(logev_cond);
+
+	free_logarea();
 }	

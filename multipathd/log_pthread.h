@@ -1,3 +1,5 @@
+pthread_t log_thr;
+
 pthread_mutex_t *logq_lock;
 pthread_mutex_t *logev_lock;
 pthread_cond_t *logev_cond;
