@@ -368,61 +368,6 @@ get_pathvec_sysfs (vector pathvec)
 	return 0;
 }
 
-static vector
-sort_pathvec_by_prio (vector pathvec)
-{
-	vector sorted_pathvec;
-	struct path * pp;
-	int i;
-	unsigned int highest_prio;
-	unsigned int lowest_prio;
-	unsigned int prio;
-
-	if (VECTOR_SIZE(pathvec) < 2)
-		return pathvec;
-
-	/*
-	 * find out highest & lowest prio
-	 */
-	pp = VECTOR_SLOT(pathvec, 0);
-	highest_prio = pp->priority;
-	lowest_prio = pp->priority;
-
-	for (i = 1; i < VECTOR_SIZE(pathvec); i++) {
-		pp = VECTOR_SLOT(pathvec, i);
-
-		if (pp->priority > highest_prio)
-			highest_prio = pp->priority;
-
-		if (pp->priority < lowest_prio)
-			lowest_prio = pp->priority;
-	}
-
-	if (lowest_prio == highest_prio)
-		return pathvec;
-
-	/* 
-	 * sort
-	 */
-	sorted_pathvec = vector_alloc();
-	dbg("sorted_pathvec :");
-
-	for (prio = lowest_prio; prio <= highest_prio; prio++) {
-		for (i = 0; i < VECTOR_SIZE(pathvec); i++) {
-			pp = VECTOR_SLOT(pathvec, i);
-
-			if (pp->priority == prio) {
-				vector_alloc_slot(sorted_pathvec);
-				vector_set_slot(sorted_pathvec, pp);
-				dbg("%s (%u)", pp->dev, pp->priority);
-			}
-		}
-	}
-
-	return sorted_pathvec;
-
-}
-
 /*
  * print_path style
  */
@@ -925,26 +870,20 @@ setup_map (vector pathvec, struct multipath * mpp)
 
 	/*
 	 * layered map computation :
-	 *  1) sort paths by priority
-	 *  2) separate failed paths in a tersary PG
-	 *  3) separate shaky paths in a secondary PG
-	 *  4) apply selected grouping policy to valid paths
-	 *  5) reorder path groups by summed priority
+	 *  1) separate failed paths in a tersary PG
+	 *  2) separate shaky paths in a secondary PG
+	 *  3) apply selected grouping policy to valid paths
+	 *  4) reorder path groups by summed priority
 	 */
 
 	/*
-	 * 1) sort by priority
-	 */
-	mpp->paths = sort_pathvec_by_prio(mpp->paths);
-
-	/*
-	 * 2) & 3)
+	 * 1) & 2)
 	 */
 	group_by_status(mpp, PATH_DOWN);
 	group_by_status(mpp, PATH_SHAKY);
 
 	/*
-	 * 4) apply selected grouping policy
+	 * 3) apply selected grouping policy
 	 */
 	if (iopolicy == MULTIBUS)
 		one_group (mpp);
@@ -964,7 +903,7 @@ setup_map (vector pathvec, struct multipath * mpp)
 	}
 
 	/*
-	 * 5)
+	 * 4)
 	 */
 	sort_pg_by_summed_prio(mpp);
 
