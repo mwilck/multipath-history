@@ -50,6 +50,7 @@
 #define TARGETTYPESIZE 16
 #define PARAMSSIZE 2048
 #define DEV_T_SIZE 32
+#define CMDSIZE 160
 
 #define PIDFILE "/var/run/multipathd.pid"
 #define CONFIGFILE "/etc/multipath.conf"
@@ -386,16 +387,20 @@ waitevent (void * et)
 {
 	struct event_thread *waiter;
 	char buff[1];
-	char * bin;
+	char cmd[CMDSIZE];
+	struct dm_task *dmt;
 
 	mlockall(MCL_CURRENT | MCL_FUTURE);
 	waiter = (struct event_thread *)et;
+
+	if (safe_snprintf(cmd, CMDSIZE, "%s %s", multipath, waiter->mapname)) {
+		syslog(LOG_ERR, "command too long, abord reconfigure");
+		return NULL;
+	}
 	pthread_mutex_lock (waiter->waiter_lock);
 
 	waiter->event_nr = geteventnr (waiter->mapname);
 	syslog(LOG_DEBUG, "waiter->event_nr = %i", waiter->event_nr);
-
-	struct dm_task *dmt;
 
 	if (!(dmt = dm_task_create(DM_DEVICE_WAITEVENT)))
 		return 0;
@@ -411,14 +416,9 @@ waitevent (void * et)
 out:
 	dm_task_destroy(dmt);
 
-	bin = MALLOC(strlen(multipath) + WWID_SIZE + 1);
-	sprintf(bin, "%s %s", multipath, waiter->mapname);
-
-	syslog(LOG_DEBUG, "%s", bin);
+	syslog(LOG_DEBUG, "%s", cmd);
 	syslog(LOG_NOTICE, "devmap event on %s", waiter->mapname);
-	syslog(LOG_INFO, "%s : reconfigure multipath map",
-			waiter->mapname);
-	execute_program(multipath, buff, 1);
+	execute_program(cmd, buff, 1);
 
 	/*
 	 * tell waiterloop we have an event
@@ -561,7 +561,7 @@ checkerloop (void *ap)
 	int i;
 	int newstate;
 	char buff[1];
-	char * bin;
+	char cmd[CMDSIZE];
 	char checker_msg[MAX_CHECKER_MSG_SIZE];
 
 	memset(checker_msg, 0, MAX_CHECKER_MSG_SIZE);
@@ -595,12 +595,17 @@ checkerloop (void *ap)
 				/*
 				 * reconfigure map now
 				 */
-				bin = MALLOC(strlen(multipath) + DEV_T_SIZE);
-				sprintf(bin, "%s -D %s", multipath, pp->dev_t);
-
-				syslog(LOG_DEBUG, "%s", bin);
-				syslog(LOG_INFO, "reconfigure multipath map");
-				execute_program(bin, buff, 1);
+				if (safe_snprintf(cmd, CMDSIZE, "%s %s",
+						  multipath, pp->dev_t)) {
+					syslog(LOG_ERR, "command too long,"
+							" abord reconfigure");
+				} else {
+					syslog(LOG_DEBUG, "%s", cmd);
+					syslog(LOG_INFO,
+						"reconfigure %s multipath",
+						pp->dev_t);
+					execute_program(cmd, buff, 1);
+				}
 
 				/*
 				 * tell waiterloop we have an event
