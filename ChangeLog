@@ -1,3 +1,5 @@
+	* [devmap_name] kill the wrong trailing '\n'
+	  (Mike Christie)
 	* [kpartx] works with device nodes outside /dev
 	* [kpartx] correctly display the delimiter in partition
 	  name outputs
