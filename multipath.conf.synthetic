@@ -78,6 +78,12 @@ devices {
 		path_checker		tur
 	}
 	device {
+		vendor			"IBM     "
+		product			"3542            "
+		path_grouping_policy	group_by_serial
+		path_checker		tur
+	}
+	device {
 		vendor			"DDN     "
 		product			"SAN DataDirector"
 		path_grouping_policy	multibus
