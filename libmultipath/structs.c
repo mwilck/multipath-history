@@ -76,7 +76,7 @@ find_path_by_dev (vector pathvec, char * dev)
 		if (!strcmp_chomp(pp->dev, dev))
 			return pp;
 
-	dbg("path %s not found in pathvec\n", dev);
+	condlog(3, "path %s not found in pathvec\n", dev);
 	return NULL;
 }
 
@@ -90,7 +90,7 @@ find_path_by_devt (vector pathvec, char * dev_t)
 		if (!strcmp_chomp(pp->dev_t, dev_t))
 			return pp;
 
-	dbg("path %s not found in pathvec\n", dev_t);
+	condlog(3, "path %s not found in pathvec\n", dev_t);
 	return NULL;
 }
 

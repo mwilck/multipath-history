@@ -1,5 +1,8 @@
-#if DEBUG
-#define dbg(format, arg...) fprintf(stderr, format "\n", ##arg)
-#else
-#define dbg(format, arg...) do {} while(0)
+void condlog (int prio, char * fmt, ...);
+
+#if DAEMON
+#include <pthread.h>
+#include "../multipathd/log_pthread.h"
+#define condlog(prio, fmt, args...) \
+	log_safe(prio + 3, fmt, ##args)
 #endif

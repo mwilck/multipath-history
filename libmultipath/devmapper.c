@@ -434,7 +434,7 @@ dm_switchgroup(char * mapname, int index)
 		goto out;
 
 	snprintf(str, 24, "switch_group %i\n", index);
-	dbg("message %s 0 %s", mapname, str);
+	condlog(3, "message %s 0 %s", mapname, str);
 
 	if (!dm_task_set_message(dmt, str))
 		goto out;

@@ -44,12 +44,12 @@
 #include <devmapper.h>
 #include <dict.h>
 #include <discovery.h>
+#include <debug.h>
 
 #include "main.h"
 #include "devinfo.h"
 #include "copy.h"
 #include "clone_platform.h"
-#include "log_pthread.h"
 
 #define FILE_NAME_SIZE 256
 #define CMDSIZE 160
@@ -717,7 +717,9 @@ child (void * param)
 	conf = alloc_config();
 	conf->checkint = CHECKINT;
 
-	log_safe(LOG_INFO, "read " DEFAULT_CONFIGFILE);
+	setlogmask(LOG_UPTO(conf->verbosity + 3));
+
+	condlog(2, "read " DEFAULT_CONFIGFILE);
 	init_data(DEFAULT_CONFIGFILE, init_keywords);
 
 	/*

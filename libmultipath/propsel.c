@@ -24,30 +24,30 @@ select_pgpolicy (struct multipath * mp)
 	if (conf->pgpolicy_flag > 0) {
 		mp->pgpolicy = conf->pgpolicy_flag;
 		get_pgpolicy_name(pgpolicy_name, mp->pgpolicy);
-		dbg("pgpolicy = %s (cmd line flag)", pgpolicy_name);
+		condlog(3, "pgpolicy = %s (cmd line flag)", pgpolicy_name);
 		return 0;
 	}
 	if (mp->mpe && mp->mpe->pgpolicy > 0) {
 		mp->pgpolicy = mp->mpe->pgpolicy;
 		get_pgpolicy_name(pgpolicy_name, mp->pgpolicy);
-		dbg("pgpolicy = %s (LUN setting)", pgpolicy_name);
+		condlog(3, "pgpolicy = %s (LUN setting)", pgpolicy_name);
 		return 0;
 	}
 	if (mp->hwe && mp->hwe->pgpolicy > 0) {
 		mp->pgpolicy = mp->hwe->pgpolicy;
 		get_pgpolicy_name(pgpolicy_name, mp->pgpolicy);
-		dbg("pgpolicy = %s (controler setting)", pgpolicy_name);
+		condlog(3, "pgpolicy = %s (controler setting)", pgpolicy_name);
 		return 0;
 	}
 	if (conf->default_pgpolicy > 0) {
 		mp->pgpolicy = conf->default_pgpolicy;
 		get_pgpolicy_name(pgpolicy_name, mp->pgpolicy);
-		dbg("pgpolicy = %s (config file default)", pgpolicy_name);
+		condlog(3, "pgpolicy = %s (config file default)", pgpolicy_name);
 		return 0;
 	}
 	mp->pgpolicy = FAILOVER;
 	get_pgpolicy_name(pgpolicy_name, FAILOVER);
-	dbg("pgpolicy = %s (internal default)", pgpolicy_name);
+	condlog(3, "pgpolicy = %s (internal default)", pgpolicy_name);
 	return 0;
 }
 
@@ -56,16 +56,16 @@ select_selector (struct multipath * mp)
 {
 	if (mp->mpe && mp->mpe->selector) {
 		mp->selector = mp->mpe->selector;
-		dbg("selector = %s (LUN setting)", mp->selector);
+		condlog(3, "selector = %s (LUN setting)", mp->selector);
 		return 0;
 	}
 	if (mp->hwe && mp->hwe->selector) {
 		mp->selector = mp->hwe->selector;
-		dbg("selector = %s (controler setting)", mp->selector);
+		condlog(3, "selector = %s (controler setting)", mp->selector);
 		return 0;
 	}
 	mp->selector = conf->default_selector;
-	dbg("selector = %s (internal default)", mp->selector);
+	condlog(3, "selector = %s (internal default)", mp->selector);
 	return 0;
 }
 
@@ -85,11 +85,11 @@ select_features (struct multipath * mp)
 {
 	if (mp->hwe && mp->hwe->features) {
 		mp->features = mp->hwe->features;
-		dbg("features = %s (controler setting)", mp->features);
+		condlog(3, "features = %s (controler setting)", mp->features);
 		return 0;
 	}
 	mp->features = conf->default_features;
-	dbg("features = %s (internal default)", mp->features);
+	condlog(3, "features = %s (internal default)", mp->features);
 	return 0;
 }
 
@@ -98,11 +98,11 @@ select_hwhandler (struct multipath * mp)
 {
 	if (mp->hwe && mp->hwe->hwhandler) {
 		mp->hwhandler = mp->hwe->hwhandler;
-		dbg("hwhandler = %s (controler setting)", mp->hwhandler);
+		condlog(3, "hwhandler = %s (controler setting)", mp->hwhandler);
 		return 0;
 	}
 	mp->hwhandler = conf->default_hwhandler;
-	dbg("hwhandler = %s (internal default)", mp->hwhandler);
+	condlog(3, "hwhandler = %s (internal default)", mp->hwhandler);
 	return 0;
 }
 
@@ -113,13 +113,13 @@ select_checkfn(struct path *pp)
 
 	if (pp->hwe && pp->hwe->checker_index > 0) {
 		get_checker_name(checker_name, pp->hwe->checker_index);
-		dbg("path checker = %s (controler setting)", checker_name);
+		condlog(3, "path checker = %s (controler setting)", checker_name);
 		pp->checkfn = get_checker_addr(pp->hwe->checker_index);
 		return 0;
 	}
 	pp->checkfn = &readsector0;
 	get_checker_name(checker_name, READSECTOR0);
-	dbg("path checker = %s (internal default)", checker_name);
+	condlog(3, "path checker = %s (internal default)", checker_name);
 	return 0;
 }
 
@@ -128,11 +128,11 @@ select_getuid (struct path * pp)
 {
 	if (pp->hwe && pp->hwe->getuid) {
 		pp->getuid = pp->hwe->getuid;
-		dbg("getuid = %s (controler setting)", pp->getuid);
+		condlog(3, "getuid = %s (controler setting)", pp->getuid);
 		return 0;
 	}
 	pp->getuid = conf->default_getuid;
-	dbg("getuid = %s (internal default)", pp->getuid);
+	condlog(3, "getuid = %s (internal default)", pp->getuid);
 	return 0;
 }
 
@@ -141,11 +141,11 @@ select_getprio (struct path * pp)
 {
 	if (pp->hwe && pp->hwe->getprio) {
 		pp->getprio = pp->hwe->getprio;
-		dbg("getprio = %s (controler setting)", pp->getprio);
+		condlog(3, "getprio = %s (controler setting)", pp->getprio);
 		return 0;
 	}
 	pp->getprio = conf->default_getprio;
-	dbg("getprio = %s (internal default)", pp->getprio);
+	condlog(3, "getprio = %s (internal default)", pp->getprio);
 	return 0;
 }
 
