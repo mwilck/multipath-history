@@ -1206,7 +1206,7 @@ main (int argc, char *argv[])
 	extern char *optarg;
 	extern int optind;
 
-	if (dm_prereq(DM_TARGET, 0, 0, 0)) {
+	if (dm_prereq(DM_TARGET, 1, 0, 3)) {
 		dbg("device mapper prerequisites not met");
 		exit(1);
 	}
