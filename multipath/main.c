@@ -350,7 +350,6 @@ coalesce_paths (vector mp, vector pathvec)
 	int k, i, already_done;
 	char empty_buff[WWID_SIZE];
 	struct multipath * mpp;
-	struct mpentry * mpe;
 	struct path * pp1;
 	struct path * pp2;
 
@@ -381,9 +380,8 @@ coalesce_paths (vector mp, vector pathvec)
 		mpp = zalloc(sizeof(struct multipath));
 		strcpy (mpp->wwid, pp1->wwid);
 
-		mpe = find_mp(mpp->wwid);
-		if (mpe)
-			mpp->alias = mpe->alias;
+		mpp->mpe = find_mp(pp1->wwid);
+		mpp->hwe = find_hw(pp1->vendor_id, pp1->product_id);
 
 		mpp->paths = vector_alloc();
 		vector_alloc_slot (mpp->paths);
