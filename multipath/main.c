@@ -517,7 +517,7 @@ coalesce_paths (vector mp, vector pathvec)
 		vector_alloc_slot (mpp->paths);
 		vector_set_slot (mpp->paths, VECTOR_SLOT(pathvec, k));
 
-		if (mpp->size == 0)
+		if (mpp->size == 0 && pp1->state == PATH_UP)
 			mpp->size = get_disk_size(pp1->dev);
 
 		for (i = k + 1; i < VECTOR_SIZE(pathvec); i++) {
@@ -526,6 +526,10 @@ coalesce_paths (vector mp, vector pathvec)
 				vector_alloc_slot(mpp->paths);
 				vector_set_slot(mpp->paths,
 						VECTOR_SLOT(pathvec, i));
+
+				if (mpp->size == 0 && pp2->state == PATH_UP)
+					mpp->size = get_disk_size(pp2->dev);
+
 			}
 		}
 		vector_set_slot(mp, mpp);
