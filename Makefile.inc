@@ -17,8 +17,7 @@ arch        = ${shell $(CC) -dumpmachine | sed \
 # tools
 CC          = gcc
 GZIP        = /bin/gzip -9 -c
-#STRIP       = strip --strip-all -R .comment -R .note
-STRIP       = strip
+STRIP       = strip --strip-all -R .comment -R .note
 
 # arch specific stuff
 include $(klibcdir)/klibc/arch/$(arch)/MCONFIG

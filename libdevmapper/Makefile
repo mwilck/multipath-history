@@ -9,8 +9,6 @@ CFLAGS += -Iioctl
 OBJS = ioctl/libdevmapper.o libdm-common.o
 
 all:	$(OBJS)
-	@echo ""
-	@echo "Make complete"
 
 install:
 

@@ -1,3 +1,4 @@
+	* [Makefile] don't try to install and uninstall libs
 	* [devmap_name] kill the wrong trailing '\n'
 	  (Mike Christie)
 	* [kpartx] works with device nodes outside /dev
