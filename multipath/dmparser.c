@@ -137,7 +137,9 @@ disassemble_map (vector pathvec, char * params, struct multipath * mpp)
 	num_hwhandler = atoi(mpp->hwhandler);
 
 	for (i = 0; i < num_hwhandler; i++) {
-		p += get_word(p, NULL);
+		p += get_word(p, &word);
+		merge_words(&mpp->hwhandler, word, 1);
+		free(word);
 	}
 
 	/*
