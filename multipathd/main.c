@@ -152,7 +152,7 @@ select_checkfn(struct path *path_p, char *devname)
 	r = get_lun_strings(vendor, product, rev, devname);
 
 	if (r) {
-		LOG(2, "can not get device strings");
+		LOG(1, "can not get device strings");
 		return r;
 	}
 
@@ -882,6 +882,21 @@ signal_init(void)
 	signal_set(SIGKILL, sigend);
 }
 
+static void
+setscheduler (void)
+{
+        int res;
+	static struct sched_param sched_param = {
+		sched_priority: 99
+	};
+
+        res = sched_setscheduler (0, SCHED_RR, &sched_param);
+
+        if (res == -1)
+                LOG(1, "Could not set SCHED_RR at priority 99");
+	return;
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -908,6 +923,7 @@ main (int argc, char *argv[])
 
 	pidfile(pid);
 	signal_init();
+	setscheduler();
 
 	failedpaths = initpaths();
 

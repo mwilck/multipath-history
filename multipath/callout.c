@@ -55,7 +55,9 @@ int execute_program(char *path, char *value, int len)
 		return -1;
 	}
 
+
 	pid = fork();
+
 	switch(pid) {
 	case 0:
 		/* child */
@@ -63,17 +65,12 @@ int execute_program(char *path, char *value, int len)
 
 		/* dup write side of pipe to STDOUT */
 		dup(fds[1]);
-		if (argv[0] !=  NULL) {
-			dbg("execute '%s' with given arguments", argv[0]);
-			retval = execv(argv[0], argv);
-		} else {
-			dbg("execute '%s' with main argument", path);
-			//retval = execv(path, main_argv);
-			retval = execv(path, NULL);
-		}
+
+		dbg("execute '%s' with given arguments", argv[0]);
+		retval = execv(argv[0], argv);
 
 		dbg(FIELD_PROGRAM " execution of '%s' failed", path);
-		exit(1);
+		exit(-1);
 	case -1:
 		dbg("fork failed");
 		return -1;

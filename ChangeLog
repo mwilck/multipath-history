@@ -1,4 +1,17 @@
-2004-07-16 multipath-tools-0.2.7
+2004-08-01 multipath-tools-0.2.8
+	* [multipathd] setsched prio to RT
+	* [multipath] massive include cleanup
+	* [multipath] add a "default_prio_callout" keyword
+	  first user will be SPC-3 ALUA priority field fetcher
+	  from IBM
+	* [multipath] reenable stdout on some error paths
+	* [build] spilt KERNEL_DIR into KERNEL_SOURCE &
+	  KERNEL_BUILD as per 2.6 and SuSe convention
+	* [klibc] kill warnings due to awk parsing wrong locale in
+	  arch/i386/MCONFIG
+	* [multipath] implement a generic group_by_prio pgpolicy
+	* [multipath] fix the broken failover pgpolicy
+2004-07-24 multipath-tools-0.2.7
 	* [multipath] args parser moved to getopt
 	  <genanr@emsphone.com>
 	* [multipath] zero conf->hotplugdev at allocation
@@ -12,7 +25,7 @@
 	  please speak up and tell so.
 	* [multipath] shut down stderr when calling into libdm
 	* [multipath] reformat the verbose output
-	* [multipath] framework for path priority handling (ULUA)
+	* [multipath] framework for path priority handling (ALUA)
 	* [multipath] kill all reference to group_by_tur
 	* [multipath] integrate path state logic into multibus &
 	  failover pgpolicies. This obsoletes the group_by_tur one
