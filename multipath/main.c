@@ -280,6 +280,28 @@ print_mp (struct multipath * mpp)
 	struct path * pp = NULL;
 	struct pathgroup * pgp = NULL;
 
+	if (mpp->action == ACT_NOTHING)
+		return;
+
+	if (conf->verbosity > 1) {
+		switch (mpp->action) {
+		case ACT_RELOAD:
+			printf("%s: ", ACT_RELOAD_STR);
+			break;
+
+		case ACT_CREATE:
+			printf("%s: ", ACT_CREATE_STR);
+			break;
+
+		case ACT_SWITCHPG:
+			printf("%s: ", ACT_SWITCHPG_STR);
+			break;
+
+		default:
+			break;
+		}
+	}
+
 	if (mpp->alias)
 		printf("%s", mpp->alias);
 
@@ -642,15 +664,11 @@ pgcmp (struct multipath * mpp, struct multipath * cmpp)
 	return r;
 }
 
-static int
+static void
 select_action (struct multipath * mpp, vector curmp)
 {
 	int i;
 	struct multipath * cmpp;
-
-	/*
-	 * FIXME : ACT_RENAME, move to action |= ACT_*
-	 */
 
 	vector_foreach_slot (curmp, cmpp, i) {
 		if (strncmp(cmpp->alias, mpp->alias, strlen(mpp->alias)))
@@ -658,38 +676,47 @@ select_action (struct multipath * mpp, vector curmp)
 
 		if (cmpp->size != mpp->size) {
 			dbg("size different than current");
-			return ACT_RELOAD;
+			mpp->action = ACT_RELOAD;
+			return;
 		}
 		if (strncmp(cmpp->features, mpp->features,
 			    strlen(mpp->features))) {
 			dbg("features different than current");
-			return ACT_RELOAD;
+			mpp->action =  ACT_RELOAD;
+			return;
 		}
 		if (strncmp(cmpp->hwhandler, mpp->hwhandler,
 			    strlen(mpp->hwhandler))) {
 			dbg("hwhandler different than current");
-			return ACT_RELOAD;
+			mpp->action = ACT_RELOAD;
+			return;
 		}
 		if (strncmp(cmpp->selector, mpp->selector,
 			    strlen(mpp->selector))) {
 			dbg("selector different than current");
-			return ACT_RELOAD;
+			mpp->action = ACT_RELOAD;
+			return;
 		}
 		if (VECTOR_SIZE(cmpp->pg) != VECTOR_SIZE(mpp->pg)) {
-			dbg("different path group topology");
-			return ACT_RELOAD;
+			dbg("different number og PG");
+			mpp->action = ACT_RELOAD;
+			return;
 		}
 		if (pgcmp(mpp, cmpp)) {
 			dbg("different path group topology");
-			return ACT_RELOAD;
+			mpp->action = ACT_RELOAD;
+			return;
 		}
 		if (cmpp->nextpg != mpp->nextpg) {
 			dbg("nextpg different than current");
-			return ACT_SWITCHPG;
+			mpp->action = ACT_SWITCHPG;
+			return;
 		}
-		return ACT_NOTHING;
+		mpp->action = ACT_NOTHING;
+		return;
 	}
-	return ACT_CREATE;
+	mpp->action = ACT_CREATE;
+	return;
 }
 
 static int
@@ -715,37 +742,10 @@ reinstate_paths (struct multipath * mpp)
 }
 
 static int
-domap (struct multipath * mpp, int action)
+domap (struct multipath * mpp)
 {
 	int op;
 	int r = 0;
-	char * act;
-
-	switch (action) {
-	case ACT_RELOAD:
-		op = DM_DEVICE_RELOAD;
-		act = ACT_RELOAD_STR;
-		break;
-
-	case ACT_CREATE:
-		op = DM_DEVICE_CREATE;
-		act = ACT_CREATE_STR;
-		break;
-
-	case ACT_SWITCHPG:
-		act = ACT_SWITCHPG_STR;
-		break;
-
-	case ACT_NOTHING:
-		act = ACT_NOTHING_STR;
-		break;
-
-	default:
-		break;
-	}
-
-	if (conf->verbosity > 1)
-		printf("%s: ", act);
 
 	print_mp(mpp);
 
@@ -764,6 +764,12 @@ domap (struct multipath * mpp, int action)
 		reinstate_paths(mpp);
 		return 0;
 	}
+	if (mpp->action == ACT_CREATE)
+		op = DM_DEVICE_CREATE;
+
+	if (mpp->action == ACT_RELOAD)
+		op = DM_DEVICE_RELOAD;
+
 		
 	/*
 	 * device mapper creation or updating
@@ -1190,14 +1196,20 @@ main (int argc, char *argv[])
 		    0 == strncmp(mpp->alias, conf->dev, FILE_NAME_SIZE)) ||
 		    0 == strncmp(mpp->wwid, conf->dev, FILE_NAME_SIZE))) {
 			setup_map(mpp);
-			domap(mpp, select_action(mpp, curmp));
+
+			if (!mpp->action)
+				select_action(mpp, curmp);
+			domap(mpp);
 			goto out;
 		}
 	}
 
 	vector_foreach_slot (mp, mpp, k) {
 		setup_map(mpp);
-		domap(mpp, select_action(mpp, curmp));
+
+		if (!mpp->action)
+			select_action(mpp, curmp);
+		domap(mpp);
 	}
 
 #if DEBUG
