@@ -22,7 +22,6 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <linux/kdev_t.h>
 #include <string.h>
 #include <signal.h>
 #include <sys/ioctl.h>
@@ -38,6 +37,7 @@
 #include "dict.h"
 #include "vector.h"
 #include "memory.h"
+#include "debug.h"
 
 /* helpers */
 #define argis(x) if (0 == strcmp (x, argv[i]))

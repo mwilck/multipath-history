@@ -1,5 +1,6 @@
 #include "parser.h"
 #include "global.h"
+#include "debug.h"
 
 /* data handlers */
 /* Global def handlers */
