@@ -12,5 +12,9 @@ all:	$(OBJS)
 	@echo ""
 	@echo "Make complete"
 
+install:
+
+uninstall:
+
 clean:
 	rm -f core *.o ioctl/*.o ioctl/*.so

@@ -6,10 +6,9 @@
 prefix      = 
 exec_prefix = ${prefix}
 bindir      = ${exec_prefix}/sbin
-udevdir	    = ../../..
 libdmdir    = ../libdevmapper
-klibcdir    = $(udevdir)/klibc
-sysfsdir    = $(udevdir)/libsysfs
+klibcdir    = ../klibc
+sysfsdir    = ../libsysfs
 mandir      = /usr/share/man/man8
 arch        = ${shell $(CC) -dumpmachine | sed \
               -e s'/-.*//' -e 's/i.86/i386/' -e 's/sparc.*/sparc/' \
