@@ -973,10 +973,9 @@ get_current_mp (vector curmp, vector pathvec)
 int
 main (int argc, char *argv[])
 {
-	vector mp, curmp;
+	vector curmp;
 	vector pathvec;
-	struct multipath * mpp;
-	int k;
+	int i;
 	int arg;
 	extern char *optarg;
 	extern int optind;
@@ -1071,11 +1070,10 @@ main (int argc, char *argv[])
 	/*
 	 * allocate core vectors to store paths and multipaths
 	 */
-	mp = vector_alloc();
 	curmp = vector_alloc();
 	pathvec = vector_alloc();
 
-	if (!mp || !curmp || !pathvec) {
+	if (!curmp || !pathvec) {
 		fprintf(stderr, "can not allocate memory\n");
 		exit(1);
 	}
@@ -1116,72 +1114,36 @@ main (int argc, char *argv[])
 		conf->default_hwhandler = DEFAULT_HWHANDLER;
 
 	/*
-	 * if we have a blacklisted device parameterexit early
+	 * if we have a blacklisted device parameter, exit early
 	 */
 	if (conf->dev && blacklist(conf->blist, conf->dev))
 		exit(0);
 	
 	/*
-	 * get a path list and group them as multipaths
+	 * get a path list
 	 */
 	if (get_pathvec_sysfs(pathvec) || VECTOR_SIZE(pathvec) == 0)
 		exit(1);
-
-	dm_get_maps(curmp, DEFAULT_TARGET);
 
 	if (VECTOR_SIZE(pathvec) == 0 && conf->verbosity > 0) {
 		fprintf(stdout, "no path found\n");
 		exit(0);
 	}
-
-	vector_foreach_slot (curmp, mpp, k) {
-		dbg("params = %s", mpp->params);
-		dbg("status = %s", mpp->status);
-		disassemble_map(pathvec, mpp->params, mpp);
-		disassemble_status(mpp->status, mpp);
-
-		if (!conf->dry_run)
-			reinstate_paths(mpp);
-	}
-	if (conf->list) {
-		print_all_mp(curmp);
-		goto out;
-	}
-
-	coalesce_paths(mp, pathvec);
-
-	/*
-	 * conf->dev can be a mapname
-	 * if so, only reconfigure this map
-	 */
-	vector_foreach_slot (mp, mpp, k) {
-		if (conf->dev && (
-		    (mpp->alias &&
-		    0 == strncmp(mpp->alias, conf->dev, FILE_NAME_SIZE)) ||
-		    0 == strncmp(mpp->wwid, conf->dev, FILE_NAME_SIZE))) {
-			setup_map(mpp);
-
-			if (mpp->action == 0)
-				select_action(mpp, curmp);
-			domap(mpp);
-			goto out;
-		}
-	}
-
-	vector_foreach_slot (mp, mpp, k) {
-		setup_map(mpp);
-
-		if (mpp->action == 0)
-			select_action(mpp, curmp);
-		domap(mpp);
-	}
-
 #if DEBUG
 	fprintf(stdout, "#\n# all paths :\n#\n");
 	print_all_paths(pathvec);
-	fprintf(stdout, "#\n# device maps :\n#\n");
-	print_all_maps(mp);
 #endif
+
+	get_current_mp(curmp, pathvec);
+
+	if (conf->list)
+		goto out;
+
+	/*
+	 * group the paths as multipaths
+	 */
+	coalesce_paths(curmp, pathvec);
+
 out:
 	/*
 	 * signal multipathd that new devmaps may have come up
