@@ -361,6 +361,51 @@ out:
 	return info.event_nr;
 }
 
+static void
+mark_failed_path (struct paths *allpaths, char *mapname)
+{
+	struct multipath *mpp;
+	struct pathgroup  *pgp;
+	struct path *pp;
+	struct path *app;
+	char *params, *status;
+	int i, j;
+
+	mpp = alloc_multipath();
+	if (!mpp)
+		return;
+
+	dm_get_map(mapname, &mpp->size, &params);
+	dm_get_status(mapname, &status);
+	
+	pthread_mutex_lock(allpaths->lock);
+	disassemble_map(allpaths->pathvec, params, mpp);
+	pthread_mutex_unlock(allpaths->lock);
+	
+	disassemble_status(status, mpp);
+
+	pthread_mutex_lock(allpaths->lock);
+	vector_foreach_slot (mpp->pg, pgp, i) {
+		vector_foreach_slot (pgp->paths, pp, j) {
+			if (pp->dmstate != PSTATE_FAILED)
+				continue;
+
+			app = find_path(allpaths->pathvec, pp->dev_t);
+			if (app && app->state != PATH_DOWN) {
+				syslog(LOG_NOTICE, "mark %s as failed",
+					pp->dev_t);
+				app->state = PATH_DOWN;
+			}
+		}
+	}
+	pthread_mutex_unlock(allpaths->lock);
+	free(params);
+	free(status);
+	free_multipath(mpp);
+
+	return;
+}
+
 static void *
 waitevent (void * et)
 {
@@ -397,19 +442,20 @@ out:
 
 	syslog(LOG_DEBUG, "%s", cmd);
 	syslog(LOG_NOTICE, "devmap event on %s", waiter->mapname);
+	mark_failed_path(waiter->allpaths, waiter->mapname);
 	execute_program(cmd, buff, 1);
 
 	/*
 	 * tell waiterloop we have an event
 	 */
-	pthread_mutex_lock (event_lock);
+	pthread_mutex_lock(event_lock);
 	pthread_cond_signal(event);
-	pthread_mutex_unlock (event_lock);
+	pthread_mutex_unlock(event_lock);
 	
 	/*
 	 * release waiter_lock so that waiterloop knows we are gone
 	 */
-	pthread_mutex_unlock (waiter->waiter_lock);
+	pthread_mutex_unlock(waiter->waiter_lock);
 	pthread_exit(waiter->thread);
 
 	return (NULL);
