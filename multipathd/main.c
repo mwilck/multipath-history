@@ -41,6 +41,8 @@
 #include <hwtable.h>
 #include <defaults.h>
 #include <structs.h>
+#include <dmparser.h>
+#include <devmapper.h>
 
 #include "main.h"
 #include "dict.h"
@@ -83,6 +85,7 @@ struct event_thread {
 	pthread_mutex_t *waiter_lock;
 	int event_nr;
 	char mapname[WWID_SIZE];
+	struct paths *allpaths;
 };
 
 /*
