@@ -15,8 +15,8 @@
 
 /* units: 512 byte sectors */
 struct slice {
-	unsigned int start;
-	unsigned int size;
+	unsigned long start;
+	unsigned long size;
 };
 
 typedef int (ptreader)(int fd, struct slice all, struct slice *sp, int ns);
