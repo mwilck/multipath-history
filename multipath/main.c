@@ -1025,7 +1025,6 @@ main (int argc, char *argv[])
 	conf->pgpolicy_flag = 0;	/* do not override defaults */
 	conf->signal = 1;		/* 1 == Send a signal to multipathd */
 	conf->dev = NULL;
-	conf->devt = NULL;
 	conf->default_selector = NULL;
 	conf->default_selector_args = 0;
 	conf->default_pgpolicy = 0;
@@ -1035,7 +1034,7 @@ main (int argc, char *argv[])
 	conf->default_features = NULL;
 	conf->default_hwhandler = NULL;
 
-	while ((arg = getopt(argc, argv, ":qdlFSi:v:p:D:")) != EOF ) {
+	while ((arg = getopt(argc, argv, ":qdlFSi:v:p:")) != EOF ) {
 		switch(arg) {
 		case 1: printf("optarg : %s\n",optarg);
 			break;
@@ -1077,10 +1076,6 @@ main (int argc, char *argv[])
 						"policy\n", optarg);
 				usage(argv[0]);
 			}                
-			break;
-		case 'D':
-			conf->devt = zalloc(DEV_T_SIZE);
-			strncpy(conf->devt, optarg, DEV_T_SIZE);
 			break;
 		case ':':
 			fprintf(stderr, "Missing option arguement\n");

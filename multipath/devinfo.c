@@ -121,7 +121,7 @@ devt2devname (char *devname, char *devt)
 	char attr_value[16];
 
 	if (sysfs_get_mnt_path(sysfs_path, FILE_NAME_SIZE)) {
-		fprintf(stderr, "-D feature available with sysfs only\n");
+		fprintf(stderr, "feature available with sysfs only\n");
 		exit(1);
 	}
 		
@@ -149,11 +149,11 @@ devt2devname (char *devname, char *devt)
 			}
 			sysfs_get_name_from_path(attr_path, devname,
 						 FILE_NAME_SIZE);
-			break;
+			return 0;
 		}
 	}
 	sysfs_close_directory(sdir);
-	return 0;
+	return 1;
 }
 
 static int
