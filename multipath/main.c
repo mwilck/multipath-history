@@ -62,9 +62,15 @@ get_refwwid (vector pathvec)
 		pp = find_path_by_dev(pathvec, buff);
 		
 		if (!pp) {
-			pp = zalloc(sizeof (struct path));
-			vector_alloc_slot(pathvec);
-			vector_set_slot(pathvec, pp);
+			pp = alloc_path();
+
+			if (!pp)
+				return NULL;
+
+			if (store_path(pathvec, pp)) {
+				free_path(pp);
+				return NULL;
+			}
 			strncpy(pp->dev, buff, FILE_NAME_SIZE);
 		}
 		if (devinfo(pp, conf->hwtable))
@@ -84,9 +90,15 @@ get_refwwid (vector pathvec)
 		pp = find_path_by_devt(pathvec, conf->dev);
 		
 		if (!pp) {
-			pp = zalloc(sizeof (struct path));
-			vector_alloc_slot(pathvec);
-			vector_set_slot(pathvec, pp);
+			pp = alloc_path();
+
+			if (!pp)
+				return NULL;
+
+			if (store_path(pathvec, pp)) {
+				free_path(pp);
+				return NULL;
+			}
 			devt2devname(conf->dev, buff);
 
 			if(safe_sprintf(pp->dev, "%s", buff)) {
@@ -656,7 +668,7 @@ domap (struct multipath * mpp)
 	return r;
 }
 
-static void
+static int
 coalesce_paths (vector curmp, vector pathvec)
 {
 	int k, i;
@@ -682,7 +694,10 @@ coalesce_paths (vector curmp, vector pathvec)
 		/*
 		 * at this point, we know we really got a new mp
 		 */
-		mpp = zalloc(sizeof(struct multipath));
+		mpp = alloc_multipath();
+
+		if (!mpp)
+			return 1;
 
 		mpp->mpe = find_mpe(pp1->wwid);
 		mpp->hwe = pp1->hwe;
@@ -691,10 +706,13 @@ coalesce_paths (vector curmp, vector pathvec)
 		pp1->mpp = mpp;
 		strcpy(mpp->wwid, pp1->wwid);
 		mpp->size = pp1->size;
-
 		mpp->paths = vector_alloc();
-		vector_alloc_slot (mpp->paths);
-		vector_set_slot (mpp->paths, pp1);
+
+		if (!mpp->paths)
+			return 1;
+		
+		if (store_path(mpp->paths, pp1))
+			return 1;
 
 		for (i = k + 1; i < VECTOR_SIZE(pathvec); i++) {
 			pp2 = VECTOR_SLOT(pathvec, i);
@@ -712,25 +730,24 @@ coalesce_paths (vector curmp, vector pathvec)
 				     mpp->wwid);
 				mpp->action = ACT_NOTHING;
 			}
-			vector_alloc_slot(mpp->paths);
-			vector_set_slot(mpp->paths, VECTOR_SLOT(pathvec, i));
+			if (store_path(mpp->paths, pp2))
+				return 1;
 		}
-		if (mpp) {
-			if (setup_map(mpp)) {
-				free_multipath(mpp);
-				continue;
-			}
-			condlog(3, "action preset to %i", mpp->action);
-
-			if (mpp->action == ACT_UNDEF)
-				select_action(mpp, curmp);
-
-			condlog(3, "action set to %i", mpp->action);
-
-			domap(mpp);
-			free_multipath(mpp);
+		if (setup_map(mpp)) {
+			free_multipath(mpp, KEEP_PATHS);
+			continue;
 		}
+		condlog(3, "action preset to %i", mpp->action);
+
+		if (mpp->action == ACT_UNDEF)
+			select_action(mpp, curmp);
+
+		condlog(3, "action set to %i", mpp->action);
+
+		domap(mpp);
+		free_multipath(mpp, KEEP_PATHS);
 	}
+	return 0;
 }
 
 static void
@@ -742,10 +759,14 @@ signal_daemon (void)
 
 	buf = malloc(8);
 
+	if (!buf)
+		return;
+
 	file = fopen(DEFAULT_PIDFILE, "r");
 
 	if (!file) {
 		condlog(1, "cannot signal daemon, pidfile not found");
+		free(buf);
 		return;
 	}
 
@@ -933,6 +954,10 @@ main (int argc, char *argv[])
 	}        
 	if (optind<argc) {
 		conf->dev = zalloc(FILE_NAME_SIZE);
+
+		if (!conf->dev)
+			exit(1);
+
 		strncpy(conf->dev, argv[optind], FILE_NAME_SIZE);
 
 		if (filepresent(conf->dev))
@@ -958,23 +983,39 @@ main (int argc, char *argv[])
 	/*
 	 * read the config file
 	 */
-	if (filepresent(DEFAULT_CONFIGFILE))
-		init_data(DEFAULT_CONFIGFILE, init_keywords);
+	if (filepresent(DEFAULT_CONFIGFILE)) {
+		if (init_data(DEFAULT_CONFIGFILE, init_keywords)) {
+			fprintf(stderr, "error parsing config file\n");
+			exit(1);
+		}
+	}
 	
 	/*
 	 * fill the voids left in the config file
 	 */
 	if (conf->hwtable == NULL) {
 		conf->hwtable = vector_alloc();
+		
+		if (!conf->hwtable)
+			exit(1);
+		
 		setup_default_hwtable(conf->hwtable);
 	}
 	if (conf->blist == NULL) {
 		conf->blist = vector_alloc();
-		setup_default_blist(conf->blist);
+		
+		if (!conf->blist)
+			exit(1);
+		
+		if (setup_default_blist(conf->blist))
+			exit(1);
 	}
-	if (conf->mptable == NULL)
+	if (conf->mptable == NULL) {
 		conf->mptable = vector_alloc();
 
+		if (!conf->mptable)
+			exit(1);
+	}
 	if (conf->default_selector == NULL)
 		conf->default_selector = DEFAULT_SELECTOR;
 
@@ -1023,7 +1064,8 @@ main (int argc, char *argv[])
 	/*
 	 * group the paths as multipaths
 	 */
-	coalesce_paths(curmp, pathvec);
+	if (coalesce_paths(curmp, pathvec))
+		exit (1);
 
 out:
 	/*
