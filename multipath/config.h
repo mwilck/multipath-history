@@ -11,6 +11,7 @@ struct mpentry {
 	int selector_args;
 	int iopolicy;
 	char * getuid;
+	char * alias;
 };
 
 struct hwentry {
@@ -42,6 +43,7 @@ struct config {
 
 	vector mptable;
 	vector hwtable;
+	vector aliases;
 	vector blist;
 };
 

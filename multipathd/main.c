@@ -2,16 +2,15 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <linux/unistd.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <libdevmapper.h>
-#include <syslog.h>
 #include <signal.h>
 #include <wait.h>
 #include <sched.h>
-#include <asm/unistd.h>
 #include <errno.h>
 #include <sys/mount.h>
 #include <sys/mman.h>
@@ -26,7 +25,10 @@
 #include "checkers.h"
 #include "memory.h"
 #include "copy.h"
+#include "log.h"
+#include "callout.h"
 
+#define CHILD_SS 16384
 #define MAXPATHS 1024
 #define MAXMAPS 256
 #define FILENAMESIZE 256
@@ -34,22 +36,11 @@
 #define TARGETTYPESIZE 16
 #define PARAMSSIZE 2048
 
-#define MULTIPATH "/sbin/multipath"
 #define PIDFILE "/var/run/multipathd.pid"
 #define CONFIGFILE "/etc/multipath.conf"
 #define CALLOUT_DIR "/var/cache/multipathd"
 
-#ifndef DEBUG
-#define DEBUG 1
-#endif
-#define LOG(x, y, z...) if (DEBUG>=x) syslog(x, "[%lu] " y, pthread_self(), ##z)
 #define MATCH(x, y) strncmp(x, y, strlen(y)) == 0
-
-/*
- * for sys_clone use
- */
-#define __NR_sys_clone __NR_clone 
-static inline _syscall2(int,sys_clone, int,flag, void*,stack);
 
 /*
  * global vars
@@ -117,9 +108,9 @@ strvec_free (vector vec)
 	char * str;
 
 	for (i =0; i < VECTOR_SIZE(vec); i++)
-		if ((str = VECTOR_SLOT(vec, i)) != NULL) {
-			free(str);
-		}
+		if ((str = VECTOR_SLOT(vec, i)) != NULL)
+			FREE(str);
+
 	vector_free(vec);
 }
 
@@ -131,7 +122,7 @@ pathvec_free (vector vec)
 
 	for (i =0; i < VECTOR_SIZE(vec); i++)
 		if ((pp = VECTOR_SLOT(vec, i)) != NULL)
-			free(pp);
+			FREE(pp);
 	vector_free(vec);
 }
 
@@ -175,10 +166,13 @@ exit_daemon (int status)
 {
 	if (status != 0)
 		fprintf(stderr, "bad exit status. see daemon.log\n");
+
 	LOG (2, "umount ramfs");
 	umount(CALLOUT_DIR);
+
 	LOG (2, "unlink pidfile");
 	unlink (PIDFILE);
+
 	LOG (1, "--------shut down-------");
 	exit(status);
 }
@@ -222,7 +216,7 @@ get_devmaps (void)
 		 */
 		names = (void *) names + next;
 		nexttgt = NULL;
-		LOG (3, "iterate on devmap names : %s", names->name);
+		LOG (3, "devmap %s :", names->name);
 
 		if (!(dmt1 = dm_task_create(DM_DEVICE_STATUS)))
 			goto out;
@@ -233,26 +227,27 @@ get_devmaps (void)
 		if (!dm_task_run(dmt1))
 			goto out1;
 
-		LOG (3, "DM_DEVICE_STATUS ioctl done");
+		LOG (4, "DM_DEVICE_STATUS ioctl done");
 		do {
-			LOG (3, "iterate on devmap's targets");
 			nexttgt = dm_get_next_target(dmt1, nexttgt,
 						   &start,
 						   &length,
 						   &target_type,
 						   &params);
+			LOG (3, "\\_ %lu %lu %s", start, length, target_type);
 
-			LOG (3, "test target_type existence");
-			if (!target_type)
+			if (!target_type) {
+				LOG (2, "   unknown target type");
 				goto out1;
-			
-			LOG (3, "test if target_type is multipath");
-			if (!strncmp (target_type, "multipath", 9)) {
-				devmap = malloc (MAPNAMESIZE);
-				strcpy (devmap, names->name);
-				vector_alloc_slot (devmaps);
-				vector_set_slot (devmaps, devmap);
 			}
+			
+			if (!strncmp(target_type, "multipath", 9)) {
+				devmap = MALLOC(MAPNAMESIZE);
+				strcpy(devmap, names->name);
+				vector_alloc_slot(devmaps);
+				vector_set_slot(devmaps, devmap);
+			} else
+				LOG (3, "   skip non multipath target");
 		} while (nexttgt);
 
 out1:
@@ -283,7 +278,7 @@ checkpath (struct path *path_p)
 	r = path_p->checkfn(devnode);
 	unlink (devnode);
 				
-	LOG (2, "checked path %i:%i => %s",
+	LOG (2, "check path %i:%i => %s",
 	     path_p->major, path_p->minor,
 	     r ? "up" : "down");
 
@@ -300,8 +295,6 @@ updatepaths (struct paths *failedpaths)
 	char sysfs_path[FILENAMESIZE];
 	char attr_path[FILENAMESIZE];
 	char attr_buff[17];
-	char word[5];
-	char *p1, *p2;
 	
 	if (sysfs_get_mnt_path (sysfs_path, FILENAMESIZE)) {
 		LOG (2, "can not find sysfs mount point");
@@ -333,34 +326,13 @@ updatepaths (struct paths *failedpaths)
 			continue;
 		}
 
-		path_p = malloc (sizeof (struct path));
-
-		p1 = word;
-		p2 = attr_buff;
-		memset (word, 0, sizeof (word));
-		
-		while (*p2 != ':') {
-			*p1 = *p2;
-			p1++;
-			p2++;
-		}
-		path_p->major = atoi (word);
-
-		p1 = word;
-		p2++;
-		memset (&word, 0, sizeof (word));
-
-		while (*p2 != ' ' && *p2 != '\0') {
-			*p1 = *p2;
-			p1++;
-			p2++;
-		}
-		path_p->minor = atoi (word);
+		path_p = MALLOC (sizeof (struct path));
+		sscanf(attr_buff, "%i:%i", &path_p->major, &path_p->minor);
 
 		if (!select_checkfn(path_p, devp->name) && checkpath(path_p)) {
 			LOG(2, "discard %i:%i as valid path",
 			    path_p->major, path_p->minor);
-			free (path_p);
+			FREE (path_p);
 			continue;
 		}
 
@@ -455,25 +427,26 @@ out:
 static void *
 waiterloop (void *ap)
 {
-	struct paths *failedpaths;
+	struct paths * failedpaths;
 	vector devmaps = NULL;
-	char *devmap;
+	char * devmap;
 	vector waiters;
 	struct event_thread *wp;
 	pthread_attr_t attr;
 	int r;
-	char *cmdargs[4] = {MULTIPATH, "-q", "-S"};
-	int i, j, status;
+	char buff[1];
+	int i, j;
 
+	LOG (1, "start DM events thread");
 	mlockall(MCL_CURRENT | MCL_FUTURE);
 
 	/*
 	 * inits
 	 */
 	failedpaths = (struct paths *)ap;
-	waiters = vector_alloc ();
-	pthread_attr_init (&attr);
-	pthread_attr_setstacksize (&attr, 32 * 1024);
+	waiters = vector_alloc();
+	pthread_attr_init(&attr);
+	pthread_attr_setstacksize(&attr, 32 * 1024);
 
 	while (1) {
 		/*
@@ -482,15 +455,11 @@ waiterloop (void *ap)
 		 * don't run multipath if we are waked from SIGHUP
 		 * (oper exec / checkers / hotplug) because it already ran
 		 */
-		if (!from_sighup) {
-			LOG (2, "exec multipath helper");
-			if (fork () == 0)
-				execve (cmdargs[0], cmdargs, NULL);
-			wait (&status);
-			LOG (2, "exec status = %s", status ? "failed" : "ok");
-		} else
+		if (from_sighup)
 			from_sighup = 0;
-		
+		else
+			execute_program(multipath, buff, 1);
+
 		/*
 		 * update devmap list
 		 */
@@ -535,10 +504,11 @@ waiterloop (void *ap)
 			 * no event_thread struct : init it
 			 */
 			if (j == VECTOR_SIZE(waiters)) {
-				wp = zalloc (sizeof (struct event_thread));
+				wp = MALLOC (sizeof (struct event_thread));
 				strcpy (wp->mapname, devmap);
-				wp->thread = malloc (sizeof (pthread_t));
-				wp->waiter_lock = (pthread_mutex_t *) malloc (sizeof (pthread_mutex_t));
+				wp->thread = MALLOC (sizeof (pthread_t));
+				wp->waiter_lock = (pthread_mutex_t *) 
+					MALLOC (sizeof (pthread_mutex_t));
 				pthread_mutex_init (wp->waiter_lock, NULL);
 				vector_alloc_slot (waiters);
 				vector_set_slot (waiters, wp);
@@ -616,20 +586,22 @@ initpaths (void)
 {
 	struct paths *failedpaths;
 
-	failedpaths = malloc (sizeof (struct paths));
-	failedpaths->lock = (pthread_mutex_t *) malloc (sizeof (pthread_mutex_t));
+	failedpaths = MALLOC (sizeof (struct paths));
+	failedpaths->lock = 
+		(pthread_mutex_t *) MALLOC (sizeof (pthread_mutex_t));
 	failedpaths->pathvec = vector_alloc();
 	pthread_mutex_init (failedpaths->lock, NULL);
-	event = (pthread_cond_t *) malloc (sizeof (pthread_cond_t));
+
+	event = (pthread_cond_t *) MALLOC (sizeof (pthread_cond_t));
 	pthread_cond_init (event, NULL);
-	event_lock = (pthread_mutex_t *) malloc (sizeof (pthread_mutex_t));
+	event_lock = (pthread_mutex_t *) MALLOC (sizeof (pthread_mutex_t));
 	pthread_mutex_init (event_lock, NULL);
 	
 	return (failedpaths);
 }
 
 #define VECTOR_ADDSTR(a, b) \
-	str = zalloc (6 * sizeof(char)); \
+	str = MALLOC (6 * sizeof(char)); \
 	sprintf (str, b); \
 	vector_alloc_slot(a); \
 	vector_set_slot(a, str);
@@ -653,10 +625,10 @@ setup_default_blist (vector blist)
 }
 
 #define VECTOR_ADDHWE(a, b, c, d) \
-	hwe = zalloc (sizeof(struct hwentry)); \
-	hwe->vendor = zalloc (9 * sizeof(char)); \
+	hwe = MALLOC (sizeof(struct hwentry)); \
+	hwe->vendor = MALLOC (9 * sizeof(char)); \
 	sprintf (hwe->vendor, b); \
-	hwe->product = zalloc (17 * sizeof(char)); \
+	hwe->product = MALLOC (17 * sizeof(char)); \
 	sprintf (hwe->product, c); \
 	hwe->checker_index = d; \
 	vector_alloc_slot(a); \
@@ -706,8 +678,8 @@ prepare_namespace(void)
 	size_t size = 10;
 	struct stat statbuf;
 	
-	buf = malloc (sizeof (struct stat));
-	
+	buf = MALLOC (sizeof (struct stat));
+
 	/*
 	 * create a temp mount point for ramfs
 	 */
@@ -720,7 +692,7 @@ prepare_namespace(void)
 	}
 
 	/*
-	 * compute the optimal ramdisk size (TODO)
+	 * compute the optimal ramdisk size
 	 */
 	for (i = 0; i < VECTOR_SIZE(binvec); i++) {
 		bin = VECTOR_SLOT(binvec, i);
@@ -736,28 +708,18 @@ prepare_namespace(void)
 		size += statbuf.st_size;
 		close(fd);
 	}
-	if ((fd = open(MULTIPATH, O_RDONLY)) < 0) {
-		LOG(1, "cannot open %s", bin);
-		return -1;
-	}
-	if (fstat(fd, &statbuf) < 0) {
-		LOG(1, "cannot stat %s", MULTIPATH);
-		return -1;
-	}
-	size += statbuf.st_size;
-	close(fd);
-
-	LOG(3, "computed a ramfs maxsize of %i", size);
+	LOG(3, "ramfs maxsize is %u", (unsigned int) size);
 	
 	/*
 	 * mount the ramfs
 	 */
-	sprintf(ramfs_args, "maxsize=%i", size);
+	sprintf(ramfs_args, "maxsize=%u", (unsigned int) size);
+
 	if (mount(NULL, CALLOUT_DIR, "ramfs", MS_SYNCHRONOUS, ramfs_args) < 0) {
 		LOG(1, "cannot mount ramfs on " CALLOUT_DIR);
 		return -1;
 	}
-	LOG(3, "mounted ramfs on " CALLOUT_DIR);
+	LOG(3, "mount ramfs on " CALLOUT_DIR);
 
 	/*
 	 * populate the ramfs with callout binaries
@@ -769,35 +731,31 @@ prepare_namespace(void)
 			LOG(1, "cannot copy %s in ramfs", bin);
 			exit_daemon(1);
 		}
-		LOG(3, "copied %s in ramfs", bin);
+		LOG(3, "cp %s in ramfs", bin);
 	}
-	if (copytodir(MULTIPATH, CALLOUT_DIR) < 0) {
-		LOG(1, "cannot copy " MULTIPATH " in ramfs");
-		exit_daemon(1);
-	}
-	LOG(3, "copied " MULTIPATH " in ramfs");
+	strvec_free(binvec);
 
 	/*
 	 * bind the ramfs to :
-	 * /sbin : home of multipath
-	 * /bin  : home of scsi_id
+	 * /sbin : default home of multipath ...
+	 * /bin  : default home of scsi_id ...
 	 * /tmp  : home of tools temp files
 	 */
 	if (mount(CALLOUT_DIR, "/sbin", NULL, MS_BIND, NULL) < 0) {
 		LOG(1, "cannot bind ramfs on /sbin");
 		return -1;
 	}
-	LOG(3, "bound ramfs on /sbin");
+	LOG(3, "bind ramfs on /sbin");
 	if (mount(CALLOUT_DIR, "/bin", NULL, MS_BIND, NULL) < 0) {
 		LOG(1, "cannot bind ramfs on /bin");
 		return -1;
 	}
-	LOG(3, "bound ramfs on /bin");
+	LOG(3, "bind ramfs on /bin");
 	if (mount(CALLOUT_DIR, "/tmp", NULL, MS_BIND, NULL) < 0) {
 		LOG(1, "cannot bind ramfs on /tmp");
 		return -1;
 	}
-	LOG(3, "bound ramfs on /tmp");
+	LOG(3, "bind ramfs on /tmp");
 
 	return 0;
 }
@@ -808,11 +766,11 @@ pidfile (pid_t pid)
 	FILE *file;
 	struct stat *buf;
 
-	buf = malloc (sizeof (struct stat));
+	buf = MALLOC (sizeof (struct stat));
 
 	if (!stat (PIDFILE, buf)) {
 		LOG(1, "already running : out");
-		free (buf);
+		FREE (buf);
 		exit (1);
 	}
 		
@@ -827,7 +785,7 @@ pidfile (pid_t pid)
 	file = fopen (PIDFILE, "w");
 	fprintf (file, "%d\n", pid);
 	fclose (file);
-	free (buf);
+	FREE (buf);
 }
 
 static void *
@@ -897,34 +855,19 @@ setscheduler (void)
 	return;
 }
 
-int
-main (int argc, char *argv[])
+static void *
+child (void * param)
 {
-	pthread_t wait, check;
+	pthread_t wait_thr, check_thr;
 	pthread_attr_t attr;
 	struct paths *failedpaths;
-	pid_t pid;
 
-	pid = sys_clone(CLONE_NEWNS, 0);
-	if (pid < 0)
-		exit (1);
-
-	/*
-	 * let the parent die happy
-	 */
-	if (pid > 0)
-		exit(0);
-	
-	/*
-	 * child's play
-	 */
-	openlog(argv[0], 0, LOG_DAEMON);
+	openlog("multipathd", 0, LOG_DAEMON);
 	LOG(1, "--------start up--------");
 
-	pidfile(pid);
+	pidfile(getpid());
 	signal_init();
 	setscheduler();
-
 	failedpaths = initpaths();
 
 	LOG(2, "read " CONFIGFILE);
@@ -933,6 +876,14 @@ main (int argc, char *argv[])
 	/*
 	 * fill the voids left in the config file
 	 */
+	if (binvec == NULL)
+		binvec = vector_alloc();
+
+	if (multipath == NULL) {
+		multipath = MULTIPATH;
+		push_callout(multipath);
+	}
+
 	if (hwtable == NULL) {
 		hwtable = vector_alloc();
 		setup_default_hwtable(hwtable);
@@ -942,9 +893,6 @@ main (int argc, char *argv[])
 		blist = vector_alloc();
 		setup_default_blist(blist);
 	}
-
-	if (binvec == NULL)
-		binvec = vector_alloc();
 
 	if (prepare_namespace() < 0) {
 		LOG(1, "cannot prepare namespace");
@@ -958,10 +906,29 @@ main (int argc, char *argv[])
 	pthread_attr_init(&attr);
 	pthread_attr_setstacksize(&attr, 64 * 1024);
 	
-	pthread_create(&wait, &attr, waiterloop, failedpaths);
-	pthread_create(&check, &attr, checkerloop, failedpaths);
-	pthread_join(wait, NULL);
-	pthread_join(check, NULL);
+	pthread_create(&wait_thr, &attr, waiterloop, failedpaths);
+	pthread_create(&check_thr, &attr, checkerloop, failedpaths);
+	pthread_join(wait_thr, NULL);
+	pthread_join(check_thr, NULL);
 
 	return 0;
+}
+
+int
+main (int argc, char *argv[])
+{
+	int err;
+	void * child_stack = malloc(CHILD_SS) + CHILD_SS;
+
+#ifdef ia64
+	size_t child_ss = CHILD_SS;
+	err = __clone2(child, child_stack, child_ss, CLONE_NEWNS, NULL);
+#else
+	err = __clone(child, child_stack, CLONE_NEWNS, NULL);
+#endif
+
+	if (err < 0)
+		exit (1);
+
+	exit(0);
 }

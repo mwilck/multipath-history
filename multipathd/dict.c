@@ -1,8 +1,59 @@
 #include "parser.h"
+#include "memory.h"
 #include "hwtable.h"
+#include "log.h"
 
-/* data handlers */
-/* Global def handlers */
+/*
+ * helper function to draw a list of callout binaries found in the config file
+ */
+extern void
+push_callout(char * callout)
+{
+	int i;
+	char * bin;
+	char * p;
+
+	/*
+	 * purge command line arguments
+	 */
+	p = callout;
+
+	while (*p != ' ' && *p != '\0')
+		p++;
+
+	if (binvec == NULL)
+		binvec = vector_alloc();
+
+	/*
+	 * if this callout is already stored in binvec, don't store it twice
+	 */
+	for (i = 0; i < VECTOR_SIZE(binvec); i++) {
+		bin = VECTOR_SLOT(binvec, i);
+
+		if (memcmp (bin, callout, p - callout) == 0)
+			return;
+	}
+	/*
+	 * else, store it
+	 */
+	bin = MALLOC(p - callout);
+	strncpy(bin, callout, p - callout);
+	LOG(3, "add %s to binvec", bin);
+
+	vector_alloc_slot(binvec);
+	vector_set_slot(binvec, bin);
+}
+
+/*
+ * devices block handlers
+ */
+static void
+multipath_tool_handler(vector strvec)
+{
+	multipath = set_value(strvec);
+	push_callout(multipath);
+}
+
 static void
 polling_interval_handler(vector strvec)
 {
@@ -25,6 +76,9 @@ devnode_handler(vector strvec)
 	vector_set_slot(blist, buff);
 }
 
+/*
+ * devices block handlers
+ */
 static void
 devices_handler(vector strvec)
 {
@@ -37,21 +91,25 @@ device_handler(vector strvec)
 	struct hwentry * hwe;
 
 	vector_alloc_slot(hwtable);
-	hwe = malloc(sizeof(struct hwentry));
+	hwe = MALLOC(sizeof(struct hwentry));
 	vector_set_slot(hwtable, hwe);
 }
 
 static void
 vendor_handler(vector strvec)
 {
-	struct hwentry * hwe = VECTOR_SLOT(hwtable, VECTOR_SIZE(hwtable) - 1);
+	struct hwentry * hwe;
+
+	hwe = VECTOR_SLOT(hwtable, VECTOR_SIZE(hwtable) - 1);
 	hwe->vendor = set_value(strvec);
 }
 
 static void
 product_handler(vector strvec)
 {
-	struct hwentry * hwe = VECTOR_SLOT(hwtable, VECTOR_SIZE(hwtable) - 1);
+	struct hwentry * hwe;
+
+	hwe = VECTOR_SLOT(hwtable, VECTOR_SIZE(hwtable) - 1);
 	hwe->product = set_value(strvec);
 }
 
@@ -71,45 +129,21 @@ path_checker_handler(vector strvec)
 		}
 		i++;
 	}
-	free(buff);
+	FREE(buff);
 }
+
 static void
 hw_getuid_callout_handler(vector strvec)
 {
-	int i;
-	char * bin;
-	char * curbin;
-	char * p;
+	char * callout;
 
-	/*
-	 * purge command line arguments
-	 */
-	curbin = set_value(strvec);
-	p = curbin;
-
-	while (*p != ' ' && *p != '\0')
-		p++;
-
-	*p = '\0';
-
-	if (binvec == NULL)
-		binvec = vector_alloc();
-	/*
-	 * if this callout is already stored in binvec, don't store it twice
-	 */
-	for (i = 0; i < VECTOR_SIZE(binvec); i++) {
-		bin = VECTOR_SLOT(binvec, i);
-
-		if (memcmp (bin, curbin, sizeof(curbin)) == 0)
-			return;
-	}
-	/*
-	 * else, store it
-	 */
-	vector_alloc_slot(binvec);
-	vector_set_slot(binvec, curbin);
+	callout = set_value(strvec);
+	push_callout(callout);
 }
 
+/*
+ * keyword tree declaration
+ */
 vector
 init_keywords(void)
 {
@@ -117,8 +151,11 @@ init_keywords(void)
 
 	install_keyword_root("defaults", NULL);
 	install_keyword("polling_interval", &polling_interval_handler);
+	install_keyword("multipath_tool", &multipath_tool_handler);
+
 	install_keyword_root("devnode_blacklist", &blacklist_handler);
 	install_keyword("devnode", &devnode_handler);
+
 	install_keyword_root("devices", &devices_handler);
 	install_keyword("device", &device_handler);
 	install_sublevel();

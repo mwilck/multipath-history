@@ -1,3 +1,6 @@
+#ifndef _DEVINFO_H
+#define _DEVINFO_H
+
 #define INQUIRY_CMDLEN  6
 #define INQUIRY_CMD     0x12
 #define SENSE_BUFF_LEN  32
@@ -13,3 +16,5 @@
 #define SG_ERR_DRIVER_SENSE     0x08
 
 int get_lun_strings (char *, char *, char *, char *);
+
+#endif /* _DEVINFO_H */

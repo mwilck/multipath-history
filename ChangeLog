@@ -1,4 +1,38 @@
-2004-08-01 multipath-tools-0.2.8
+2004-09-24 multipath-tools-0.2.9
+
+	* [multipathd] finally tame the clone compilation glitch on IA64
+	  move from sys_clone to __clone / __clone2
+	* [kpartx] rework from Stephan Bader, IBM :
+		* handle s390x arch
+		* endianness fixes
+		* push the partname string size to handle wwwids
+		* quieten implicit cast warnings
+	* [multipath] add an 'alias' multipath keyword for friendlier device
+	  names. This was "asked" by OSDL' CGL board of secret reviewers
+	* [multipath] last pass with JBOD and parallel SCSI support :
+	  hard-code scsi_id as a fallback when disk strings doesn't match
+	  any hwtable entry
+	* [multipath & multipathd] change the parser to not coalesce
+	  consecutive spaces (Patrick Mansfield)
+	* [multipath] remove the [UN]: output prefix, so that stdout can be
+	  easily fed to a tool like dmsetup
+	* [multipathd] DEBUG=3 logs more readable/usefull
+	* [multipathd] add a multipath_tool config keyword
+	* [multipathd] move to execute_program() like multipath already did
+	* [multipath] don't print the "no path" msg in quiet mode
+	* [multipathd] include linux/unistd.h for _syscall2
+	  definition on RedHat systems. Remove superfluous
+	  asm/unistd.h include
+	* [libsysfs] forked : last version uses mntent, which
+	  klibc doesn't provide. That, plus the fact we use
+	  only 1/3 of the lib, pushed me to freeze the version
+	  and strip all unused stuff.
+	* [multipathd] prepare_namespace() cleanup : no more "multipath"
+	  special casing since we push it to binvec vector, like the other
+	  callouts detected in the config file.
+
+2004-08-13 multipath-tools-0.2.8
+
 	* [multipathd] setsched prio to RT
 	* [multipath] massive include cleanup
 	* [multipath] add a "default_prio_callout" keyword
@@ -11,7 +45,9 @@
 	  arch/i386/MCONFIG
 	* [multipath] implement a generic group_by_prio pgpolicy
 	* [multipath] fix the broken failover pgpolicy
+
 2004-07-24 multipath-tools-0.2.7
+
 	* [multipath] args parser moved to getopt
 	  <genanr@emsphone.com>
 	* [multipath] zero conf->hotplugdev at allocation
@@ -44,7 +80,9 @@
 	* [multipath] fix segfault when pathvec is empty after
 	  get_pathvec()
 	* move to template based specfile to avoid regular version skew
+
 2004-07-16 multipath-tools-0.2.6
+
 	* [multipathd] implement the system-disk-on-SAN safety net
 	* [multipathd] add exit_daemon() wrapper function
 	* [multipathd] mlockall() all daemon threads
@@ -65,7 +103,9 @@
 	  (so credit goes to GregKH)
 	* [multipath] get rid of "devnodes in /dev" assumption
 	  ie move to "maj:min" device mapper target synthax
+
 2004-07-10 multipath-tools-0.2.5
+
 	* [multipathd] fix misbehaviour noted by <genanr@emsphone.com>
 	  improper tar directive in Makefile on some systems
 	* [multipathd] fix bug noted by <genanr@emsphone.com>
@@ -76,7 +116,9 @@
 	  Mansfield @IBM) and merged by Hannes Reinecke @SUSE
 	* [multipathd] fix regression noted by <genanr@emsphone.com>
 	  (segfault when no config file)
+
 2004-06-20 multipath-tools-0.2.4
+
 	* [multipathd] break free from system's libsysfs for now
 	  as it is not that common these days
 	* [multipath] introduce per LUN policies in the config
@@ -95,7 +137,9 @@
 	  that to a new assemble_map fn. policies now use vector
 	* [multipathd] compilation fix for gentoo (Franck Denis)
 	* [multipath] strcmp fix (Franck Denis)
+
 2004-06-14 multipath-tools-0.2.3
+
 	* [multipath] group_by_serial try to be smart with LUN
 	  balancing across controlers (for STK / LSI) :
 	  1st multipath : 1st pg made of path through 1st controler
@@ -111,7 +155,9 @@
 	* [multipathd] convert to vector api
 	* [multipathd] add a configfile option for path checking
 	  interval. See sample configfile for synthax.
+
 2004-06-07 multipath-tools-0.2.2
+
 	* [multipath] leave out 2.4 compat code. Is there
 	  interest anyway ?
 	* [multipath] convert all_paths table to vector api.
@@ -127,7 +173,9 @@
 	* devnode blacklist moved from hardcoded to config file
 	* Guy Coates noted -O2 CFLAGS lead to multipathd crashes
 	  on IA64. Remove the needless optimisation for now.
+
 2004-06-05 multipath-tools-0.2.1
+
 	* [multipath] add a flag to inihibit the final SIGHUP to
 	  multipathd. Needed to avoid recursion with the correction
 	  below
@@ -152,10 +200,14 @@
 	* [kpartx] works with device nodes outside /dev
 	* [kpartx] correctly display the delimiter in partition
 	  name outputs
+
 2004-05-17 multipath-tools-0.2.0
+
 	* change the default klibc by greg's :
 	  corrects the segfaults reported by Ling Hwa Hing
+
 2004-05-16 multipath-tools-0.1.9
+
 	* break free from udev : package klibc and libsysfs
 	* add a spec file and a "make rpm" rule
 	* pensum on klibc changes needed :
@@ -164,22 +216,30 @@
 		* auto create the linux symlink
 		* remove tools and specfiles (files and Makefile
 		  targets)
+
 2004-05-15 multipath-tools-0.1.8
+
 	* Makefiles cleanup and factorisation
 	* Compilation fixes for non-ix86 archs, tested on x86_64
 	* strip execs harder for a 10% size reduction
 	* blacklist /dev/fd* and /dev/loop*
 	* dmadm works with sysfs nodes with '!' (cciss for ex)
+
 2004-05-10 multipath-tools-0.1.7
+
 	* bugfixes from	Andy <genanr@emsphone.com> :
 		* read the last line of the config file
 		* add an entry for the 3PARData storage ctlrs
 		* read the last char of vendor and model strings
+
 2004-04-25 multipath-tools-0.1.6
+
 	* add the dmadm WIP tool (read MD superblocks and create
 	  corresponding devmaps when possible)
 	* plug fd leak in TUR path checker
+
 2004-03-25 multipath-tools-0.1.5
+
 	* kpartx to manage the nested bdevs as /dev/cciss/c0d0.
 	  parts are named sysfs style : cciss!c0d0p*
 	* kpartx loop support
@@ -191,7 +251,9 @@
 	* mv all_scsi_ids out of the 2.6 code path, into the 2.4 one
 	* unlink runfile on malloc exit path
 	* update multipath manpage (MikeC)
+
 2004-03-17 multipath-tools-0.1.4
+
 	* multipath clean up
 		* split default hw table in hwtable.h
 		* split grouping policies in pgpolocies.c
@@ -199,26 +261,36 @@
 	* ensure defhwtable is used if /etc/multipath.conf is buggy
 	* hwtable is not global anymore
 	* unlink the runfile in various error paths
+
 2004-03-13 multipath-tools-0.1.3
+
 	* multipath config tool now has a config file parser
 	  (did I say I make the ugliest parsers ?)
 	* example multipath.conf to put in /etc (manualy)
+
 2004-03-12 multipath-tools-0.1.2
+
 	* detach the per devmap waiter threads
 	* set the thread stack size to lower limits
 	  (VSZ down to 4MB from 85 MB here)
+
 2004-03-06 multipath-tools-0.1.1
+
 	* include dlist.h in multipath main.c (PM Hahn)
 	* typo in hotplug script (PM Hahn)
 	* pass -9 opt to gzip for manpages (PM Hahn)
+
 2004-03-05 multipath-tools-0.1.0
+
 	* add the group_by_tur policy
 	* add the multipathd daemon for pathchecking & DM hot-reconfig
 	* multipath doesn't run twice
 	* massive cleanups, and code restructuring
 	* Avoid Kernel Bug when passing too small a buffer in do_inq()
 	* Sync with 2.6.3-udm4 target synthax (no more PG prio)
+
 2004-02-21 multipath-018
+
 	* From the Debian SID inclusion review (Philipp Matthias Hahn)
 		* use DESTDIR install prefix in the Makefile
 		* add man pages for devmap_name & multipath
@@ -228,11 +300,15 @@
 	  ie. Remove the test interval parameter and its uses
 	* Remove superfluous scsi parameter passed from hotplug
 	* Add the man pages to the [un]install targets
+
 2004-02-17 multipath-017
+
 	* remove the restrictive -f flag.
 	  Introduce a more generic "-m iopolicy" one.
 	* remove useless "int with_sysfs" in env struct 
+
 2004-02-04 multipath-016
+
 	* add a GROUP_BY_SERIAL flag. This should be useful for
 	  controlers that activate they spare paths on simple IO
 	  submition with a penalty. The StorageWorks HW defaults to
@@ -248,17 +324,24 @@
 	* add devmap_name proggy for udev to name devmaps as per their
 	  internal DM name and not only by their sysfs enum name (dm-*)
 	  The corresponding udev.rules line is :
-	  KERNEL="dm-[0-9]*", PROGRAM="/sbin/devmap_name %M %m", NAME="%k", SYMLINK="%c"
+	  KERNEL="dm-[0-9]*", PROGRAM="/sbin/devmap_name %M %m", \
+	  NAME="%k", SYMLINK="%c"
 	* remove make_dm_node fn & call. Rely on udev for this.
 	* don't rely on the linux symlink in the udev/klibc dir since
 	  udev build doesn't use it anymore. This corrects build breakage
+
 2004-01-19 multipath-013
+
 	* update the DM target synthax to the 2.6.0-udm5 style
+
 2003-12-29 multipath-012
+
 	* check hotplug event refers to a block device; if not exit early
 	* refresh doc
 	* add the uninstall target in Makefile
+
 2003-12-22 multipath-010
+
 	* tweak the install target in Makefile
 	* stop passing fds as argument : this change enable a strict
 	  segregation of ugly 2.4 code
@@ -284,7 +367,9 @@
 	* move get_disk_size() call out of add_map() to coalesce()
 	* comment tricky coalesce() fn
 	* bogus unsused.c file renamed to unused.c
+
 2003-12-20 multipath-010
+
 	* big ChangeLog update
 	* start to give a little control over target params :
 	  introduce cmdline arg -i to control polling interval
@@ -299,7 +384,9 @@
 	* mp target now supports nr_path == 1, so do we
 	* add gratuitous free()
 	* push version forward
+
 2003-12-15 multipath-009
+
 	* Make the HW-specific get_unique_id switch pretty
 	* Prepare to field-test by whitelisting all known fibre array,
 	  try to fetch WWID from the standard EVPD 0x83 off 8 for everyone
@@ -323,24 +410,32 @@
 	* Adds a /var/run/multipath.run handling to avoid simultaneous runs.
 	* Remove a commented-out "printf"
 	* drop a libdevmapper copy in extras/multipath;
-	  maybe discussions w/Sistina folks will bring a better solution in the future.
+	  maybe discussions w/Sistina folks will bring a better solution
+	  in the future.
 	* drop a putchar usage in libdevmapper to compile cleanly with klibc
 	* drop another such usage of my own in main.c
 	* massage the Makefile to compile libdevmapper against klibc
 	* use "ld" to produce the binary rather than "gcc -static"
 	* stop being stupid w/ uneeded major, minor & dev in main.c:dm_mk_node()
-	* reverse to creating striped target for now because the multipath target
-	  is more hairy than expected initialy
+	* reverse to creating striped target for now because the multipath
+	  target is more hairy than expected initialy
 	* push the version code to 009 to be in synch w/ udev
+
 2003-11-27 multipath-007
+
 	* removes sg_err.[ch] deps
 	* makes sure the core code play nice with klibc
 	* port the sysfs calls to dlist helpers
 	* links against udev's sysfs (need libsysfs.a & dlist.a)
-	* finally define DM_TARGET as "multipath" as Joe posted the code today (not tested yet)
+	* finally define DM_TARGET as "multipath" as Joe posted the code today
+	  (not tested yet)
 	* push version forward (do you want it in sync with udev version?)
-2003-11-19
+
+2003-11-19 multipath-006
+
 	* merged in udev-006 tree
-2003-09-18  Christophe Varoqui <christophe.varoqui@free.fr>
+
+2003-09-18 multipath-0.0.1
+
 	* multipath 0.0.1 released.
 	* Initial release.

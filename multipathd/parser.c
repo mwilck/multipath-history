@@ -19,6 +19,7 @@
 
 #include "parser.h"
 #include "memory.h"
+#include "log.h"
 
 /* local vars */
 static int sublevel = 0;
@@ -97,6 +98,7 @@ alloc_strvec(char *string)
 {
 	char *cp, *start, *token;
 	int strlen;
+	int in_string;
 	vector strvec;
 
 	if (!string)
@@ -119,6 +121,7 @@ alloc_strvec(char *string)
 	/* Create a vector and alloc each command piece */
 	strvec = vector_alloc();
 
+	in_string = 0;
 	while (1) {
 		start = cp;
 		if (*cp == '"') {
@@ -126,8 +129,14 @@ alloc_strvec(char *string)
 			token = zalloc(2);
 			*(token) = '"';
 			*(token + 1) = '\0';
+			if (in_string)
+				in_string = 0;
+			else
+				in_string = 1;
+
 		} else {
-			while (!isspace((int) *cp) && *cp != '\0' && *cp != '"')
+			while ((in_string || !isspace((int) *cp)) && *cp
+				!= '\0' && *cp != '"')
 				cp++;
 			strlen = cp - start;
 			token = zalloc(strlen + 1);
@@ -319,7 +328,7 @@ process_stream(vector keywords)
 void
 init_data(char *conf_file, vector (*init_keywords) (void))
 {
-	stream = fopen((conf_file) ? conf_file : CONF, "r");
+	stream = fopen(conf_file, "r");
 	if (!stream) {
 		syslog(LOG_INFO, "Configuration file open problem...\n");
 		return;
