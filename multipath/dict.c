@@ -32,12 +32,12 @@ def_selector_args_handler(vector strvec)
 }
 
 static void
-def_iopolicy_handler(vector strvec)
+def_pgpolicy_handler(vector strvec)
 {
 	char * buff;
 
 	buff = set_value(strvec);
-	conf->default_iopolicy = get_pgpolicy_id(buff);
+	conf->default_pgpolicy = get_pgpolicy_id(buff);
 	free(buff);
 }
 
@@ -108,13 +108,13 @@ product_handler(vector strvec)
 }
 
 static void
-hw_iopolicy_handler(vector strvec)
+hw_pgpolicy_handler(vector strvec)
 {
 	char * buff;
 	struct hwentry * hwe = VECTOR_LAST_SLOT(conf->hwtable);
 
 	buff = set_value(strvec);
-	hwe->iopolicy = get_pgpolicy_id(buff);
+	hwe->pgpolicy = get_pgpolicy_id(buff);
 	free(buff);
 }
 
@@ -194,13 +194,13 @@ alias_handler(vector strvec)
 }
 
 static void
-mp_iopolicy_handler(vector strvec)
+mp_pgpolicy_handler(vector strvec)
 {
 	char * buff;
 	struct mpentry * mpe = VECTOR_SLOT(conf->mptable, VECTOR_SIZE(conf->mptable) - 1);
 
 	buff = set_value(strvec);
-	mpe->iopolicy = get_pgpolicy_id(buff);
+	mpe->pgpolicy = get_pgpolicy_id(buff);
 	free(buff);
 }
 
@@ -233,7 +233,7 @@ init_keywords(void)
 	install_keyword("udev_dir", &udev_dir_handler);
 	install_keyword("default_selector", &def_selector_handler);
 	install_keyword("default_selector_args", &def_selector_args_handler);
-	install_keyword("default_path_grouping_policy", &def_iopolicy_handler);
+	install_keyword("default_path_grouping_policy", &def_pgpolicy_handler);
 	install_keyword("default_getuid_callout", &def_getuid_callout_handler);
 	install_keyword("default_prio_callout", &def_prio_callout_handler);
 	
@@ -245,7 +245,7 @@ init_keywords(void)
 	install_sublevel();
 	install_keyword("vendor", &vendor_handler);
 	install_keyword("product", &product_handler);
-	install_keyword("path_grouping_policy", &hw_iopolicy_handler);
+	install_keyword("path_grouping_policy", &hw_pgpolicy_handler);
 	install_keyword("getuid_callout", &hw_getuid_callout_handler);
 	install_keyword("path_selector", &hw_selector_handler);
 	install_keyword("path_selector_args", &hw_selector_args_handler);
@@ -257,7 +257,7 @@ init_keywords(void)
 	install_sublevel();
 	install_keyword("wwid", &wwid_handler);
 	install_keyword("alias", &alias_handler);
-	install_keyword("path_grouping_policy", &mp_iopolicy_handler);
+	install_keyword("path_grouping_policy", &mp_pgpolicy_handler);
 	install_keyword("path_selector", &mp_selector_handler);
 	install_keyword("path_selector_args", &mp_selector_args_handler);
 	install_sublevel_end();

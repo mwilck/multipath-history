@@ -6,20 +6,23 @@
 #endif
 
 struct mpentry {
+	int selector_args;
+	int pgpolicy;
+
 	char * wwid;
 	char * selector;
-	int selector_args;
-	int iopolicy;
 	char * getuid;
 	char * alias;
 };
 
 struct hwentry {
+	int selector_args;
+	int pgpolicy;
+	int checker_index;
+
 	char * vendor;
 	char * product;
 	char * selector;
-	int selector_args;
-	int iopolicy;
 	char * getuid;
 	int checker_index;
 };
@@ -27,16 +30,17 @@ struct hwentry {
 struct config {
 	int verbosity;
 	int dry_run;
-	int iopolicy_flag;
+	int list;
+	int signal;
+	int pgpolicy_flag;
 	int with_sysfs;
+	int default_selector_args;
+	int default_pgpolicy;
+
 	char * devt;
 	char * dev;
-	int signal;
-
 	char * udev_dir;
 	char * default_selector;
-	int default_selector_args;
-	int default_iopolicy;
 	char * default_getuid;
 	char * default_getprio;
 
