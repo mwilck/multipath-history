@@ -1,3 +1,8 @@
+2004-05-10 multipath-tools-0.1.7
+	* bugfixes from	Andy <genanr@emsphone.com> :
+		* read the last line of the config file
+		* add an entry for the 3PARData storage ctlrs
+		* read the last char of vendor and model strings
 	* dmadm exits cleanly when it has nothing to do
 2004-04-25 multipath-tools-0.1.6
 	* add the dmadm WIP tool (read MD superblocks and create

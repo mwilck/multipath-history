@@ -133,6 +133,7 @@ extern void * read_config (void ** getuid)
 	}
 	
 	/* terminate array */
+	hwe = &hw[i];
 	hwe->getuid = NULL;
 	
 	fclose (fp);
