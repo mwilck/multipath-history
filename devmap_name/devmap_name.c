@@ -44,7 +44,7 @@ int main(int argc, char **argv)
                 names = (void *) names + next;
 		if ((int) MAJOR(names->dev) == major &&
 		    (int) MINOR(names->dev) == minor) {
-	                printf("%s\n", names->name);
+	                printf("%s", names->name);
 			goto out;
 		}
                 next = names->next;
