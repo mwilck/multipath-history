@@ -1,10 +1,10 @@
-#include "libdevmapper/libdevmapper.h"
-                                                                                
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
 #include <linux/kdev_t.h>
 
+#include "../libdevmapper/libdevmapper.h"
+                                                                                
 static void usage(char * progname) {
 	fprintf(stderr, "usage : %s major minor\n", progname);
 	exit(1);
