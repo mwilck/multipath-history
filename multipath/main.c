@@ -441,39 +441,39 @@ dm_switchgroup(char * mapname, int index)
 static int
 dm_reinstate(char * mapname, char * path)
 {
-        int r = 0;
+	int r = 0;
 	int sz;
-        struct dm_task *dmt;
-        char *str;
+	struct dm_task *dmt;
+	char *str;
 
-        if (!(dmt = dm_task_create(DM_DEVICE_TARGET_MSG)))
-                return 0;
+	if (!(dmt = dm_task_create(DM_DEVICE_TARGET_MSG)))
+		return 0;
 
-        if (!dm_task_set_name(dmt, mapname))
-                goto out;
+	if (!dm_task_set_name(dmt, mapname))
+		goto out;
 
-        if (!dm_task_set_sector(dmt, 0))
-                goto out;
+	if (!dm_task_set_sector(dmt, 0))
+		goto out;
 
-	sz = strlen(path) + 11;
-        str = zalloc(sz);
+	sz = strlen(path) + 16;
+	str = zalloc(sz);
 
-	snprintf(str, sz, "reinstate %s\n", path);
+	snprintf(str, sz, "reinstate_path %s\n", path);
 
-        if (!dm_task_set_message(dmt, str))
-                goto out;
+	if (!dm_task_set_message(dmt, str))
+		goto out;
 
-        free(str);
+	free(str);
 
-        if (!dm_task_run(dmt))
-                goto out;
+	if (!dm_task_run(dmt))
+		goto out;
 
-        r = 1;
+	r = 1;
 
-      out:
-        dm_task_destroy(dmt);
+	out:
+	dm_task_destroy(dmt);
 
-        return r;
+	return r;
 }
 
 /*
