@@ -26,8 +26,8 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <sysmacros.h>
+#include <linux/loop.h>
 
-#include "loop.h"
 #include "lopart.h"
 #include "xstrncpy.h"
 
