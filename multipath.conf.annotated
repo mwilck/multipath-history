@@ -1,9 +1,16 @@
 #
 # name  : defaults
-# scope : multipath & multipathd
 # desc  : multipath-tools default settings
 #
 defaults {
+	#
+	# name    : multipath_tool
+	# scope   : multipathd
+	# desc    : the tool in charge of configuring the multipath device maps
+	# default : "/sbin/multipath -q -S"
+	#
+	multipath_tool	"/sbin/multipath -q -S"
+
 	#
 	# name    : udev_dir
 	# desc    : directory where udev creates its device nodes
@@ -13,6 +20,7 @@ defaults {
 
 	#
 	# name    : polling_interval
+	# scope   : multipathd
 	# desc    : interval between two path checks in seconds
 	# default : 5
 	#
@@ -20,6 +28,7 @@ defaults {
 
 	#
 	# name    : default_selector
+	# scope   : multipath
 	# desc    : the default path selector algorithm to use
 	#           these algorithms are offered by the kernel multipath target
 	# values  : round-robin
@@ -29,6 +38,7 @@ defaults {
 
 	#
 	# name    : default_selector_args
+	# scope   : multipath
 	# desc    : the default path selector number of args
 	#           for the selected path selector algorithm
 	# default : 0
@@ -57,7 +67,8 @@ defaults {
 	# name    : default_prio_callout
 	# scope   : multipath
 	# desc    : the default program and args to callout to obtain a path 
-	#           priority value
+	#           priority value. The ALUA bits in SPC-3 provide an
+	#           exploitable prio value for example
 	# default : /bin/false
 	#
 	default_prio_callout	"/bin/false"
@@ -103,6 +114,13 @@ multipaths {
 		wwid			3600508b4000156d700012000000b0000
 
 		#
+		# name    : alias
+		# scope   : multipath
+		# desc    : symbolic name for the multipath
+		#
+		alias			yellow
+
+		#
 		# name    : path_grouping_policy
 		# scope   : multipath
 		# desc    : path grouping policy to apply to this multipath
@@ -135,6 +153,10 @@ multipaths {
 		# default : 0
 		#
 		# path_selector_args	0
+	}
+	multipath {
+		wwid	1DEC_____321816758474
+		alias	red
 	}
 }
 
