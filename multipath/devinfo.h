@@ -27,8 +27,3 @@ int do_tur (char *);
 int get_claimed(char *);
 int devt2devname (char *, char *);
 int devinfo (struct path *);
-
-/*
- * internal getuid methods
- */
-int get_evpd_wwid (char *, char *);
