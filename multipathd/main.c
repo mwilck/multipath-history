@@ -136,7 +136,7 @@ strvec_free (vector vec)
 }
 
 static int
-select_checkfn(struct path *path_p, char *devname)
+select_checkfn(struct path *pp, char *devname)
 {
 	char vendor[8];
 	char product[16];
@@ -148,7 +148,7 @@ select_checkfn(struct path *path_p, char *devname)
 	/*
 	 * default checkfn
 	 */
-	path_p->checkfn = &readsector0;
+	pp->checkfn = &readsector0;
 	
 	r = get_lun_strings(vendor, product, rev, devname);
 
@@ -277,7 +277,8 @@ out:
 static int
 updatepaths (struct paths *failedpaths)
 {
-	struct path *path_p;
+	int i;
+	struct path *pp;
 	struct sysfs_directory * sdir;
 	struct sysfs_directory * devp;
 	char path[FILENAMESIZE];
@@ -296,48 +297,81 @@ updatepaths (struct paths *failedpaths)
 	}
 	sdir = sysfs_open_directory(path);
 	sysfs_read_dir_subdirs(sdir);
-
 	pthread_mutex_lock(failedpaths->lock);
-	pathvec_free(failedpaths->pathvec);
-	failedpaths->pathvec = vector_alloc();
 
 	dlist_for_each_data(sdir->subdirs, devp, struct sysfs_directory) {
 		if (blacklist(devp->name)) {
-			LOG (3, "%s blacklisted", devp->name);
+			syslog(LOG_DEBUG, "%s blacklisted", devp->name);
 			continue;
 		}
-
 		memset(attr_buff, 0, sizeof (attr_buff));
 		memset(attr_path, 0, sizeof (attr_path));
 
 		if (safe_sprintf(attr_path, "%s/block/%s/device/generic/dev",
 			sysfs_path, devp->name)) {
 			fprintf(stderr, "updatepaths: attr_path too small\n");
-			return 1;
+			continue;
 		}
 		if (0 > sysfs_read_attribute_value(attr_path, attr_buff, 17)) {
-			LOG(3, "no such attribute : %s",
+			syslog(LOG_DEBUG, "no such attribute : %s",
 				attr_path);
 			continue;
 		}
+		/*
+		 * detect if path already exists in path vector
+		 * if so, keep the old one for for checker context and
+		 * state persistance
+		 */
+		for (i = 0; i < VECTOR_SIZE(failedpaths->pathvec); i++) {
+			pp = VECTOR_SLOT(failedpaths->pathvec, i);
 
-		path_p = MALLOC(sizeof (struct path));
-		if (safe_snprintf(path_p->sg_dev_t, DEV_T_SIZE, "%s",
-				  attr_buff)) {
-			fprintf(stderr, "sg_dev_t too small\n");
-			return 1;
+			if (0 == strncmp(pp->sg_dev_t, attr_buff,
+					strlen(pp->sg_dev_t)))
+				break;
 		}
-		if (!select_checkfn(path_p, devp->name) &&
-		    checkpath(path_p->sg_dev_t, path_p->checkfn)) {
-			LOG(2, "discard %s as valid path", path_p->sg_dev_t);
-			FREE(path_p);
+		if (i < VECTOR_SIZE(failedpaths->pathvec)) {
+			syslog(LOG_INFO, "path checker already active : %s",
+				pp->sg_dev_t);
 			continue;
 		}
 
-		vector_alloc_slot(failedpaths->pathvec);
-		vector_set_slot(failedpaths->pathvec, path_p);
+		/*
+		 * ok, really allocate a path
+		 */
+		pp = MALLOC(sizeof(struct path));
 
-		LOG(2, "%s added to failedpaths", path_p->sg_dev_t);
+		if (safe_snprintf(pp->sg_dev_t, DEV_T_SIZE, "%s",
+				  attr_buff)) {
+			fprintf(stderr, "sg_dev_t too small\n");
+			FREE(pp);
+			continue;
+		}
+		pp->checker_context = MALLOC(MAX_CHECKER_CONTEXT_SIZE);
+
+		if (select_checkfn(pp, devp->name)) {
+			FREE(pp->checker_context);
+			FREE(pp);
+			continue;
+		}
+		pp->state = checkpath(pp->sg_dev_t, pp->checkfn, NULL,
+					pp->checker_context);
+
+		if (safe_sprintf(attr_path, "%s/block/%s/dev",
+			sysfs_path, devp->name)) {
+			fprintf(stderr, "updatepaths: attr_path too small\n");
+			continue;
+		}
+		if (0 > sysfs_read_attribute_value(attr_path, attr_buff, 17)) {
+			syslog(LOG_DEBUG, "no such attribute : %s",
+				attr_path);
+			continue;
+		}
+		sscanf(attr_buff, "%i:%i", &pp->major, &pp->minor);
+		
+		vector_alloc_slot(failedpaths->pathvec);
+		vector_set_slot(failedpaths->pathvec, pp);
+
+		syslog(LOG_NOTICE, "path checker startup : %s", pp->sg_dev_t);
 	}
 	pthread_mutex_unlock(failedpaths->lock);
 	sysfs_close_directory(sdir);
