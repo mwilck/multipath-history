@@ -20,6 +20,7 @@
 #include "devinfo.h"
 #include "checkers.h"
 #include "memory.h"
+#include "copy.h"
 
 #define MAXPATHS 1024
 #define MAXMAPS 256
