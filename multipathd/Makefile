@@ -26,9 +26,9 @@ LDFLAGS = -lpthread
 #
 # object files
 #
-OBJS = main.o copy.o devinfo.o dict.o log.o log_pthread.o \
-       $(CHECKERSLIB)-glibc.a \
+OBJS = main.o copy.o log.o log_pthread.o \
        $(MULTIPATHLIB)-glibc.a \
+       $(CHECKERSLIB)-glibc.a \
 
 #
 # Conditional flags for forced local libs.

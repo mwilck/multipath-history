@@ -1,45 +1,12 @@
 #include <stdio.h>
-#include <string.h>
-#include <vector.h>
-#include <checkers.h>
-#include <hwtable.h>
 
+#include "vector.h"
 #include "structs.h"
-#include "pgpolicies.h"
 #include "config.h"
 #include "debug.h"
+#include "pgpolicies.h"
 
-extern struct mpentry *
-find_mpe (char * wwid)
-{
-	int i;
-	struct mpentry * mpe;
-
-	if (!wwid)
-		return NULL;
-
-	vector_foreach_slot (conf->mptable, mpe, i)
-                if (mpe->wwid && strcmp(mpe->wwid, wwid) == 0)
-			return mpe;
-
-	return NULL;
-}
-
-extern char *
-get_mpe_wwid (char * alias)
-{
-	int i;
-	struct mpentry * mpe;
-
-	if (!alias)
-		return NULL;
-
-	vector_foreach_slot (conf->mptable, mpe, i)
-                if (mpe->alias && strcmp(mpe->alias, alias) == 0)
-			return mpe->wwid;
-
-	return NULL;
-}
+#include "../libcheckers/checkers.h"
 
 /*
  * selectors :
