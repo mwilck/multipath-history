@@ -160,13 +160,10 @@ static void *
 get_devmaps (void)
 {
 	char *devmap;
-	struct dm_task *dmt, *dmt1;
+	struct dm_task *dmt;
 	struct dm_names *names = NULL;
 	unsigned next = 0;
 	void *nexttgt;
-	uint64_t start, length;
-	char *target_type = NULL;
-	char *params;
 	vector devmaps;
 
 	devmaps = vector_alloc();
@@ -198,47 +195,18 @@ get_devmaps (void)
 		 */
 		names = (void *) names + next;
 		nexttgt = NULL;
-		syslog(LOG_DEBUG, "devmap %s :", names->name);
-
-		if (!(dmt1 = dm_task_create(DM_DEVICE_STATUS)))
-			goto out;
+		log_safe(LOG_DEBUG, "devmap %s :", names->name);
 		
-		if (!dm_task_set_name(dmt1, names->name))
-			goto out1;
-		
-		if (!dm_task_run(dmt1))
-			goto out1;
+		if (dm_type(names->name, "multipath")) {
+			devmap = MALLOC(WWID_SIZE);
+			strcpy(devmap, names->name);
+			vector_alloc_slot(devmaps);
+			vector_set_slot(devmaps, devmap);
+		} else
+			log_safe(LOG_DEBUG,
+			       "   skip non multipath target");
 
-		do {
-			nexttgt = dm_get_next_target(dmt1, nexttgt,
-						   &start,
-						   &length,
-						   &target_type,
-						   &params);
-			syslog(LOG_DEBUG, "\\_ %lu %lu %s",
-			       (unsigned long) start,
-						  (unsigned long) length,
-						  target_type);
-
-			if (!target_type) {
-				syslog(LOG_INFO, "   unknown target type");
-				goto out1;
-			}
-			
-			if (!strncmp(target_type, "multipath", 9)) {
-				devmap = MALLOC(WWID_SIZE);
-				strcpy(devmap, names->name);
-				vector_alloc_slot(devmaps);
-				vector_set_slot(devmaps, devmap);
-			} else
-				syslog(LOG_DEBUG,
-				       "   skip non multipath target");
-		} while (nexttgt);
-
-out1:
-		dm_task_destroy(dmt1);
 		next = names->next;
-
 	} while (next);
 
 out:

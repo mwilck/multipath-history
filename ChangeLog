@@ -1,5 +1,12 @@
 2005-03-19 multipath-tools-0.4.4
 
+	* [multipathd] use libmultipath:dm_type() instead of
+	  duplacate and bogus devmap discovery code.
+	* [multipathd] asynchronous & non-blocking logger
+	  thread. Implementation split into a generic log
+	  lib and a pthread wrapper for locking and events.
+	  An ipc wrapper could be easily created by
+	  interested parties.
 	* [multipath] add "multipath -l -v2 [devname|devt]"
 	  support in complement to [mapname|wwid]
 	* [kpartx] suppress loop.h private copy. Should fix
