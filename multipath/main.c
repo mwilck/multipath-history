@@ -663,8 +663,9 @@ coalesce_paths (vector curmp, vector pathvec)
 	vector_foreach_slot (pathvec, pp1, k) {
 		/* skip this path for some reason */
 
-		/* 1. if path has no unique id */
-		if (memcmp(empty_buff, pp1->wwid, WWID_SIZE) == 0)
+		/* 1. if path has no unique id or wwid blacklisted */
+		if (memcmp(empty_buff, pp1->wwid, WWID_SIZE) == 0 ||
+		    blacklist(conf->blist, pp1->wwid))
 			continue;
 
 		/* 2. if path already coalesced */
