@@ -709,8 +709,10 @@ coalesce_paths (vector curmp, vector pathvec)
 			vector_set_slot(mpp->paths, VECTOR_SLOT(pathvec, i));
 		}
 		if (mpp) {
-			setup_map(mpp);
-
+			if (setup_map(mpp)) {
+				free_multipath(mpp);
+				continue;
+			}
 			if (mpp->action == ACT_UNDEF)
 				select_action(mpp, curmp);
 
@@ -851,7 +853,7 @@ main (int argc, char *argv[])
 		fprintf(stderr, "multipath tools need sysfs\n");
 		exit(1);
 	}
-	conf = zalloc(sizeof(struct config));
+	conf = alloc_config();
 
 	if (!conf)
 		exit(1);
@@ -1006,6 +1008,7 @@ main (int argc, char *argv[])
 	cache_dump(pathvec);
 	filter_pathvec(pathvec, refwwid);
 
+	dbg("===== list = %i =====", conf->list);
 	if (conf->list)
 		goto out;
 
