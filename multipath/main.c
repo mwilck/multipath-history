@@ -783,7 +783,7 @@ static void
 usage (char * progname)
 {
 	fprintf (stderr, VERSION_STRING);
-	fprintf (stderr, "Usage: %s\t[-v level] [-d] [-S]\n",
+	fprintf (stderr, "Usage: %s\t[-v level] [-d] [-l] [-S]\n",
 		progname);
 	fprintf (stderr,
 		"\t\t\t[-p failover|multibus|group_by_serial|group_by_prio]\n" \
@@ -792,8 +792,10 @@ usage (char * progname)
 		"\t-v level\tverbosty level\n" \
 		"\t   0\t\t\tno output\n" \
 		"\t   1\t\t\tprint created devmap names only\n" \
-		"\t   2\t\t\tprint all paths and multipaths\n" \
+		"\t   2\t\t\tdefault verbosity\n" \
+		"\t   3\t\t\tprint debug information\n" \
 		"\t-d\t\tdry run, do not create or update devmaps\n" \
+		"\t-l\t\tlist the current multipath topology\n" \
 		"\t-S\t\tinhibit signal sending to multipathd\n"
 		"\t-F\t\tflush all multipath device maps\n" \
 		"\t-p policy\tforce all maps to specified policy :\n" \
