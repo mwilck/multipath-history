@@ -186,7 +186,7 @@ devinfo (struct path *curpath)
 		curpath->priority = atoi(prio);
 	else {
 		dbg("error calling out %s", buff);
-		curpath->priority = -1;
+		curpath->priority = 1;
 	}
 	dbg("devinfo found prio : %u", curpath->priority);
 
