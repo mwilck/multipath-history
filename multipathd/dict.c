@@ -36,7 +36,7 @@ push_callout(char * callout)
 	/*
 	 * else, store it
 	 */
-	bin = MALLOC(p - callout);
+	bin = MALLOC((p - callout) + 1);
 	strncpy(bin, callout, p - callout);
 	syslog(LOG_DEBUG, "add %s to binvec", bin);
 
