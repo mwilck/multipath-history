@@ -1,3 +1,35 @@
+2004-12-10 multipath-tools-0.4.0
+
+	* [checkers] forgot to return back to caller the newly
+	  allocated context. Lead to fd leak notably.
+	* [checkers] heavy check logic fix
+	* [checkers] really malloc the checker context size,
+	  not the pointer size (stupidy may kill)
+	* [multipathd] check more sysfs calls return values
+	* [multipathd] search for sysfs mount point only once,
+	  not on each updatepaths() iteration
+	* [multipathd] plug (char *) leak in the daemon
+	* [multipath] change pgcmp logic : we want to reload a
+	  map only if a path is in computed map but not in cur
+	  map (ie accept to load a map if it brings more paths)
+	* [multipath] undust coalesce_paths()
+	* [multipath] don't print unchanged multipath
+	* [multipath] store the action to take in the multipath
+	  struct
+	* [multipath] print mp size with kB, MB, GB or TB units
+	* [multipath] compilation fix for merge_words() (Andy)
+	* [multipath] don't feed the kernel DM maps with paths of
+	  different sizes : DM fails and we end up with an empty
+	  map ... not fun
+	* [multipath] cover a new corner case : path listed in
+	  status string but disappeared from sysfs
+	* [multipath] remove the "-D" command line flag : now
+	  we can pass major:minor directly as last argument, like
+	  device names or device map names. Update multipathd
+	  accordingly.
+	* [multipath] try reinstate again paths after a switchpg
+	* [multipath] reinstate condition change : 
+
 2004-12-05 multipath-tools-0.3.9
 
 	* [multipath] add a "-l" flag to list the current
