@@ -485,15 +485,15 @@ assemble_map (struct multipath * mp)
 	int i, j;
 	int shift, freechar;
 	char * p;
-	vector pgpaths;
+	struct pathgroup * pgp;
 	struct path * pp;
 
 	p = mp->params;
 	freechar = sizeof(mp->params);
 	
-	shift = snprintf(p, freechar, "%s %s %i 1",
+	shift = snprintf(p, freechar, "%s %s %i %i",
 			 mp->features, mp->hwhandler,
-			 VECTOR_SIZE(mp->pg));
+			 VECTOR_SIZE(mp->pg), mp->nextpg);
 
 	if (shift >= freechar) {
 		fprintf(stderr, "mp->params too small\n");
@@ -513,8 +513,8 @@ assemble_map (struct multipath * mp)
 		p += shift;
 		freechar -= shift;
 
-		vector_foreach_slot (pgpaths, pp, j) {
-			shift = snprintf(p, freechar, " %s", pp->dev_t);
+		vector_foreach_slot (pgp->paths, pp, j) {
+			shift = snprintf(p, freechar, " %s 1000" ,pp->dev_t);
 			if (shift >= freechar) {
 				fprintf(stderr, "mp->params too small\n");
 				exit(1);
