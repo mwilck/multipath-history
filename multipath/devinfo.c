@@ -441,22 +441,20 @@ devinfo (struct path *pp)
 	/*
 	 * get path uid
 	 */
-	select_getuid(pp);
-	buff = apply_format(pp->getuid, CALLOUT_MAX_SIZE, pp);
-	if (buff) {
-		if (execute_program(buff, pp->wwid, WWID_SIZE) == 0) {
-			free(buff);
-			dbg("uid = %s (callout)", pp->wwid);
-			return 0;
-		}
-		free(buff);
-	}
+	if (strlen(pp->wwid) == 0) {
+		select_getuid(pp);
+		buff = apply_format(pp->getuid, CALLOUT_MAX_SIZE, pp);
 
-	/*
-	 * no wwid : blank for safety
-	 */
-	dbg("uid = 0x0 (unable to fetch)");
-	memset(pp->wwid, 0, WWID_SIZE);
-	return 1;
+		if (buff) {
+			if (!execute_program(buff, pp->wwid, WWID_SIZE) == 0)
+				memset(pp->wwid, 0, WWID_SIZE);
+
+			dbg("uid = %s (callout)", pp->wwid);
+			free(buff);
+		}
+	} else
+		dbg("uid = %s (cache)", pp->wwid);
+
+	return 0;
 }
 
