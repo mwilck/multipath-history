@@ -5,6 +5,11 @@
 #include <ctype.h>
 #include <linux/kdev_t.h>
 
+#include "vector.h"
+#include "structs.h"
+#include "debug.h"
+#include "memory.h"
+
 extern int
 dm_prereq (char * str, int x, int y, int z)
 {
@@ -412,3 +417,122 @@ dm_mapname(int major, int minor)
 	return mapname;
 }
 
+int
+dm_switchgroup(char * mapname, int index)
+{
+	int r = 0;
+	struct dm_task *dmt;
+	char str[24];
+
+	if (!(dmt = dm_task_create(DM_DEVICE_TARGET_MSG)))
+		return 0;
+
+	if (!dm_task_set_name(dmt, mapname))
+		goto out;
+
+	if (!dm_task_set_sector(dmt, 0))
+		goto out;
+
+	snprintf(str, 24, "switch_group %i\n", index);
+	dbg("message %s 0 %s", mapname, str);
+
+	if (!dm_task_set_message(dmt, str))
+		goto out;
+
+	if (!dm_task_run(dmt))
+		goto out;
+
+	r = 1;
+
+	out:
+	dm_task_destroy(dmt);
+
+	return r;
+}
+
+int
+dm_get_maps (vector mp, char * type)
+{
+	struct multipath * mpp;
+	int r = 0;
+	struct dm_task *dmt;
+	struct dm_names *names;
+	unsigned next = 0;
+	unsigned long length;
+	char *params;
+	char *status;
+
+	if (!type)
+		return 0;
+
+	if (!(dmt = dm_task_create (DM_DEVICE_LIST)))
+		return 0;
+
+	if (!dm_task_run (dmt))
+		goto out;
+
+	if (!(names = dm_task_get_names (dmt)))
+		goto out;
+
+	if (!names->dev)
+		goto out;
+
+	do {
+		if (dm_type(names->name, type)) {
+			dm_get_map(names->name, &length, &params);
+			dm_get_status(names->name, &status);
+			mpp = zalloc(sizeof(struct multipath));
+
+			if (!mpp) {
+				r = 1;
+				goto out;
+			}
+			mpp->size = length;
+			mpp->alias = zalloc(strlen(names->name) + 1);
+			strncat(mpp->alias, names->name, strlen(names->name));
+			strncat(mpp->params, params, PARAMS_SIZE);
+			strncat(mpp->status, status, PARAMS_SIZE);
+
+			vector_alloc_slot(mp);
+			vector_set_slot(mp, mpp);
+			mpp = NULL;
+		}
+                next = names->next;
+                names = (void *) names + next;
+	} while (next);
+
+	out:
+	dm_task_destroy (dmt);
+	return r;
+}
+
+int
+dm_geteventnr (char *name)
+{
+	struct dm_task *dmt;
+	struct dm_info info;
+
+	if (!(dmt = dm_task_create(DM_DEVICE_INFO)))
+		return 0;
+
+	if (!dm_task_set_name(dmt, name))
+		goto out;
+
+	if (!dm_task_run(dmt))
+		goto out;
+
+	if (!dm_task_get_info(dmt, &info)) {
+		info.event_nr = 0;
+		goto out;
+	}
+
+	if (!info.exists) {
+		info.event_nr = 0;
+		goto out;
+	}
+
+out:
+	dm_task_destroy(dmt);
+
+	return info.event_nr;
+}

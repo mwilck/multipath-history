@@ -30,10 +30,10 @@
 /*
  * libmultipath
  */
-#include <sysfs_devinfo.h>
 #include <parser.h>
 #include <vector.h>
 #include <memory.h>
+#include <config.h>
 #include <callout.h>
 #include <safe_printf.h>
 #include <blacklist.h>
@@ -42,9 +42,10 @@
 #include <structs.h>
 #include <dmparser.h>
 #include <devmapper.h>
+#include <dict.h>
+#include <discovery.h>
 
 #include "main.h"
-#include "dict.h"
 #include "devinfo.h"
 #include "copy.h"
 #include "clone_platform.h"
@@ -301,38 +302,6 @@ updatepaths (struct paths *allpaths, char *sysfs_path)
 	return 0;
 }
 
-static int
-geteventnr (char *name)
-{
-	struct dm_task *dmt;
-	struct dm_info info;
-	
-	if (!(dmt = dm_task_create(DM_DEVICE_INFO)))
-		return 0;
-
-	if (!dm_task_set_name(dmt, name))
-		goto out;
-
-	if (!dm_task_run(dmt))
-		goto out;
-
-	if (!dm_task_get_info(dmt, &info)) {
-		info.event_nr = 0;
-		goto out;
-	}
-
-	if (!info.exists) {
-		log_safe(LOG_ERR, "Device %s does not exist", name);
-		info.event_nr = 0;
-		goto out;
-	}
-
-out:
-	dm_task_destroy(dmt);
-
-	return info.event_nr;
-}
-
 static void
 mark_failed_path (struct paths *allpaths, char *mapname)
 {
@@ -395,7 +364,7 @@ waitevent (void * et)
 	}
 	pthread_mutex_lock (waiter->waiter_lock);
 
-	waiter->event_nr = geteventnr (waiter->mapname);
+	waiter->event_nr = dm_geteventnr (waiter->mapname);
 	log_safe(LOG_DEBUG, "waiter->event_nr = %i", waiter->event_nr);
 
 	if (!(dmt = dm_task_create(DM_DEVICE_WAITEVENT)))

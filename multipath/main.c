@@ -19,15 +19,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <sys/stat.h>
 #include <string.h>
 #include <signal.h>
 
 #include <parser.h>
 #include <vector.h>
 #include <memory.h>
-#include <sysfs/dlist.h>
-#include <sysfs/libsysfs.h>
 #include <libdevmapper.h>
 #include <devmapper.h>
 #include <checkers.h>
@@ -40,23 +37,15 @@
 #include <structs.h>
 #include <dmparser.h>
 #include <cache.h>
+#include <config.h>
+#include <propsel.h>
+#include <discovery.h>
+#include <debug.h>
+#include <sysfs/libsysfs.h>
 
 #include "main.h"
-#include "devinfo.h"
-#include "config.h"
 #include "pgpolicies.h"
 #include "dict.h"
-#include "debug.h"
-#include "propsel.h"
-
-static int
-filepresent (char * run) {
-	struct stat buf;
-
-	if(!stat(run, &buf))
-		return 1;
-	return 0;
-}
 
 static char *
 get_refwwid (vector pathvec)
@@ -629,39 +618,6 @@ select_action (struct multipath * mpp, vector curmp)
 }
 
 static int
-dm_switchgroup(char * mapname, int index)
-{
-	int r = 0;
-	struct dm_task *dmt;
-	char str[24];
-
-	if (!(dmt = dm_task_create(DM_DEVICE_TARGET_MSG)))
-		return 0;
-
-	if (!dm_task_set_name(dmt, mapname))
-		goto out;
-
-	if (!dm_task_set_sector(dmt, 0))
-		goto out;
-
-	snprintf(str, 24, "switch_group %i\n", index);
-	dbg("message %s 0 %s", mapname, str);
-
-	if (!dm_task_set_message(dmt, str))
-		goto out;
-
-	if (!dm_task_run(dmt))
-		goto out;
-
-	r = 1;
-
-	out:
-	dm_task_destroy(dmt);
-
-	return r;
-}
-
-static int
 reinstate_paths (struct multipath * mpp)
 {
 	int i, j;
@@ -807,59 +763,6 @@ coalesce_paths (vector curmp, vector pathvec)
 			free_multipath(mpp);
 		}
 	}
-}
-
-static int
-dm_get_maps (vector mp, char * type)
-{
-	struct multipath * mpp;
-	int r = 0;
-	struct dm_task *dmt;
-	struct dm_names *names;
-	unsigned next = 0;
-	unsigned long length;
-	char *params;
-	char *status;
-
-	if (!(dmt = dm_task_create (DM_DEVICE_LIST)))
-		return 0;
-
-	if (!dm_task_run (dmt))
-		goto out;
-
-	if (!(names = dm_task_get_names (dmt)))
-		goto out;
-
-	if (!names->dev)
-		goto out;
-
-	do {
-		if (dm_type(names->name, DEFAULT_TARGET)) {
-			dm_get_map(names->name, &length, &params);
-			dm_get_status(names->name, &status);
-			mpp = zalloc(sizeof(struct multipath));
-
-			if (!mpp) {
-				r = 1;
-				goto out;
-			}
-			mpp->size = length;
-			mpp->alias = zalloc(strlen(names->name) + 1);
-			strncat(mpp->alias, names->name, strlen(names->name));
-			strncat(mpp->params, params, PARAMS_SIZE);
-			strncat(mpp->status, status, PARAMS_SIZE);
-
-			vector_alloc_slot(mp);
-			vector_set_slot(mp, mpp);
-			mpp = NULL;
-		}
-                next = names->next;
-                names = (void *) names + next;
-	} while (next);
-
-	out:
-	dm_task_destroy (dmt);
-	return r;
 }
 
 static void
