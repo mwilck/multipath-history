@@ -1,3 +1,18 @@
+2005-03-19 multipath-tools-0.4.4
+
+	* [multipath] add "multipath -l -v2 [devname|devt]"
+	  support in complement to [mapname|wwid]
+	* [kpartx] suppress loop.h private copy. Should fix
+	  the reported build problems
+	* [multipath] do sysfs_get_mnt_path() only one time
+	  and store in a global var.
+	* [multipath] further path discovery optimzation
+	* [multipath] purge superfluous includes in main.c
+	* [libmultipath] introduce a cache file. expiry set
+	  to 5 secondes to covert the hotplug event storms.
+	* [multipath] split get_pathvec_sysfs(). Introduce
+	  get_refwwid() and filter_pathvec()
+
 2005-03-19 multipath-tools-0.4.3
 
 	* [libmultipath] rename find_[mp|hw] to find_[mp|hw]e and
