@@ -770,13 +770,6 @@ coalesce_paths (vector curmp, vector pathvec)
 		mpp->hwe = pp1->hwe;
 		select_alias(mpp);
 
-		if (conf->dev_type == DEV_DEVMAP &&
-		    (mpp->alias &&
-		    0 != strncmp(mpp->alias, conf->dev, FILE_NAME_SIZE)) &&
-		    0 != strncmp(pp1->wwid, conf->dev, FILE_NAME_SIZE)) {
-			free(mpp);
-			continue;
-		}
 		pp1->mpp = mpp;
 		strcpy(mpp->wwid, pp1->wwid);
 		mpp->size = pp1->size;
@@ -957,10 +950,15 @@ get_current_mp (vector curmp, vector pathvec)
 	dm_get_maps(curmp, DEFAULT_TARGET);
 
 	vector_foreach_slot (curmp, mpp, i) {
-		if (conf->dev_type == DEV_DEVMAP && (
-		    (mpp->alias &&
-		    0 != strncmp(mpp->alias, conf->dev, FILE_NAME_SIZE)) &&
-		    0 != strncmp(mpp->wwid, conf->dev, FILE_NAME_SIZE)))
+		wwid = get_mpe_wwid(mpp->alias);
+
+		if (wwid) {
+			strncpy(mpp->wwid, wwid, WWID_SIZE);
+			free(wwid);
+		} else
+			strncpy(mpp->wwid, mpp->alias, WWID_SIZE);
+
+		if (refwwid && strncmp(mpp->wwid, refwwid, WWID_SIZE))
 			continue;
 
 		dbg("params = %s", mpp->params);
