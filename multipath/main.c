@@ -686,11 +686,12 @@ reinstate_paths (struct multipath * mpp)
 	struct path * pp;
 
 	vector_foreach_slot (mpp->pg, pgp, i) {
-		if (pgp->status == PGSTATE_DISABLED ||
-		    pgp->status == PGSTATE_ACTIVE)
-			continue;
-
 		vector_foreach_slot (pgp->paths, pp, j) {
+			if (pp->state != PATH_UP &&
+			    (pgp->status == PGSTATE_DISABLED ||
+			     pgp->status == PGSTATE_ACTIVE))
+				continue;
+
 			if (pp->dmstate == PSTATE_FAILED) {
 				dm_reinstate(mpp->alias, pp->dev_t);
 			}
