@@ -21,6 +21,7 @@ struct hwentry {
 	int selector_args;
 	int iopolicy;
 	char * getuid;
+	int checker_index;
 };
 
 struct config {

@@ -25,10 +25,11 @@
 #include <string.h>
 #include <signal.h>
 #include <sys/ioctl.h>
-#include <dlist.h>
-#include <sysfs/libsysfs.h>
 
+#include "../libsysfs/dlist.h"
+#include "../libsysfs/sysfs/libsysfs.h"
 #include "../libdevmapper/libdevmapper.h"
+#include "../libcheckers/checkers.h"
 #include "main.h"
 #include "devinfo.h"
 #include "config.h"
@@ -119,6 +120,35 @@ blacklist (char * dev) {
 }
 
 static int
+select_checkfn(struct path *pp)
+{
+	char checker_name[CHECKER_NAME_SIZE];
+	int i;
+	struct hwentry * hwe;
+
+	/*
+	 * default checkfn
+	 */
+	pp->checkfn = &readsector0;
+
+	for (i = 0; i < VECTOR_SIZE(conf->hwtable); i++) {
+		hwe = VECTOR_SLOT(conf->hwtable, i);
+		if (MATCH(hwe->vendor, pp->vendor_id) &&
+		    MATCH(hwe->product, pp->product_id) &&
+		    hwe->checker_index > 0) {
+			get_checker_name(checker_name, hwe->checker_index);
+			dbg("set %s path checker for %s",
+				checker_name, pp->dev);
+			pp->checkfn = get_checker_addr(hwe->checker_index);
+			return 0;
+		}
+	}
+	get_checker_name(checker_name, READSECTOR0);
+	dbg("set %s path checker for %s", checker_name, pp->dev);
+	return 0;
+}
+
+static int
 devinfo (struct path *curpath)
 {
 	int i;
@@ -136,8 +166,15 @@ devinfo (struct path *curpath)
 	 * then those not available through sysfs
 	 */
 	get_serial(curpath->serial, curpath->dev_t);
-	curpath->tur = do_tur(curpath->dev_t);
 	curpath->claimed = get_claimed(curpath->dev_t);
+
+	/*
+	 * get path state
+	 */
+	select_checkfn(curpath);
+	curpath->state = checkpath(curpath->sg_dev_t, curpath->checkfn);
+dbg("state : %i", curpath->state);
+dbg("sg_dev_t : %s", curpath->sg_dev_t);
 	
 	/*
 	 * get path prio
@@ -249,8 +286,8 @@ get_pathvec_sysfs (vector pathvec)
 	}
 	
 	/*
-	 * if called from /etc/dev.d , only consider the paths that relate
-	 * to the device pointed by conf->dev
+	 * if called from /etc/dev.d or pathcheckers, only consider the paths
+	 * that relate to the device pointed by conf->dev
 	 */
 	if (conf->dev != NULL && filepresent(conf->dev)) {
 		curpath = zalloc(sizeof (struct path));
@@ -416,7 +453,7 @@ print_path (struct path * pp, int style)
 
 	printf ("%s ", pp->dev);
 
-	if (pp->tur)
+	if (pp->state)
 		printf ("[ready ] ");
 	else
 		printf ("[faulty] ");

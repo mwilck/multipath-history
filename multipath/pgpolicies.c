@@ -188,7 +188,7 @@ one_path_per_group (struct multipath * mp)
 					"pathstr too small\n");
 			exit(1);
 		}
-		if (!pp->tur) {
+		if (!pp->state) {
 			vector_alloc_slot(failedpaths);
 			vector_set_slot(failedpaths, pathstr);
 		} else {
@@ -229,7 +229,7 @@ one_group (struct multipath * mp)
 			fprintf(stderr, "one_group: pathstr too small\n");
 			exit(1);
 		}
-		if (!pp->tur) {
+		if (!pp->state) {
 			vector_alloc_slot(pgfailedpaths);
 			vector_set_slot(pgfailedpaths, pathstr);
 		} else {
@@ -271,7 +271,7 @@ group_by_prio (struct multipath * mp)
 			fprintf(stderr, "group_by_prio: pathstr too small\n");
 			exit(1);
 		}
-		if (!pp->tur) {
+		if (!pp->state) {
 			vector_alloc_slot(pgfailedpaths);
 			vector_set_slot(pgfailedpaths, pathstr);
 		} else {
