@@ -253,16 +253,6 @@ print_all_paths (vector pathvec)
 		print_path(pp, PRINT_PATH_ALL);
 	}
 }
-
-static void
-print_all_maps (vector mp)
-{
-	int i;
-	struct multipath * mpp;
-
-	vector_foreach_slot (mp, mpp, i)
-		print_map(mpp);
-}
 #endif
 
 static void
@@ -356,115 +346,6 @@ print_mp (struct multipath * mpp)
 	printf("\n");
 }
 
-static void
-print_all_mp (vector mp)
-{
-	int k;
-	struct multipath * mpp;
-
-	if (conf->verbosity == 0)
-		return;
-
-	vector_foreach_slot (mp, mpp, k) 
-		print_mp(mpp);
-}
-
-static void
-coalesce_paths (vector mp, vector pathvec)
-{
-	int k, i;
-	char empty_buff[WWID_SIZE];
-	struct multipath * mpp;
-	struct path * pp1;
-	struct path * pp2;
-
-	memset(empty_buff, 0, WWID_SIZE);
-
-	vector_foreach_slot (pathvec, pp1, k) {
-		/* skip this path for some reason */
-
-		/* 1. if path has no unique id */
-		if (memcmp(empty_buff, pp1->wwid, WWID_SIZE) == 0)
-			continue;
-
-		/* 2. if path already coalesced */
-		if (pp1->mpp)
-			continue;
-
-		/*
-		 * at this point, we know we really got a new mp
-		 */
-		mpp = zalloc(sizeof(struct multipath));
-		pp1->mpp = mpp;
-		strcpy(mpp->wwid, pp1->wwid);
-		mpp->size = pp1->size;
-
-		mpp->mpe = find_mp(pp1->wwid);
-		mpp->hwe = find_hw(conf->hwtable,
-				   pp1->vendor_id, pp1->product_id);
-
-		mpp->paths = vector_alloc();
-		vector_alloc_slot (mpp->paths);
-		vector_set_slot (mpp->paths, pp1);
-
-		for (i = k + 1; i < VECTOR_SIZE(pathvec); i++) {
-			pp2 = VECTOR_SLOT(pathvec, i);
-
-			if (strcmp(pp1->wwid, pp2->wwid))
-				continue;
-			
-			pp2->mpp = mpp;
-
-			if (pp2->size != mpp->size) {
-				/*
-				 * ouch, avoid feeding that to the DM
-				 */
-				dbg("path size mismatch : discard %s",
-				     mpp->wwid);
-				mpp->action = ACT_NOTHING;
-			}
-			vector_alloc_slot(mpp->paths);
-			vector_set_slot(mpp->paths, VECTOR_SLOT(pathvec, i));
-		}
-		if (mpp) {
-			vector_alloc_slot(mp);
-			vector_set_slot(mp, mpp);
-		}
-	}
-}
-
-static int
-dm_switchgroup(char * mapname, int index)
-{
-	int r = 0;
-	struct dm_task *dmt;
-	char str[24];
-
-	if (!(dmt = dm_task_create(DM_DEVICE_TARGET_MSG)))
-		return 0;
-
-	if (!dm_task_set_name(dmt, mapname))
-		goto out;
-
-	if (!dm_task_set_sector(dmt, 0))
-		goto out;
-
-	snprintf(str, 24, "switch_group %i\n", index);
-	dbg("message %s 0 %s", mapname, str);
-
-	if (!dm_task_set_message(dmt, str))
-		goto out;
-
-	if (!dm_task_run(dmt))
-		goto out;
-
-	r = 1;
-
-	out:
-	dm_task_destroy(dmt);
-
-	return r;
-}
 /*
  * Transforms the path group vector into a proper device map string
  */
@@ -735,6 +616,39 @@ select_action (struct multipath * mpp, vector curmp)
 }
 
 static int
+dm_switchgroup(char * mapname, int index)
+{
+	int r = 0;
+	struct dm_task *dmt;
+	char str[24];
+
+	if (!(dmt = dm_task_create(DM_DEVICE_TARGET_MSG)))
+		return 0;
+
+	if (!dm_task_set_name(dmt, mapname))
+		goto out;
+
+	if (!dm_task_set_sector(dmt, 0))
+		goto out;
+
+	snprintf(str, 24, "switch_group %i\n", index);
+	dbg("message %s 0 %s", mapname, str);
+
+	if (!dm_task_set_message(dmt, str))
+		goto out;
+
+	if (!dm_task_run(dmt))
+		goto out;
+
+	r = 1;
+
+	out:
+	dm_task_destroy(dmt);
+
+	return r;
+}
+
+static int
 reinstate_paths (struct multipath * mpp)
 {
 	int i, j;
@@ -809,6 +723,83 @@ domap (struct multipath * mpp)
 	dm_log_init_verbose(1);
 
 	return r;
+}
+
+static void
+coalesce_paths (vector curmp, vector pathvec)
+{
+	int k, i;
+	char empty_buff[WWID_SIZE];
+	struct multipath * mpp;
+	struct path * pp1;
+	struct path * pp2;
+
+	memset(empty_buff, 0, WWID_SIZE);
+
+	vector_foreach_slot (pathvec, pp1, k) {
+		/* skip this path for some reason */
+
+		/* 1. if path has no unique id */
+		if (memcmp(empty_buff, pp1->wwid, WWID_SIZE) == 0)
+			continue;
+
+		/* 2. if path already coalesced */
+		if (pp1->mpp)
+			continue;
+
+		/*
+		 * at this point, we know we really got a new mp
+		 */
+		mpp = zalloc(sizeof(struct multipath));
+
+		mpp->mpe = find_mpe(pp1->wwid);
+		mpp->hwe = pp1->hwe;
+		select_alias(mpp);
+
+		if (conf->dev_type == DEV_DEVMAP &&
+		    (mpp->alias &&
+		    0 != strncmp(mpp->alias, conf->dev, FILE_NAME_SIZE)) &&
+		    0 != strncmp(pp1->wwid, conf->dev, FILE_NAME_SIZE)) {
+			free(mpp);
+			continue;
+		}
+		pp1->mpp = mpp;
+		strcpy(mpp->wwid, pp1->wwid);
+		mpp->size = pp1->size;
+
+		mpp->paths = vector_alloc();
+		vector_alloc_slot (mpp->paths);
+		vector_set_slot (mpp->paths, pp1);
+
+		for (i = k + 1; i < VECTOR_SIZE(pathvec); i++) {
+			pp2 = VECTOR_SLOT(pathvec, i);
+
+			if (strcmp(pp1->wwid, pp2->wwid))
+				continue;
+			
+			pp2->mpp = mpp;
+
+			if (pp2->size != mpp->size) {
+				/*
+				 * ouch, avoid feeding that to the DM
+				 */
+				dbg("path size mismatch : discard %s",
+				     mpp->wwid);
+				mpp->action = ACT_NOTHING;
+			}
+			vector_alloc_slot(mpp->paths);
+			vector_set_slot(mpp->paths, VECTOR_SLOT(pathvec, i));
+		}
+		if (mpp) {
+			setup_map(mpp);
+
+			if (mpp->action == ACT_UNDEF)
+				select_action(mpp, curmp);
+
+			domap(mpp);
+			free_multipath(mpp);
+		}
+	}
 }
 
 static int
