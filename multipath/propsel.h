@@ -1,4 +1,4 @@
-struct mpentry * find_mp (char * wwid);
+struct mpentry * find_mpe (char * wwid);
 
 int select_pgpolicy (struct multipath * mp);
 int select_selector (struct multipath * mp);

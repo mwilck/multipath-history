@@ -9,11 +9,8 @@
 #include "config.h"
 #include "debug.h"
 
-/*
- * helpers
- */
 extern struct mpentry *
-find_mp (char * wwid)
+find_mpe (char * wwid)
 {
 	int i;
 	struct mpentry * mpe;
