@@ -1,5 +1,26 @@
 2005-03-19 multipath-tools-0.4.4
 
+	* [multipathd] check if pidfile is a dead remnent of a
+	  crashed daemon. If so, overwrite it. Suggested by
+	  Alasdair Kergon, RedHat. Code heavily based on work
+	  by Andrew Tridgell, Samba Fame.
+	* [build] dropped libdevmapper/ and libsysfs/ from the
+	  package. klibc build is now broken until distributors
+	  provide klibc compiled static libraries in their
+	  respective packages.
+	* [libmultipath] dm_task_no_open_count() before each DM
+	  ioctl. Not doing that is reported to cause deadlocks
+	  in kernel-space. Reported by Edward Goggin, EMC, fix
+	  suggested by Alasdair Kergon, RedHat
+	  Note minimal libdevmapper version bumped up to 1.01.
+	* [multipath] switched to condlog(). "make DEBUG=N" is
+	  deprecated. Debug is spat with "-v3" or more.
+	* [multipathd] "multipathd -vN" cmdline arg to control
+	  daemon verbosity. 0 < N < 4. "make LOGLEVEL=N" is
+	  deprecated.
+	* [libmultipath] provide a common condlog() primitive to
+	  switch lib messages to syslog or stdout depending on
+	  who uses the lib (daemon or tool).
 	* [kpartx] give kpartx a private, slim copy of devmap.[ch]
 	* [multipath] allow wwid in blacklist{} config section.
 	  Kiyoshi Ueda, NEC.
