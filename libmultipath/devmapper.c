@@ -270,6 +270,44 @@ dm_flush_maps (char * type)
 }
 
 int
+dm_fail_path(char * mapname, char * path)
+{
+	int r = 0;
+	int sz;
+	struct dm_task *dmt;
+	char *str;
+
+	if (!(dmt = dm_task_create(DM_DEVICE_TARGET_MSG)))
+		return 0;
+
+	if (!dm_task_set_name(dmt, mapname))
+		goto out;
+
+	if (!dm_task_set_sector(dmt, 0))
+		goto out;
+
+	sz = strlen(path) + 11;
+	str = malloc(sz);
+
+	snprintf(str, sz, "fail_path %s\n", path);
+
+	if (!dm_task_set_message(dmt, str))
+		goto out;
+
+	free(str);
+
+	if (!dm_task_run(dmt))
+		goto out;
+
+	r = 1;
+
+	out:
+	dm_task_destroy(dmt);
+
+	return r;
+}
+
+int
 dm_reinstate(char * mapname, char * path)
 {
 	int r = 0;
