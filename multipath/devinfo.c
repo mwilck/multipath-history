@@ -33,7 +33,8 @@ do_inq(int sg_fd, int cmddt, int evpd, unsigned int pg_op,
         if (evpd)
                 inqCmdBlk[1] |= 1;
         inqCmdBlk[2] = (unsigned char) pg_op;
-        inqCmdBlk[4] = (unsigned char) mx_resp_len;
+	inqCmdBlk[3] = (unsigned char)((mx_resp_len >> 8) & 0xff);
+	inqCmdBlk[4] = (unsigned char) (mx_resp_len & 0xff);
         memset(&io_hdr, 0, sizeof (struct sg_io_hdr));
         io_hdr.interface_id = 'S';
         io_hdr.cmd_len = sizeof (inqCmdBlk);
@@ -139,28 +140,233 @@ get_lun_strings(char * vendor_id, char * product_id, char * rev, char * devname)
 	return 0;
 }
 
-static void
-sprint_wwid(char * buff, const char * str)
+/*
+ * Supported Code Set values.
+ */
+#define        CODESET_BINARY  1
+#define        CODESET_ASCII   2
+
+static const char hex_str[]="0123456789abcdef";
+
+/*
+ * check_fill_0x83_id - check the page 0x83 id, if OK allocate and fill
+ * serial number.
+ */
+static int check_0x83_id(char *scsi_dev, char *page_83, int max_len)
 {
-	int i;
-	const char *p;
-	char *cursor;
-	unsigned char c;
-	char empty_buff[WWID_SIZE];
+	int i, j, len, idweight;
 
-	memset(empty_buff, 0, WWID_SIZE);
+	/*
+	 * ASSOCIATION must be with the device (value 0)
+	 */
+#ifdef DEBUG
+	fprintf(stdout,"%s: Association: %X\n", scsi_dev, page_83[1] & 0x30);
+#endif
+	if ((page_83[1] & 0x30) != 0)
+		return -1;
 
-	if (0 == memcmp(empty_buff, str, WWID_SIZE))
-		return;
+	/*
+	 * Check for code set - ASCII or BINARY.
+	 */
+#ifdef DEBUG
+	fprintf(stdout,"%s: Codeset: %X\n", scsi_dev, page_83[0] & 0x0f);
+#endif
+	if (((page_83[0] & 0x0f) != CODESET_ASCII) &&
+	    ((page_83[0] & 0x0f) != CODESET_BINARY))
+		return -1;
 
-	p = str;
-	cursor = buff;
-	for (i = 0; i <= WWID_SIZE / 2 - 1; i++) {
-		c = *p++;
-		sprintf(cursor, "%.2x", (int) (unsigned char) c);
-		cursor += 2;
+	/*
+	 * Check for ID type
+	 */
+	idweight = page_83[1] & 0x0f;
+	
+#ifdef DEBUG
+	fprintf(stdout,"%s: ID type: ", scsi_dev);
+	switch (page_83[1] & 0x0f) {
+	case 0x0:
+		printf("Vendor specific\n");
+		break;
+	case 0x1:
+		printf("T-10 vendor identification\n");
+		break;
+	case 0x2:
+		printf("EUI-64\n");
+		break;
+	case 0x3:
+		printf("NAA ");
+		switch((page_83[4] >> 4) & 0x0f) {
+		case 0x02:
+			printf("IEEE Extended\n");
+			break;
+		case 0x05:
+			printf("IEEE Registered\n");
+			break;
+		case 0x06:
+			printf("IEEE Registered Extended\n");
+			break;
+		default:
+			printf("Reserved (%X)\n", (page_83[4] >> 4) & 0x0f);
+			break;
+		}
+		break;
+	case 0x4:
+		printf("Relative target port\n");
+		break;
+	case 0x5:
+		printf("Target port group\n");
+		break;
+	case 0x6:
+		printf("Logical unit group\n");
+		break;
+	case 0x7:
+		printf("MD5 logical unit identifier\n");
+		break;
+	default:
+		printf("Reserved\n");
+		break;
 	}
-	buff[WWID_SIZE - 1] = '\0';
+#endif
+	/*
+	 * Only allow vendor specific, T-10 Vendor Identifcation,
+	 * EUI-64 or NAA identificators
+	 */
+	if ((page_83[1] & 0x0f) > 0x3)
+		return -1;
+
+	/*
+	 * Prefer NAA Registered Extended to NAA Registered and
+	 * NAA Extended.
+	 * Not checking for actual NAA types as some devices
+	 * ( e.g. Compaq iSCSI disks via CISCO routers) return
+	 * add NAA subtypes (0x3).
+	 */
+	if ((page_83[1] & 0x0f) == 0x03) {
+		idweight += (page_83[4] >> 4) & 0x0f;
+
+	}
+
+	/*
+	 * page_83[3]: identifier length
+	 */
+	len = page_83[3];
+	if ((page_83[0] & 0x0f) != CODESET_ASCII)
+		/*
+		 * If not ASCII, use two bytes for each binary value.
+		 */
+		len *= 2;
+	/*
+	 * Add one byte for the NULL termination.
+	 */
+	if (max_len < len + 1) {
+		fprintf(stderr, "%s: length %d too short - need %d\n",
+			scsi_dev, max_len, len);
+		return 1;
+	}
+
+	i = 4; /* offset to the start of the identifier */
+	j = 0;
+
+	if ((page_83[0] & 0x0f) == CODESET_ASCII) {
+		/*
+		 * ASCII descriptor.
+		 *
+		 * Check whether the descriptor contains anything useful
+		 * i.e. anything apart from ' ' or '0'.
+		 */
+#ifdef DEBUG
+		fprintf(stdout,"%s: string '", scsi_dev);
+#endif
+		while (i < (4 + page_83[3])) {
+			if (page_83[i] == ' ' || page_83[i] == '0')
+				len--;
+#ifdef DEBUG
+			fputc(page_83[i],stdout);
+#endif
+			i++;
+		}
+#ifdef DEBUG
+		fprintf(stdout,"'");
+#endif
+	} else {
+		/*
+		 * Binary descriptor, convert to ASCII, using two bytes of
+		 * ASCII for each byte in the page_83.
+		 *
+		 * Again, check whether the descriptor contains anything
+		 * useful; in this case, anything > 0.
+		 */
+#ifdef DEBUG
+		fprintf(stdout,"%s: binary ", scsi_dev);
+#endif
+		while (i < (4 + page_83[3])) {
+			if (page_83[i] == 0)
+				len-=2;
+#ifdef DEBUG
+			fputc(hex_str[(page_83[i] & 0xf0) >> 4],stdout);
+			fputc(hex_str[page_83[i] & 0x0f],stdout);
+#endif
+			i++;
+		}
+	}
+#ifdef DEBUG
+	fprintf(stdout," (len %d)\n", len);
+#endif
+
+	if (len <= 0)
+		return -1;
+
+	return idweight;
+}
+
+/*
+ * fill_0x83_id - fill serial number.
+ */
+static int fill_0x83_id(char *page_83, char *serial)
+{
+	int i, j, len;
+
+	/*
+	 * page_83[3]: identifier length
+	 */
+	len = page_83[3];
+	if ((page_83[0] & 0x0f) != CODESET_ASCII)
+		/*
+		 * If not ASCII, use two bytes for each binary value.
+		 */
+		len *= 2;
+
+	/*
+	 * Add one byte for the NULL termination.
+	 */
+	len += 1;
+
+	i = 4; /* offset to the start of the identifier */
+	j = 0;
+
+	if ((page_83[0] & 0x0f) == CODESET_ASCII) {
+		/*
+		 * ASCII descriptor.
+		 */
+		while (i < (4 + page_83[3])) {
+			/* Map ' ' -> '_' */
+			if (page_83[i] == ' ')
+				serial[j] = '_';
+			else
+				serial[j] = page_83[i];
+			j++; i++;
+		}
+	} else {
+		/*
+		 * Binary descriptor, convert to ASCII, using two bytes of
+		 * ASCII for each byte in the page_83.
+		 */
+		while (i < (4 + page_83[3])) {
+			serial[j++] = hex_str[(page_83[i] & 0xf0) >> 4];
+			serial[j++] = hex_str[page_83[i] & 0x0f];
+			i++;
+		}
+	}
+	return 0;
 }
 
 long
@@ -246,18 +452,40 @@ get_null_uid (char * devname, char * wwid)
 int
 get_evpd_wwid (char * devname, char * wwid)
 {
-        int fd;
+        int fd, j, weight, weight_cur, offset_cur, retval = 0;
         char buff[MX_ALLOC_LEN + 1];
 
         if ((fd = open(devname, O_RDONLY)) < 0)
                         return 1;
 
+	weight_cur = -1;
+	offset_cur = -1;
+
         if (0 == do_inq(fd, 0, 1, 0x83, buff, MX_ALLOC_LEN, 1)) {
-                sprint_wwid(wwid, &buff[8]);
-                close(fd);
-                return 0;
-        }
+		/*
+		 * Examine each descriptor returned. There is normally only
+		 * one or a small number of descriptors.
+		 */
+		for (j = 4; j <= buff[3] + 3; j += buff[j + 3] + 4) {
+#ifdef DEBUG
+			fprintf(stdout,"%s: ID descriptor at %d:\n", 
+				devname, j);
+#endif
+			weight = check_0x83_id(devname, &buff[j], 
+					       MX_ALLOC_LEN);
+			if (weight >= 0 && weight > weight_cur) {
+				weight_cur = weight;
+				offset_cur = j;
+			}
+		}
+
+		if (weight_cur >= 0)
+			fill_0x83_id(&buff[offset_cur], wwid);
+		else
+			retval = 1;
+	} else
+		retval = 1;
 
         close(fd);
-        return 1;
+        return retval;
 }
