@@ -5,8 +5,7 @@ BUILD = glibc
 
 include ../Makefile.inc
 
-OBJS = pgpolicies.o propsel.o devinfo.o main.o dict.o \
-       $(MULTIPATHLIB)-$(BUILD).a $(CHECKERSLIB)-$(BUILD).a
+OBJS = main.o $(MULTIPATHLIB)-$(BUILD).a $(CHECKERSLIB)-$(BUILD).a
 
 ifeq ($(strip $(BUILD)),klibc)
 	CFLAGS = -DDEBUG=${DEBUG} \

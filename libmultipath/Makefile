@@ -7,8 +7,9 @@ BUILD = glibc
 include ../Makefile.inc
 
 OBJS = memory.o parser.o vector.o devmapper.o callout.o \
-       sysfs_devinfo.o hwtable.o blacklist.o util.o dmparser.o \
-       structs.o cache.o
+       hwtable.o blacklist.o util.o dmparser.o config.o \
+       structs.o cache.o discovery.o propsel.o dict.o \
+       pgpolicies.o
 
 ifeq ($(strip $(BUILD)),klibc)
 	CFLAGS = -I$(libdmdir) -I$(sysfsdir)
@@ -19,6 +20,7 @@ ifneq ($(WITH_LOCAL_LIBSYSFS),)
 	CFLAGS += -I$(sysfsdir)
 endif
 endif
+#CFLAGS += -DDEBUG=${DEBUG}
 
 all: $(BUILD)
 

@@ -5,12 +5,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <path_state.h>
-#include <safe_printf.h>
-#include <memory.h>
-#include <vector.h>
-#include <structs.h>
+#include "safe_printf.h"
+#include "memory.h"
+#include "vector.h"
+#include "structs.h"
 #include "pgpolicies.h"
+
+#include "../libcheckers/path_state.h"
 
 extern int
 get_pgpolicy_id (char * str)

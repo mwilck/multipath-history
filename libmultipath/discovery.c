@@ -1,32 +1,118 @@
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <fcntl.h>
-#include <sys/ioctl.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <unistd.h>
-#include <errno.h>
-#include <safe_printf.h>
+#include <fcntl.h>
+#include <sys/ioctl.h>
 
 #include <sysfs/dlist.h>
 #include <sysfs/libsysfs.h>
-#include <memory.h>
-#include <callout.h>
-#include <util.h>
-#include <vector.h>
-#include <structs.h>
 
-#include "sysfs_devinfo.h"
-#include "devinfo.h"
-#include "sg_include.h"
-#include "debug.h"
+#include "vector.h"
+#include "memory.h"
+#include "blacklist.h"
+#include "util.h"
+#include "structs.h"
+#include "safe_printf.h"
+#include "callout.h"
 #include "config.h"
+#include "debug.h"
 #include "propsel.h"
-#include "hwtable.h"
+#include "sg_include.h"
+#include "discovery.h"
 
 #define readattr(a,b) \
 	sysfs_read_attribute_value(a, b, sizeof(b))
+
+int
+path_discovery (vector pathvec, struct config * conf)
+{
+	struct sysfs_directory * sdir;
+	struct sysfs_directory * devp;
+	char path[FILE_NAME_SIZE];
+	struct path * curpath;
+
+	if(safe_sprintf(path, "%s/block", sysfs_path)) {
+		fprintf(stderr, "path too small\n");
+		exit(1);
+	}
+	sdir = sysfs_open_directory(path);
+	sysfs_read_directory(sdir);
+
+	dlist_for_each_data(sdir->subdirs, devp, struct sysfs_directory) {
+		if (blacklist(conf->blist, devp->name))
+			continue;
+
+		if(safe_sprintf(path, "%s/block/%s/device", sysfs_path,
+				devp->name)) {
+			fprintf(stderr, "path too small\n");
+			exit(1);
+		}
+				
+		if (!filepresent(path))
+			continue;
+
+		curpath = find_path_by_dev(pathvec, devp->name);
+
+		if (!curpath) {
+			curpath = zalloc(sizeof(struct path));
+			vector_alloc_slot(pathvec);
+			vector_set_slot(pathvec, curpath);
+
+			if(safe_sprintf(curpath->dev, "%s", devp->name)) {
+				fprintf(stderr, "curpath->dev too small\n");
+				exit(1);
+			}
+			devinfo(curpath, conf->hwtable);
+		}
+	}
+	sysfs_close_directory(sdir);
+	return 0;
+}
+
+#define declare_sysfs_get_str(fname, fmt) \
+extern int \
+sysfs_get_##fname (char * sysfs_path, char * dev, char * buff, int len) \
+{ \
+	char attr_path[SYSFS_PATH_SIZE]; \
+	char attr_buff[SYSFS_PATH_SIZE]; \
+	int attr_len; \
+\
+	if(safe_sprintf(attr_path, fmt, sysfs_path, dev)) \
+		return 1; \
+	if (0 > sysfs_read_attribute_value(attr_path, attr_buff, sizeof(attr_buff))) \
+		return 1; \
+\
+	attr_len = strlen(attr_buff); \
+	if (attr_len < 2 || attr_len - 1 > len) \
+		return 1; \
+\
+	strncpy(buff, attr_buff, attr_len - 1); \
+	buff[attr_len - 1] = '\0'; \
+	return 0; \
+}
+
+declare_sysfs_get_str(vendor, "%s/block/%s/device/vendor");
+declare_sysfs_get_str(model, "%s/block/%s/device/model");
+declare_sysfs_get_str(rev, "%s/block/%s/device/rev");
+declare_sysfs_get_str(dev, "%s/block/%s/dev");
+
+#define declare_sysfs_get_val(fname, fmt) \
+extern unsigned long  \
+sysfs_get_##fname (char * sysfs_path, char * dev) \
+{ \
+	char attr_path[SYSFS_PATH_SIZE]; \
+	char attr_buff[SYSFS_PATH_SIZE]; \
+\
+	if(safe_sprintf(attr_path, fmt, sysfs_path, dev)) \
+		return 0; \
+	if (0 > sysfs_read_attribute_value(attr_path, attr_buff, sizeof(attr_buff))) \
+		return 0; \
+\
+	return strtoul(attr_buff, NULL, 0); \
+}
+
+declare_sysfs_get_val(size, "%s/block/%s/size");
 
 static int
 opennode (char * devt, int mode)
@@ -38,26 +124,12 @@ opennode (char * devt, int mode)
 
 	sscanf(devt, "%u:%u", &major, &minor);
 
-	/* first, try with udev reverse mappings */
-	if (safe_sprintf(devpath, "%s/reverse/%u:%u",
-			 conf->udev_dir, major, minor)) {
-		fprintf(stderr, "devpath too small\n");
-		return -1;
-	}
-	fd = open(devpath, mode);
-
-	if (fd >= 0)
-		return fd;
-
-	/* fallback to temp devnode creation */
-	memset(devpath, 0, FILE_NAME_SIZE);
-	
 	if (safe_sprintf(devpath, "/tmp/.multipath.%u.%u.devnode",
 			 major, minor)) {
 		fprintf(stderr, "devpath too small\n");
 		return -1;
 	}
-	unlink (devpath);
+	unlink(devpath);
 	mknod(devpath, S_IFBLK|S_IRUSR|S_IWUSR, makedev(major, minor));
 	fd = open(devpath, mode);
 	
@@ -69,14 +141,11 @@ opennode (char * devt, int mode)
 }
 
 static void
-closenode (char * devt, int fd)
+unlinknode (char * devt)
 {
 	char devpath[FILE_NAME_SIZE];
 	unsigned int major;
 	unsigned int minor;
-
-	if (fd >= 0)		/* as it should always be */
-		close(fd);
 
 	sscanf(devt, "%u:%u", &major, &minor);
 	if (safe_sprintf(devpath, "/tmp/.multipath.%u.%u.devnode",
@@ -87,23 +156,16 @@ closenode (char * devt, int fd)
 	unlink(devpath);
 }
 
+#if 0
 int
-get_claimed(char *devt)
+get_claimed(int fd)
 {
-	int fd;
-
 	/*
 	 * FIXME : O_EXCL always fails ?
 	 */
-	fd = opennode(devt, O_RDONLY);
-
-	if (fd < 0)
-		return 1;
-
-	closenode(devt, fd);
-
 	return 0;
 }	
+#endif
 
 extern int
 devt2devname (char *devname, char *devt)
@@ -206,13 +268,10 @@ do_inq(int sg_fd, int cmddt, int evpd, unsigned int pg_op,
 }
 
 int
-get_serial (char * str, char * devt)
+get_serial (char * str, int fd)
 {
-	int fd;
         int len;
         char buff[MX_ALLOC_LEN + 1];
-
-	fd = opennode(devt, O_RDONLY);
 
 	if (fd < 0)
                 return 0;
@@ -223,11 +282,8 @@ get_serial (char * str, char * devt)
 			memcpy(str, buff + 4, len);
 			buff[len] = '\0';
 		}
-		close(fd);
 		return 1;
 	}
-
-	closenode(devt, fd);
         return 0;
 }
 
@@ -390,7 +446,7 @@ apply_format (char * string, int maxsize, struct path * pp)
 }
 
 extern int
-devinfo (struct path *pp)
+devinfo (struct path *pp, vector hwtable)
 {
 	char * buff;
 	char prio[16];
@@ -406,19 +462,28 @@ devinfo (struct path *pp)
 	/*
 	 * then those not available through sysfs
 	 */
-	get_serial(pp->serial, pp->dev_t);
+	if (pp->fd <= 0) {
+		pp->fd = opennode(pp->dev_t, O_RDONLY);
+		unlinknode(pp->dev_t);
+	}
+	if (pp->fd <= 0)
+		return 1;
+
+	get_serial(pp->serial, pp->fd);
 	dbg("serial = %s", pp->serial);
-	pp->claimed = get_claimed(pp->dev_t);
+#if 0
+	pp->claimed = get_claimed(pp->fd);
 	dbg("claimed = %i", pp->claimed);
+#endif
 
 	/* get and store hwe pointer */
-	pp->hwe = find_hwe(conf->hwtable, pp->vendor_id, pp->product_id);
+	pp->hwe = find_hwe(hwtable, pp->vendor_id, pp->product_id);
 
 	/*
 	 * get path state, no message collection, no context
 	 */
 	select_checkfn(pp);
-	pp->state = pp->checkfn(pp->dev_t, NULL, NULL);
+	pp->state = pp->checkfn(pp->fd, NULL, NULL);
 	dbg("state = %i", pp->state);
 	
 	/*
@@ -457,4 +522,3 @@ devinfo (struct path *pp)
 
 	return 0;
 }
-

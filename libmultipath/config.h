@@ -12,6 +12,20 @@ enum devtypes {
 	DEV_DEVMAP
 };
 
+struct hwentry {
+	int selector_args;
+	int pgpolicy;
+	int checker_index;
+
+	char * vendor;
+	char * product;
+	char * selector;
+	char * getuid;
+	char * getprio;
+	char * features;
+	char * hwhandler;
+};
+
 struct mpentry {
 	int selector_args;
 	int pgpolicy;
@@ -33,8 +47,10 @@ struct config {
 	int default_pgpolicy;
 	int dev_type;
 	int minio;
+	int checkint;
 
 	char * dev;
+	char * multipath;
 	char * udev_dir;
 	char * default_selector;
 	char * default_getuid;
@@ -46,8 +62,15 @@ struct config {
 	vector hwtable;
 	vector aliases;
 	vector blist;
+	vector binvec;
 };
 
 struct config * conf;
+
+struct hwentry * find_hwe (vector hwtable, char * vendor, char * product);
+struct mpentry * find_mpe (char * wwid);
+char * get_mpe_wwid (char * alias);
+struct config * alloc_config (void);
+void free_config (struct config * conf);
 
 #endif

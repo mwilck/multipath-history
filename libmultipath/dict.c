@@ -1,17 +1,72 @@
-#include <checkers.h>
-#include <vector.h>
-#include <hwtable.h>
-#include <structs.h>
-
+#include "vector.h"
+#include "hwtable.h"
+#include "structs.h"
 #include "parser.h"
 #include "config.h"
-#include "pgpolicies.h"
 #include "debug.h"
 #include "memory.h"
+#include "pgpolicies.h"
+
+#include "../libcheckers/checkers.h"
+
+/*
+ * helper function to draw a list of callout binaries found in the config file
+ */
+extern void
+push_callout(char * callout)
+{
+	int i;
+	char * bin;
+	char * p;
+
+	/*
+	 * purge command line arguments
+	 */
+	p = callout;
+
+	while (*p != ' ' && *p != '\0')
+		p++;
+
+	if (conf->binvec == NULL)
+		conf->binvec = vector_alloc();
+
+	/*
+	 * if this callout is already stored in binvec, don't store it twice
+	 */
+	vector_foreach_slot (conf->binvec, bin, i)
+		if (memcmp(bin, callout, p - callout) == 0)
+			return;
+
+	/*
+	 * else, store it
+	 */
+	bin = MALLOC((p - callout) + 1);
+	strncpy(bin, callout, p - callout);
+	//log(LOG_DEBUG, "add %s to binvec", bin);
+
+	vector_alloc_slot(conf->binvec);
+	vector_set_slot(conf->binvec, bin);
+}
 
 /*
  * default block handlers
  */
+static void
+multipath_tool_handler(vector strvec)
+{
+	conf->multipath = set_value(strvec);
+	push_callout(conf->multipath);
+}
+
+static void
+polling_interval_handler(vector strvec)
+{
+	char * buff;
+
+	buff = VECTOR_SLOT(strvec, 1);
+	conf->checkint = atoi(buff);
+}
+
 static void
 udev_dir_handler(vector strvec)
 {
@@ -38,12 +93,14 @@ static void
 def_getuid_callout_handler(vector strvec)
 {
 	conf->default_getuid = set_value(strvec);
+	push_callout(conf->default_getuid);
 }
 
 static void
 def_prio_callout_handler(vector strvec)
 {
 	conf->default_getprio = set_value(strvec);
+	push_callout(conf->default_getprio);
 }
 
 static void
@@ -72,7 +129,7 @@ blacklist_handler(vector strvec)
 }
 
 static void
-devnode_handler(vector strvec)
+ble_handler(vector strvec)
 {
 	char * buff;
 
@@ -133,6 +190,7 @@ hw_getuid_callout_handler(vector strvec)
 	struct hwentry * hwe = VECTOR_LAST_SLOT(conf->hwtable);
 
 	hwe->getuid = set_value(strvec);
+	push_callout(hwe->getuid);
 }
 
 static void
@@ -177,6 +235,7 @@ prio_callout_handler(vector strvec)
 	struct hwentry * hwe = VECTOR_LAST_SLOT(conf->hwtable);
 	
 	hwe->getprio = set_value(strvec);
+	push_callout(hwe->getprio);
 }
 
 /*
@@ -239,6 +298,8 @@ init_keywords(void)
 	keywords = vector_alloc();
 
 	install_keyword_root("defaults", NULL);
+	install_keyword("polling_interval", &polling_interval_handler);
+	install_keyword("multipath_tool", &multipath_tool_handler);
 	install_keyword("udev_dir", &udev_dir_handler);
 	install_keyword("default_selector", &def_selector_handler);
 	install_keyword("default_path_grouping_policy", &def_pgpolicy_handler);
@@ -248,7 +309,8 @@ init_keywords(void)
 	install_keyword("rr_min_io", &def_minio_handler);
 	
 	install_keyword_root("devnode_blacklist", &blacklist_handler);
-	install_keyword("devnode", &devnode_handler);
+	install_keyword("devnode", &ble_handler);
+	install_keyword("wwid", &ble_handler);
 
 	install_keyword_root("devices", &devices_handler);
 	install_keyword("device", &device_handler);
