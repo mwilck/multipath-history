@@ -13,7 +13,8 @@ enum iopolicies {
 	FAILOVER,
 	MULTIBUS,
 	GROUP_BY_SERIAL,
-	GROUP_BY_PRIO
+	GROUP_BY_PRIO,
+	GROUP_BY_NODE_NAME
 };
 
 int get_pgpolicy_id(char *);
@@ -26,5 +27,6 @@ void one_path_per_group(struct multipath *);
 void one_group(struct multipath *);
 void group_by_serial(struct multipath *);
 void group_by_prio(struct multipath *);
+void group_by_node_name(struct multipath *);
 
 #endif

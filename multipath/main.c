@@ -593,18 +593,25 @@ setup_map (struct multipath * mpp)
 	/*
 	 * apply selected grouping policy to valid paths
 	 */
-	if (mpp->pgpolicy == MULTIBUS)
-		one_group (mpp);
-
-	if (mpp->pgpolicy == FAILOVER)
-		one_path_per_group (mpp);
-
-	if (mpp->pgpolicy == GROUP_BY_SERIAL)
-		group_by_serial (mpp);
-
-	if (mpp->pgpolicy == GROUP_BY_PRIO)
-		group_by_prio (mpp);
-
+	switch (mpp->pgpolicy) {
+	case MULTIBUS:
+		one_group(mpp);
+		break;
+	case FAILOVER:
+		one_path_per_group(mpp);
+		break;
+	case GROUP_BY_SERIAL:
+		group_by_serial(mpp);
+		break;
+	case GROUP_BY_PRIO:
+		group_by_prio(mpp);
+		break;
+	case GROUP_BY_NODE_NAME:
+		group_by_node_name(mpp);
+		break;
+	default:
+		break;
+	}
 	if (mpp->pg == NULL) {
 		dbg("pgpolicy failed to produce a ->pg vector");
 		return 1;
@@ -994,6 +1001,7 @@ usage (char * progname)
 		"\t   multibus\t\tall paths in 1 priority group\n" \
 		"\t   group_by_serial\t1 priority group per serial\n" \
 		"\t   group_by_prio\t1 priority group per priority lvl\n" \
+		"\t   group_by_node_name\t1 priority group per target node\n" \
 		"\n" \
 		"\tdevice\t\tlimit scope to the device's multipath\n" \
 		"\t\t\t(udev-style $DEVNAME reference, eg /dev/sdb\n" \
@@ -1111,19 +1119,9 @@ main (int argc, char *argv[])
 			conf->signal = 0;
 			break;
 		case 'p':
-			if (strcmp(optarg, "failover") == 0)
-				conf->pgpolicy_flag = FAILOVER;
-			else if (strcmp(optarg, "multibus") == 0)
-				conf->pgpolicy_flag = MULTIBUS;
-			else if (strcmp(optarg, "group_by_serial") == 0)
-				conf->pgpolicy_flag = GROUP_BY_SERIAL;
-			else if (strcmp(optarg, "group_by_prio") == 0)
-				conf->pgpolicy_flag = GROUP_BY_PRIO;
-			else
-			{
-				if (optarg)
-					printf("'%s' is not a valid "
-						"policy\n", optarg);
+			conf->pgpolicy_flag = get_pgpolicy_id(optarg);
+			if (conf->pgpolicy_flag == -1) {
+				printf("'%s' is not a valid policy\n", optarg);
 				usage(argv[0]);
 			}                
 			break;

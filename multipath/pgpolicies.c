@@ -23,6 +23,8 @@ get_pgpolicy_id (char * str)
 		return GROUP_BY_SERIAL;
 	if (0 == strncmp(str, "group_by_prio", 13))
 		return GROUP_BY_PRIO;
+	if (0 == strncmp(str, "group_by_node_name", 18))
+		return GROUP_BY_NODE_NAME;
 
 	return -1;
 }
@@ -44,6 +46,9 @@ get_pgpolicy_name (char * buff, int id)
 		break;
 	case GROUP_BY_PRIO:
 		s = "group_by_prio";
+		break;
+	case GROUP_BY_NODE_NAME:
+		s = "group_by_node_name";
 		break;
 	default:
 		s = "undefined";
@@ -93,6 +98,62 @@ group_by_status (struct multipath * mp, int state)
 		vector_free(failedpaths);
 	}
 	return;
+}
+
+/*
+ * One path group per unique tgt_node_name present in the path vector
+ */
+extern void
+group_by_node_name (struct multipath * mp) {
+	int i, j;
+	int * bitmap;
+	struct path * pp;
+	struct pathgroup * pgp;
+	struct path * pp2;
+	
+	if (mp->pg == NULL)
+		mp->pg = vector_alloc();
+
+	/* init the bitmap */
+	bitmap = zalloc(VECTOR_SIZE(mp->paths) * sizeof (int));
+
+	for (i = 0; i < VECTOR_SIZE(mp->paths); i++) {
+
+		if (bitmap[i])
+			continue;
+
+		pp = VECTOR_SLOT(mp->paths, i);
+
+		/* here, we really got a new pg */
+		pgp = zalloc(sizeof(struct pathgroup));
+		pgp->paths = vector_alloc();
+		vector_alloc_slot(mp->pg);
+		vector_set_slot(mp->pg, pgp);
+
+		/* feed the first path */
+		vector_alloc_slot(pgp->paths);
+		vector_set_slot(pgp->paths, pp);
+				
+		bitmap[i] = 1;
+
+		for (j = i + 1; j < VECTOR_SIZE(mp->paths); j++) {
+			
+			if (bitmap[j])
+				continue;
+
+			pp2 = VECTOR_SLOT(mp->paths, j);
+			
+			if (!strncmp(pp->tgt_node_name, pp2->tgt_node_name,
+					NODE_NAME_SIZE)) {
+				vector_alloc_slot(pgp->paths);
+				vector_set_slot(pgp->paths, pp2);
+				bitmap[j] = 1;
+			}
+		}
+	}
+	free(bitmap);
+	vector_free(mp->paths);
+	mp->paths = NULL;
 }
 
 /*
