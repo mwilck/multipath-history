@@ -35,7 +35,6 @@ struct path
 {
 	int major;
 	int minor;
-	char mapname[MAPNAMESIZE];
 	int (*checkfn) (char *);
 };
 
@@ -71,9 +70,35 @@ int makenode (char *devnode, int major, int minor)
 	return mknod(devnode, S_IFCHR | S_IRUSR | S_IWUSR, dev);
 }
 
-int select_checkfn(struct path *path_p)
+static int
+blacklist (char * dev) {
+	int i;
+	static struct {
+		char * headstr;
+		int lengh;
+	} blist[] = {
+		{"cciss", 5},
+		{"fd", 2},
+		{"hd", 2},
+		{"md", 2},
+		{"dm", 2},
+		{"sr", 2},
+		{"scd", 3},
+		{"ram", 3},
+		{"raw", 3},
+		{"loop", 4},
+		{NULL, 0},
+	};
+
+	for (i = 0; blist[i].lengh; i++) {
+		if (strncmp (dev, blist[i].headstr, blist[i].lengh) == 0)
+                        return 1;
+	}
+	return 0;
+}
+
+int select_checkfn(struct path *path_p, char *devname)
 {
-	char devnode[FILENAMESIZE];
 	char vendor[8];
 	char product[16];
 	char rev[4];
@@ -94,7 +119,7 @@ int select_checkfn(struct path *path_p)
 		char * product;
 		int (*checkfn) (char *);
 	} wlist[] = {
-		{"COMPAQ  ", "HSV110 (C)COMPAQ", &tur},
+		{"COMPAQ  ", "HSV110 (C)COMPAQ", &readsector0},
 		{"COMPAQ  ", "MSA1000         ", &tur},
 		{"COMPAQ  ", "MSA1000 VOLUME  ", &tur},
 		{"DEC     ", "HSG80           ", &tur},
