@@ -738,14 +738,16 @@ domap (struct multipath * mpp, int action)
 	/*
 	 * last chance to quit before touching the devmaps
 	 */
-	if (conf->dry_run)
+	if (conf->dry_run || mpp->action == ACT_NOTHING)
 		return 0;
 
-	if (action == ACT_NOTHING)
-		return 0;
-
-	if (action == ACT_SWITCHPG) {
+	if (mpp->action == ACT_SWITCHPG) {
 		dm_switchgroup(mpp->alias, mpp->nextpg);
+		/*
+		 * we may have avoided reinstating paths because there where in
+		 * active or disabled PG. Now that the topology has changed, retry.
+		 */
+		reinstate_paths(mpp);
 		return 0;
 	}
 		
