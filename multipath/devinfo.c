@@ -3,18 +3,19 @@
 #include <string.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
-#include <sysfs/libsysfs.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <errno.h>
+
+#include "../libsysfs/sysfs/libsysfs.h"
 #include "devinfo.h"
 #include "sg_include.h"
 #include "debug.h"
 #include "config.h"
 
 void
-basename(char * str1, char * str2)
+basename (char * str1, char * str2)
 {
         char *p = str1 + (strlen(str1) - 1);
  

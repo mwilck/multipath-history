@@ -550,14 +550,14 @@ coalesce_paths (vector mp, vector pathvec)
 		vector_set_slot (mpp->paths, VECTOR_SLOT(pathvec, k));
 
 		if (mpp->size == 0)
-			mpp->size = get_disk_size (pp1->dev);
+			mpp->size = get_disk_size(pp1->dev);
 
 		for (i = k + 1; i < VECTOR_SIZE(pathvec); i++) {
 			pp2 = VECTOR_SLOT(pathvec, i);
-			if (0 == strcmp (pp1->wwid, pp2->wwid)) {
-				vector_alloc_slot (mpp->paths);
-				vector_set_slot (mpp->paths,
-						 VECTOR_SLOT(pathvec, i));
+			if (0 == strcmp(pp1->wwid, pp2->wwid)) {
+				vector_alloc_slot(mpp->paths);
+				vector_set_slot(mpp->paths,
+						VECTOR_SLOT(pathvec, i));
 			}
 		}
 		vector_set_slot(mp, mpp);
@@ -569,16 +569,16 @@ dm_simplecmd (int task, const char *name) {
 	int r = 0;
 	struct dm_task *dmt;
 
-	if (!(dmt = dm_task_create (task)))
+	if (!(dmt = dm_task_create(task)))
 		return 0;
 
-	if (!dm_task_set_name (dmt, name))
+	if (!dm_task_set_name(dmt, name))
 		goto out;
 
-	r = dm_task_run (dmt);
+	r = dm_task_run(dmt);
 
 	out:
-		dm_task_destroy (dmt);
+		dm_task_destroy(dmt);
 		return r;
 }
 
@@ -586,20 +586,20 @@ static int
 dm_addmap (int task, const char *name, const char *params, unsigned long size) {
 	struct dm_task *dmt;
 
-	if (!(dmt = dm_task_create (task)))
+	if (!(dmt = dm_task_create(task)))
 		return 0;
 
-	if (!dm_task_set_name (dmt, name))
-		goto addout;
+	if (!dm_task_set_name(dmt, name))
+		goto out;
 
-	if (!dm_task_add_target (dmt, 0, size, DM_TARGET, params))
-		goto addout;
+	if (!dm_task_add_target(dmt, 0, size, DM_TARGET, params))
+		goto out;
 
-	if (dm_task_run (dmt))
+	if (dm_task_run(dmt))
 		return 0;
 
-	addout:
-	dm_task_destroy (dmt);
+	out:
+	dm_task_destroy(dmt);
 	return 1;
 }
 
@@ -611,13 +611,13 @@ dm_map_present (char * str)
         struct dm_names *names;
         unsigned next = 0;
 
-	if (!(dmt = dm_task_create (DM_DEVICE_LIST)))
+	if (!(dmt = dm_task_create(DM_DEVICE_LIST)))
 		return 0;
 
-	if (!dm_task_run (dmt))
+	if (!dm_task_run(dmt))
 		goto out;
 
-	if (!(names = dm_task_get_names (dmt)))
+	if (!(names = dm_task_get_names(dmt)))
 		goto out;
 
 	if (!names->dev) {
@@ -625,14 +625,14 @@ dm_map_present (char * str)
 	}
 
 	do {
-		if (0 == strcmp (names->name, str))
+		if (0 == strcmp(names->name, str))
 			r = 1;
 		next = names->next;
 		names = (void *) names + next;
 	} while (next);
 
 	out:
-	dm_task_destroy (dmt);
+	dm_task_destroy(dmt);
 	return r;
 }
 
@@ -849,19 +849,25 @@ setup_map (vector pathvec, vector mp, int slot)
 	dbg("iopolicy selector :");
 	dbg("===================");
 
-	/* 1) set internal default */
+	/*
+	 * 1) set internal default
+	 */
 	iopolicy = FAILOVER;
 	get_pgpolicy_name(iopolicy_name, FAILOVER);
 	dbg("internal default)\tiopolicy = %s", iopolicy_name);
 
-	/* 2) override by config file default */
-	if (conf->default_iopolicy >= 0) {
+	/*
+	 * 2) override by config file default
+	 */
+	if (conf->default_iopolicy > 0) {
 		iopolicy = conf->default_iopolicy;
 		get_pgpolicy_name(iopolicy_name, iopolicy);
 		dbg("config file default)\tiopolicy = %s", iopolicy_name);
 	}
 	
-	/* 3) override by controler wide setting */
+	/*
+	 * 3) override by controler wide setting
+	 */
 	for (i = 0; i < VECTOR_SIZE(conf->hwtable); i++) {
 		hwe = VECTOR_SLOT(conf->hwtable, i);
 
@@ -873,7 +879,9 @@ setup_map (vector pathvec, vector mp, int slot)
 		}
 	}
 
-	/* 4) override by LUN specific setting */
+	/*
+	 * 4) override by LUN specific setting
+	 */
 	for (i = 0; i < VECTOR_SIZE(conf->mptable); i++) {
 		mpe = VECTOR_SLOT(conf->mptable, i);
 
@@ -897,10 +905,14 @@ setup_map (vector pathvec, vector mp, int slot)
 	 *  2) apply selected grouping policy to paths
 	 */
 
-	/* 1) sort by priority */
+	/*
+	 * 1) sort by priority
+	 */
 	mpp->paths = sort_pathvec_by_prio(mpp->paths);
 
-	/* 2) apply selected grouping policy */
+	/*
+	 * 2) apply selected grouping policy
+	 */
 	if (iopolicy == MULTIBUS)
 		one_group (mpp);
 
@@ -998,8 +1010,10 @@ signal_daemon (void)
 
 	file = fopen (PIDFILE, "r");
 
-	if (!file && conf->verbosity > 0) {
-		fprintf (stderr, "cannot signal daemon, pidfile not found\n");
+	if (!file) {
+		if (conf->verbosity > 0)
+			fprintf (stderr, "cannot signal daemon, "
+					 "pidfile not found\n");
 		return;
 	}
 
@@ -1214,7 +1228,7 @@ main (int argc, char *argv[])
 	/*
 	 * read the config file
 	 */
-	if (filepresent (CONFIGFILE))
+	if (filepresent(CONFIGFILE))
 		init_data (CONFIGFILE, init_keywords);
 	
 	/*
@@ -1267,10 +1281,10 @@ main (int argc, char *argv[])
 	}
 
 	if (conf->verbosity > 1)
-		fprintf (stdout, "#\n# device maps :\n#\n");
+		fprintf(stdout, "#\n# device maps :\n#\n");
 
 	for (k = 0; k < VECTOR_SIZE(mp); k++)
-		setup_map (pathvec, mp, k);
+		setup_map(pathvec, mp, k);
 
 	/*
 	 * signal multipathd that new devmaps may have come up
@@ -1281,13 +1295,8 @@ main (int argc, char *argv[])
 	/*
 	 * free allocs
 	 */
-	free (mp);
-	free (pathvec);
+	free(mp);
+	free(pathvec);
 
-	/*
-	 * release runfile
-	 */
-	unlink (RUN);
-
-	exit (0);
+	exit(0);
 }

@@ -40,7 +40,7 @@
 #define CONFIGFILE "/etc/multipath.conf"
 #define CALLOUT_DIR "/var/cache/multipathd"
 
-#define MATCH(x, y) strncmp(x, y, strlen(y)) == 0
+#define MATCH(x, y) strncmp(x, y, strlen(x)) == 0
 
 #ifdef CLONE_NEWNS
 #ifdef ia64
