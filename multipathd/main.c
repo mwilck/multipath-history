@@ -414,6 +414,8 @@ static void *
 waitevent (void * et)
 {
 	struct event_thread *waiter;
+	char buff[1];
+	char * bin;
 
 	mlockall(MCL_CURRENT | MCL_FUTURE);
 	waiter = (struct event_thread *)et;
@@ -437,7 +439,15 @@ waitevent (void * et)
 
 out:
 	dm_task_destroy(dmt);
-	LOG (1, "devmap event on %s", waiter->mapname);
+
+	bin = MALLOC(strlen(multipath) + WWID_SIZE + 1);
+	sprintf(bin, "%s %s", multipath, waiter->mapname);
+
+	syslog(LOG_DEBUG, "%s", bin);
+	syslog(LOG_NOTICE, "devmap event on %s", waiter->mapname);
+	syslog(LOG_INFO, "%s : reconfigure multipath map",
+			waiter->mapname);
+	execute_program(multipath, buff, 1);
 
 	/*
 	 * tell waiterloop we have an event
@@ -479,22 +489,14 @@ waiterloop (void *ap)
 	pthread_attr_init(&attr);
 	pthread_attr_setstacksize(&attr, 32 * 1024);
 
-	while (1) {
-		/*
-		 * upon waiter events and initial startup, do a preliminary
-		 * multipath exec, no signal to avoid recursion.
-		 * don't run multipath if we are waked from SIGHUP
-		 * (oper exec / checkers / hotplug) because it already ran
-		 */
-		if (from_sighup)
-			from_sighup = 0;
-		else
-			execute_program(multipath, buff, 1);
+	syslog(LOG_NOTICE, "initial reconfigure multipath maps");
+	execute_program(multipath, buff, 1);
 
+	while (1) {
 		/*
 		 * update devmap list
 		 */
-		LOG (2, "refresh devmaps list");
+		syslog(LOG_INFO, "refresh devmaps list");
 		if (devmaps != NULL)
 			strvec_free(devmaps);
 
