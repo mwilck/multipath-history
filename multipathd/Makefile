@@ -20,8 +20,8 @@ rcdir = /etc/init.d
 # basic flags setting
 #
 CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes -DLOGLEVEL=$(LOGLEVEL) \
-	 -I$(multipathdir) -I$(checkersdir) -I$(sysfsdir)
-LDFLAGS = -lpthread -ldevmapper
+	 -I$(multipathdir) -I$(checkersdir)
+LDFLAGS = -lpthread -ldevmapper -lsysfs
 
 #
 # object files
@@ -48,9 +48,6 @@ $(CHECKERSLIB)-glibc.a:
 
 $(MULTIPATHLIB)-glibc.a:
 	$(MAKE) -C $(multipathdir) BUILD=glibc glibc
-
-$(SYSFSLIB)-glibc.a:
-	$(MAKE) -C $(sysfsdir) BUILD=glibc glibc
 
 install:
 	install -d $(DESTDIR)$(bindir)
