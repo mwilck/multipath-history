@@ -95,6 +95,8 @@ struct multipath {
 	vector paths;
 	vector pg;
 	char params[PARAMS_SIZE];
+	char * selector;
+	int selector_args;
 };
 
 /* Build version */
