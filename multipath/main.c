@@ -117,6 +117,7 @@ blacklist (char * dev) {
 		int lengh;
 	} blist[] = {
 		{"cciss", 5},
+		{"fd", 2},
 		{"hd", 2},
 		{"md", 2},
 		{"dm", 2},
@@ -124,6 +125,7 @@ blacklist (char * dev) {
 		{"scd", 3},
 		{"ram", 3},
 		{"raw", 3},
+		{"loop", 4},
 		{NULL, 0},
 	};
 
