@@ -280,19 +280,10 @@ static void
 print_all_paths (vector pathvec)
 {
 	int i;
-	char empty_buff[WWID_SIZE];
 	struct path * pp;
 
-	/* initialize a cmp 0-filled buffer */
-	memset(empty_buff, 0, WWID_SIZE);
-
-	vector_foreach_slot (pathvec, pp, i) {
-		/* leave out paths with incomplete devinfo */
-		if (memcmp(empty_buff, pp->wwid, WWID_SIZE) == 0)
-			continue;
-
+	vector_foreach_slot (pathvec, pp, i)
 		print_path(pp, PRINT_PATH_ALL);
-	}
 }
 #endif
 
@@ -578,30 +569,6 @@ pgcmp2 (struct multipath * mpp, struct multipath * cmpp)
 	}
 	return 0;
 }
-
-#if 0
-static int
-pgcmp (struct multipath * mpp, struct multipath * cmpp)
-{
-	int i, j;
-	struct pathgroup * pgp;
-	struct pathgroup * cpgp;
-	int r = 0;
-
-	vector_foreach_slot (mpp->pg, pgp, i) {
-		vector_foreach_slot (cmpp->pg, cpgp, j) {
-			if (pgp->id == cpgp->id) {
-				r = 0;
-				break;
-			}
-			r++;
-		}
-		if (r)
-			return r;
-	}
-	return r;
-}
-#endif
 
 static void
 select_action (struct multipath * mpp, vector curmp)
