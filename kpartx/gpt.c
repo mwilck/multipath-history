@@ -24,6 +24,7 @@
 
 #define _FILE_OFFSET_BITS 64
 
+#include "gpt.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -35,7 +36,6 @@
 #include <errno.h>
 #include <asm/byteorder.h>
 #include "crc32.h"
-#include "gpt.h"
 
 #define BLKGETLASTSECT  _IO(0x12,108)   /* get last sector of block device */
 #define BLKGETSIZE _IO(0x12,96)	        /* return device size */

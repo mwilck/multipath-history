@@ -14,6 +14,7 @@
  * losetup.c - setup and control loop devices
  */
 
+#include "kpartx.h"
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>

@@ -11,7 +11,7 @@
 #include "devinfo.h"
 #include "sg_include.h"
 #include "debug.h"
-#include "global.h"
+#include "config.h"
 
 void
 basename(char * str1, char * str2)

@@ -1,5 +1,5 @@
-#include <stdio.h>
 #include "kpartx.h"
+#include <stdio.h>
 
 #define BSD_DISKMAGIC	(0x82564557UL)	/* The disk magic number */
 #define XBSD_MAXPARTITIONS	16

@@ -1,5 +1,5 @@
-#include <stdio.h>
 #include "kpartx.h"
+#include <stdio.h>
 #include "dos.h"
 
 static int

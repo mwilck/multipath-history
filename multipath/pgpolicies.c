@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include "main.h"
-#include "global.h"
 #include "memory.h"
 #include "debug.h"
 

@@ -10,6 +10,8 @@
  * present.
  */
 
+#define likely(x)       __builtin_expect(!!(x), 1)
+#define unlikely(x)     __builtin_expect(!!(x), 0)
 
 /* units: 512 byte sectors */
 struct slice {
