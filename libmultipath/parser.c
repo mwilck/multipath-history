@@ -273,7 +273,7 @@ set_value(vector strvec)
 	return alloc;
 }
 
-/* recursive configuration stream handler */
+/* non-recursive configuration stream handler */
 static int kw_level = 0;
 void
 process_stream(vector keywords)
@@ -285,44 +285,43 @@ process_stream(vector keywords)
 	vector strvec;
 
 	buf = zalloc(MAXBUF);
-	if (!read_line(buf, MAXBUF)) {
-		free(buf);
-		return;
-	}
+	while (read_line(buf, MAXBUF)) {
+		strvec = alloc_strvec(buf);
+		memset(buf,0, MAXBUF);
 
-	strvec = alloc_strvec(buf);
-	free(buf);
+		if (!strvec) {
+			continue;
+		}
 
-	if (!strvec) {
-		process_stream(keywords);
-		return;
-	}
+		str = VECTOR_SLOT(strvec, 0);
 
-	str = VECTOR_SLOT(strvec, 0);
-
-	if (!strcmp(str, EOB) && kw_level > 0) {
-		free_strvec(strvec);
-		return;
-	}
-
-	for (i = 0; i < VECTOR_SIZE(keywords); i++) {
-		keyword = VECTOR_SLOT(keywords, i);
-
-		if (!strcmp(keyword->string, str)) {
-			if (keyword->handler)
-				(*keyword->handler) (strvec);
-
-			if (keyword->sub) {
-				kw_level++;
-				process_stream(keyword->sub);
-				kw_level--;
-			}
+		if (!strcmp(str, EOB) && kw_level > 0) {
+			free_strvec(strvec);
 			break;
 		}
+
+		for (i = 0; i < VECTOR_SIZE(keywords); i++) {
+			keyword = VECTOR_SLOT(keywords, i);
+
+			if (!strcmp(keyword->string, str)) {
+				if (keyword->handler)
+					(*keyword->handler) (strvec);
+
+				if (keyword->sub) {
+					kw_level++;
+					process_stream(keyword->sub);
+					kw_level--;
+				}
+				break;
+			}
+		}
+		
+		free_strvec(strvec);
 	}
 
-	free_strvec(strvec);
-	process_stream(keywords);
+	free(buf);
+	return;
+
 }
 
 /* Data initialization */
