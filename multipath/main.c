@@ -41,6 +41,7 @@
 #include <util.h>
 #include <defaults.h>
 #include <structs.h>
+#include <dmparser.h>
 
 #include "main.h"
 #include "devinfo.h"
@@ -48,11 +49,7 @@
 #include "pgpolicies.h"
 #include "dict.h"
 #include "debug.h"
-#include "dmparser.h"
 #include "propsel.h"
-
-/* helpers */
-#define argis(x) if (0 == strcmp(x, argv[i]))
 
 static int
 filepresent (char * run) {
@@ -465,44 +462,6 @@ dm_switchgroup(char * mapname, int index)
 
 	return r;
 }
-static int
-dm_reinstate(char * mapname, char * path)
-{
-	int r = 0;
-	int sz;
-	struct dm_task *dmt;
-	char *str;
-
-	if (!(dmt = dm_task_create(DM_DEVICE_TARGET_MSG)))
-		return 0;
-
-	if (!dm_task_set_name(dmt, mapname))
-		goto out;
-
-	if (!dm_task_set_sector(dmt, 0))
-		goto out;
-
-	sz = strlen(path) + 16;
-	str = zalloc(sz);
-
-	snprintf(str, sz, "reinstate_path %s\n", path);
-
-	if (!dm_task_set_message(dmt, str))
-		goto out;
-
-	free(str);
-
-	if (!dm_task_run(dmt))
-		goto out;
-
-	r = 1;
-
-	out:
-	dm_task_destroy(dmt);
-
-	return r;
-}
-
 /*
  * Transforms the path group vector into a proper device map string
  */

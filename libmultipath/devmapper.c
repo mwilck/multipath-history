@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <libdevmapper.h>
+#include <ctype.h>
+#include <linux/kdev_t.h>
 
 extern int
 dm_prereq (char * str, int x, int y, int z)
@@ -266,3 +268,42 @@ dm_flush_maps (char * type)
 	dm_task_destroy (dmt);
 	return r;
 }
+
+int
+dm_reinstate(char * mapname, char * path)
+{
+	int r = 0;
+	int sz;
+	struct dm_task *dmt;
+	char *str;
+
+	if (!(dmt = dm_task_create(DM_DEVICE_TARGET_MSG)))
+		return 0;
+
+	if (!dm_task_set_name(dmt, mapname))
+		goto out;
+
+	if (!dm_task_set_sector(dmt, 0))
+		goto out;
+
+	sz = strlen(path) + 16;
+	str = malloc(sz);
+
+	snprintf(str, sz, "reinstate_path %s\n", path);
+
+	if (!dm_task_set_message(dmt, str))
+		goto out;
+
+	free(str);
+
+	if (!dm_task_run(dmt))
+		goto out;
+
+	r = 1;
+
+	out:
+	dm_task_destroy(dmt);
+
+	return r;
+}
+
