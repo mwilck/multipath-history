@@ -1,5 +1,5 @@
-#ifndef PARTX_H_INCLUDED
-#define PARTX_H_INCLUDED
+#ifndef _KPARTX_H
+#define _KPARTX_H
 
 /*
  * For each partition type there is a routine that takes
@@ -13,7 +13,12 @@
 #define likely(x)       __builtin_expect(!!(x), 1)
 #define unlikely(x)     __builtin_expect(!!(x), 0)
 
-/* units: 512 byte sectors */
+#define safe_sprintf(var, format, args...)	\
+	snprintf(var, sizeof(var), format, ##args) >= sizeof(var)
+
+/*
+ * units: 512 byte sectors
+ */
 struct slice {
 	unsigned long start;
 	unsigned long size;
@@ -21,7 +26,11 @@ struct slice {
 
 typedef int (ptreader)(int fd, struct slice all, struct slice *sp, int ns);
 
-extern ptreader read_dos_pt, read_bsd_pt, read_solaris_pt, read_unixware_pt, read_gpt_pt;
+extern ptreader read_dos_pt;
+extern ptreader read_bsd_pt;
+extern ptreader read_solaris_pt;
+extern ptreader read_unixware_pt;
+extern ptreader read_gpt_pt;
 
 char *getblock(int fd, unsigned int secnr);
 
@@ -30,4 +39,4 @@ four2int(unsigned char *p) {
 	return p[0] + (p[1]<<8) + (p[2]<<16) + (p[3]<<24);
 }
 
-#endif /* PARTX_H_INCLUDED */
+#endif /* _KPARTX_H */
