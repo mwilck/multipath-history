@@ -976,6 +976,7 @@ main (int argc, char *argv[])
 	conf->pgpolicy_flag = 0;	/* do not override defaults */
 	conf->signal = 1;		/* 1 == Send a signal to multipathd */
 	conf->dev = NULL;
+	conf->dev_type = DEV_NONE;
 	conf->default_selector = NULL;
 	conf->default_selector_args = 0;
 	conf->default_pgpolicy = 0;
@@ -984,6 +985,7 @@ main (int argc, char *argv[])
 	conf->blist = NULL;
 	conf->default_features = NULL;
 	conf->default_hwhandler = NULL;
+	conf->minio = 1000;
 
 	while ((arg = getopt(argc, argv, ":qdlFSi:v:p:")) != EOF ) {
 		switch(arg) {
@@ -1032,6 +1034,14 @@ main (int argc, char *argv[])
 	if (optind<argc) {
 		conf->dev = zalloc(FILE_NAME_SIZE);
 		strncpy(conf->dev, argv[optind], FILE_NAME_SIZE);
+
+		if (filepresent(conf->dev))
+			conf->dev_type = DEV_DEVNODE;
+		else if (sscanf(conf->dev, "%d:%d", &i, &i) == 2)
+			conf->dev_type = DEV_DEVT;
+		else
+			conf->dev_type = DEV_DEVMAP;
+
 	}
 
 	/*
