@@ -41,8 +41,8 @@
 #include "copy.h"
 #include "safe.h"
 #include "callout.h"
+#include "clone_platform.h"
 
-#define CHILD_SS 16384
 #define MAXPATHS 1024
 #define MAXMAPS 256
 #define FILENAMESIZE 256
@@ -65,14 +65,6 @@
 		syslog(LOG_WARNING, "%s: %s", b, a); \
 		memset(a, 0, MAX_CHECKER_MSG_SIZE); \
 	}
-
-#ifdef CLONE_NEWNS
-#ifdef ia64
-int  __clone2(int (*fn)(void *), void *, size_t, int, void *);
-#else
-int  __clone(int (*fn)(void *), void *, int, void *);
-#endif
-#endif
 
 /*
  * global vars
@@ -960,22 +952,30 @@ int
 main (int argc, char *argv[])
 {
 	int err;
-	void * child_stack = malloc(CHILD_SS);
+	void * child_stack = (void *)malloc(CHILD_STACK_SIZE);
 
-#ifdef CLONE_NEWNS
-#ifdef ia64
-	size_t child_ss = CHILD_SS;
-	err = __clone2(child, child_stack, child_ss, CLONE_NEWNS, NULL);
-#else
-	child_stack += CHILD_SS;
-	err = __clone(child, child_stack, CLONE_NEWNS, NULL);
-#endif
-#else
-	err = fork();
-#endif
+#ifdef CLONE_NEWNS	/* recent systems have clone() */
 
+#    if defined(__hppa__) || defined(__powerpc64__)
+	err = clone(child, child_stack, CLONE_NEWNS, NULL);
+#    elif defined(__ia64__)
+	err = clone2(child, child_stack,
+		     CHILD_STACK_SIZE, CLONE_NEWNS, NULL,
+		     NULL, NULL, NULL);
+#    else
+	err = clone(child, child_stack + CHILD_STACK_SIZE, CLONE_NEWNS, NULL);
+#    endif
 	if (err < 0)
 		exit (1);
 
 	exit(0);
+#else			/* older system fallback to fork() */
+	err = fork();
+	
+	if (err < 0)
+		exit (1);
+
+	return (child(child_stack));
+#endif
+
 }
