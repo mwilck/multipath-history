@@ -12,6 +12,9 @@
 #include <wait.h>
 #include <sysfs/libsysfs.h>
 
+#include "hwtable.h"
+#include "dict.h"
+#include "parser.h"
 #include "devinfo.h"
 #include "checkers.h"
 
@@ -25,11 +28,13 @@
 
 #define MULTIPATH "/sbin/multipath"
 #define PIDFILE "/var/run/multipathd.pid"
+#define CONFIGFILE "/etc/multipath.conf"
 
 #ifndef DEBUG
 #define DEBUG 1
 #endif
 #define LOG(x, y, z...) if (DEBUG >= x) syslog(x, y, ##z)
+#define MATCH(x, y) strncmp(x, y, sizeof(y)) == 0
 
 /* global */
 int from_sighup;
@@ -76,26 +81,13 @@ int makenode (char *devnode, int major, int minor)
 static int
 blacklist (char * dev) {
 	int i;
-	static struct {
-		char * headstr;
-		int lengh;
-	} blist[] = {
-		{"cciss", 5},
-		{"fd", 2},
-		{"hd", 2},
-		{"md", 2},
-		{"dm", 2},
-		{"sr", 2},
-		{"scd", 3},
-		{"ram", 3},
-		{"raw", 3},
-		{"loop", 4},
-		{NULL, 0},
-	};
+	char *p;
 
-	for (i = 0; blist[i].lengh; i++) {
-		if (strncmp (dev, blist[i].headstr, blist[i].lengh) == 0)
-                        return 1;
+	for (i = 0; i < VECTOR_SIZE(blist); i++) {
+		p = VECTOR_SLOT(blist, i);
+		
+		if (memcmp(dev, p, strlen(p)) == 0)
+			return 1;
 	}
 	return 0;
 }
@@ -106,9 +98,10 @@ int select_checkfn(struct path *path_p, char *devname)
 	char product[16];
 	char rev[4];
 	int i, r;
+	struct hwentry * hwe;
 
 	/* default checkfn */
-	path_p->checkfn = &readsector0;
+	//path_p->checkfn = &readsector0;
 	
 	r = get_lun_strings(vendor, product, rev, devname);
 
@@ -117,25 +110,14 @@ int select_checkfn(struct path *path_p, char *devname)
 		return r;
 	}
 
-	static struct {
-		char * vendor;
-		char * product;
-		int (*checkfn) (char *);
-	} wlist[] = {
-		{"COMPAQ  ", "HSV110 (C)COMPAQ", &readsector0},
-		{"COMPAQ  ", "MSA1000         ", &tur},
-		{"COMPAQ  ", "MSA1000 VOLUME  ", &tur},
-		{"DEC     ", "HSG80           ", &tur},
-		{"HP      ", "HSV100          ", &readsector0},
-		{NULL, NULL, NULL},
-	};
-	
-	for (i = 0; wlist[i].vendor; i++) {
-		if (strncmp(vendor, wlist[i].vendor, 8) == 0 &&
-		    strncmp(product, wlist[i].product, 16) == 0) {
-			path_p->checkfn = wlist[i].checkfn;
-			LOG (2, "[select_checkfn] set checkfn for %s",
+	for (i = 0; i < VECTOR_SIZE(hwtable); i++) {
+		hwe = VECTOR_SLOT(hwtable, i);
+		if (MATCH(vendor, hwe->vendor) &&
+		    MATCH(product, hwe->product)) {
+			LOG (2, "[select_checkfn] set %s path checker for %s",
+			     checker_list[hwe->checker_index].name,
 			     devname);
+			path_p->checkfn = checker_list[hwe->checker_index].checker;
 		}
 	}
 
@@ -301,6 +283,7 @@ int updatepaths (struct devmap *devmaps, struct paths *failedpaths)
 		sprintf(attr_path, "%s/block/%s/device/generic/dev",
 			sysfs_path, devp->name);
 
+		memset (attr_buff, 0, sizeof (attr_buff));
 		if (0 > sysfs_read_attribute_value(attr_path, attr_buff, 11))
 			return 1;
 
@@ -319,7 +302,7 @@ int updatepaths (struct devmap *devmaps, struct paths *failedpaths)
 		p2++;
 		memset (&word, 0, 5 * sizeof (char));
 
-		while (*p2 != ' ') {
+		while (*p2 != ' ' && *p2 != '\0') {
 			*p1 = *p2;
 			p1++;
 			p2++;
@@ -664,6 +647,10 @@ int main (int argc, char *argv[])
 	signal_init ();
 
 	failedpaths = initpaths ();
+
+	LOG (2, "read " CONFIGFILE);
+	init_data(CONFIGFILE, init_keywords);
+
 
 	pthread_attr_init (&attr);
 	pthread_attr_setstacksize (&attr, 64 * 1024);

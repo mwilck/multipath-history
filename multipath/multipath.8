@@ -10,8 +10,6 @@ multipath \- Device mapper target autoconfig
 .IR \ minor \|]
 .RB [\| \-i\ \c
 .IR int \|]
-.RB [\| \-m\ \c
-.IR max_devs \|]
 .RB [\| \-p\ \c
 .BR failover | multibus | group_by_serial | group_by_tur \|]
 .RB [\| -S \|]
@@ -32,11 +30,6 @@ dry run, do not create or update devmaps
 .TP
 .BI \-i " int"
 multipath target param: polling interval
-.TP
-.BI \-m " max_devs"
-scan
-.I max_devs
-devices at most
 .TP
 .BI \-D " major minor"
 update only the devmap the path pointed by

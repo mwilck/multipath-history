@@ -1,3 +1,19 @@
+2004-06-07 multipath-tools-0.2.2
+	* [multipath] leave out 2.4 compat code. Is there
+	  interest anyway ?
+	* [multipath] convert all_paths table to vector api.
+	  Rename to pathvec. Get rid of max_devs
+	* [multipath] convert mp table to vector api
+	* convert blacklist to vector api
+	* 2.6.7-rc? adds _user annotations to scsi/sg.h, causing
+	  compilation breakage. Add a "#define _user" in all
+	  sg_include.h (and remove cruft)
+	* merge a real parser (from keepalived) courtesy of 
+	  Alexandre Cassen. Now multipath and multipathd share a
+	  config file. This comes with a nice vector lib.
+	* devnode blacklist moved from hardcoded to config file
+	* Guy Coates noted -O2 CFLAGS lead to multipathd crashes
+	  on IA64. Remove the needless optimisation for now.
 2004-06-05 multipath-tools-0.2.1
 	* [multipath] add a flag to inihibit the final SIGHUP to
 	  multipathd. Needed to avoid recursion with the correction
