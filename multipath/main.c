@@ -531,14 +531,12 @@ assemble_map (struct multipath * mp)
 }
 
 static int
-setup_map (vector pathvec, struct multipath * mpp)
+setup_map (struct multipath * mpp)
 {
 	struct path * pp;
-	int i;
-	char * mapname = NULL;
-	char * curparams = NULL;
-	int op;
-	int r = 0;
+	struct pathgroup * pgp;
+	int i, j;
+	int highest = 0;
 
 	/*
 	 * don't bother if devmap size is unknown
@@ -553,8 +551,6 @@ setup_map (vector pathvec, struct multipath * mpp)
 	vector_foreach_slot (mpp->paths, pp, i)
 		if (pp->claimed)
 			return 1;
-
-	pp = VECTOR_SLOT(mpp->paths, 0);
 
 	/*
 	 * properties selectors
@@ -605,23 +601,136 @@ setup_map (vector pathvec, struct multipath * mpp)
 	 * into a mp->params strings to feed the device-mapper
 	 */
 	assemble_map(mpp);
+	return 0;
+}
+
+static int
+pgcmp (struct multipath * mpp, struct multipath * cmpp)
+{
+	int i, j;
+	struct pathgroup * pgp;
+	struct pathgroup * cpgp;
+	int r = 0;
+
+	vector_foreach_slot (mpp->pg, pgp, i) {
+		vector_foreach_slot (cmpp->pg, cpgp, j) {
+			if (pgp->id == cpgp->id) {
+				r = 0;
+				break;
+			}
+			r++;
+		}
+		if (r)
+			return r;
+	}
+	return r;
+}
+
+static int
+select_action (struct multipath * mpp, vector curmp)
+{
+	int i;
+	struct multipath * cmpp;
 
 	/*
-	 * select between RELOAD and CREATE
+	 * FIXME : ACT_RENAME, move to action |= ACT_*
 	 */
-	mapname = mpp->alias ? mpp->alias : mpp->wwid;
-	op = dm_map_present(mapname) ? DM_DEVICE_RELOAD : DM_DEVICE_CREATE;
-	
+
+	vector_foreach_slot (curmp, cmpp, i) {
+		if (strncmp(cmpp->alias, mpp->alias, strlen(mpp->alias)))
+			continue;
+
+		if (cmpp->size != mpp->size) {
+			dbg("size different than current");
+			return ACT_RELOAD;
+		}
+		if (strncmp(cmpp->features, mpp->features,
+			    strlen(mpp->features))) {
+			dbg("features different than current");
+			return ACT_RELOAD;
+		}
+		if (strncmp(cmpp->hwhandler, mpp->hwhandler,
+			    strlen(mpp->hwhandler))) {
+			dbg("hwhandler different than current");
+			return ACT_RELOAD;
+		}
+		if (strncmp(cmpp->selector, mpp->selector,
+			    strlen(mpp->selector))) {
+			dbg("selector different than current");
+			return ACT_RELOAD;
+		}
+		if (VECTOR_SIZE(cmpp->pg) != VECTOR_SIZE(mpp->pg)) {
+			dbg("different path group topology");
+			return ACT_RELOAD;
+		}
+		if (pgcmp(mpp, cmpp)) {
+			dbg("different path group topology");
+			return ACT_RELOAD;
+		}
+		if (cmpp->nextpg != mpp->nextpg) {
+			dbg("nextpg different than current");
+			return ACT_SWITCHPG;
+		}
+		return ACT_NOTHING;
+	}
+	return ACT_CREATE;
+}
+
+static int
+reinstate_paths (struct multipath * mpp)
+{
+	int i, j;
+	struct pathgroup * pgp;
+	struct path * pp;
+
+	vector_foreach_slot (mpp->pg, pgp, i) {
+		if (pgp->status == PGSTATE_DISABLED ||
+		    pgp->status == PGSTATE_ACTIVE)
+			continue;
+
+		vector_foreach_slot (pgp->paths, pp, j) {
+			if (pp->dmstate == PSTATE_FAILED) {
+				dm_reinstate(mpp->alias, pp->dev_t);
+			}
+		}
+	}
+	return 0;
+}
+
+static int
+domap (struct multipath * mpp, int action)
+{
+	int op;
+	int r = 0;
+	char * act;
+
+	switch (action) {
+	case ACT_RELOAD:
+		op = DM_DEVICE_RELOAD;
+		act = ACT_RELOAD_STR;
+		break;
+
+	case ACT_CREATE:
+		op = DM_DEVICE_CREATE;
+		act = ACT_CREATE_STR;
+		break;
+
+	case ACT_SWITCHPG:
+		act = ACT_SWITCHPG_STR;
+		break;
+
+	case ACT_NOTHING:
+		act = ACT_NOTHING_STR;
+		break;
+
+	default:
+		break;
+	}
+
 	if (conf->verbosity > 1)
-		printf("%s:", (op == DM_DEVICE_RELOAD) ? "reload" : "create");
-	if (conf->verbosity > 0)
-		printf("%s", mapname);
-	if (conf->verbosity > 1)
-		printf(":0 %lu %s %s",
-			mpp->size, DM_TARGET,
-			mpp->params);
-	if (conf->verbosity > 0)
-		printf("\n");
+		printf("%s: ", act);
+
+	print_mp(mpp);
 
 	/*
 	 * last chance to quit before touching the devmaps
@@ -645,40 +754,21 @@ setup_map (vector pathvec, struct multipath * mpp)
 	dm_log_init_verbose(0);
 
 	if (op == DM_DEVICE_RELOAD) {
-		if (conf->dev && filepresent(conf->dev) &&
-		    dm_get_map(mapname, NULL, &curparams) &&
-		    0 == strncmp(mpp->params, curparams, strlen(mpp->params))) {
-	                pp = zalloc(sizeof(struct path));
-	                basename(conf->dev, pp->dev);
-
-	                if (devinfo(pp)) {
-				r = 1;
-	                        goto out;
-			}
-			dm_reinstate(mapname, pp->dev_t);
-	                free(pp);
-
-			if (conf->verbosity > 1)
-				printf("[reinstate %s in %s]\n",
-					conf->dev, mapname);
-			goto out;
-		}
-		if (!dm_simplecmd(DM_DEVICE_SUSPEND, mapname))
+		if (!dm_simplecmd(DM_DEVICE_SUSPEND, mpp->alias))
 			goto out;
 	}
 
-	if (!dm_addmap(op, mapname, DM_TARGET, mpp->params, mpp->size)) {
-		dm_simplecmd(DM_DEVICE_REMOVE, mapname);
+	if (!dm_addmap(op, mpp->alias, DM_TARGET, mpp->params, mpp->size)) {
+		dm_simplecmd(DM_DEVICE_REMOVE, mpp->alias);
 		goto out;
 	}
 
 	if (op == DM_DEVICE_RELOAD)
-		if (!dm_simplecmd(DM_DEVICE_RESUME, mapname))
+		if (!dm_simplecmd(DM_DEVICE_RESUME, mpp->alias))
 			goto out;
 
 	out:
 	dm_log_init_verbose(1);
-	free(curparams);
 	return r;
 }
 
@@ -1081,21 +1171,16 @@ main (int argc, char *argv[])
 		    (mpp->alias &&
 		    0 == strncmp(mpp->alias, conf->dev, FILE_NAME_SIZE)) ||
 		    0 == strncmp(mpp->wwid, conf->dev, FILE_NAME_SIZE))) {
-			setup_map(pathvec, mpp);
+			setup_map(mpp);
+			domap(mpp, select_action(mpp, curmp));
 			goto out;
 		}
 	}
 
-	if (conf->verbosity > 1) {
-		print_all_path(pathvec);
-		print_all_mp(mp);
+	vector_foreach_slot (mp, mpp, k) {
+		setup_map(mpp);
+		domap(mpp, select_action(mpp, curmp));
 	}
-
-	if (conf->verbosity > 1)
-		fprintf(stdout, "#\n# device maps :\n#\n");
-
-	vector_foreach_slot (mp, mpp, k)
-		setup_map(pathvec, mpp);
 
 #if DEBUG
 	fprintf(stdout, "#\n# all paths :\n#\n");
