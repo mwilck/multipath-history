@@ -52,6 +52,16 @@ def_features_handler(vector strvec)
 	conf->default_features = set_value(strvec);
 }
 
+static void
+def_minio_handler(vector strvec)
+{
+	char * buff;
+
+	buff = set_value(strvec);
+	conf->minio = atoi(buff);
+	free(buff);
+}
+
 /*
  * blacklist block handlers
  */
@@ -235,6 +245,7 @@ init_keywords(void)
 	install_keyword("default_getuid_callout", &def_getuid_callout_handler);
 	install_keyword("default_prio_callout", &def_prio_callout_handler);
 	install_keyword("default_features", &def_features_handler);
+	install_keyword("rr_min_io", &def_minio_handler);
 	
 	install_keyword_root("devnode_blacklist", &blacklist_handler);
 	install_keyword("devnode", &devnode_handler);
