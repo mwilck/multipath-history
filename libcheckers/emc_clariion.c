@@ -127,9 +127,8 @@ int emc_clariion(char *devt, char *msg, void **context)
 	 * change in between, to protect against the path suddenly
 	 * pointing somewhere else.
 	 */
-
-	if (ctxt->wwn_set) {
-		if (!memcmp(ctxt->wwn, &sense_buffer[10], 16)) {
+	if (context && ctxt->wwn_set) {
+		if (memcmp(ctxt->wwn, &sense_buffer[10], 16)) {
 			MSG("emc_clariion_checker: Logical Unit WWN has changed!");
 			ret = PATH_DOWN;
 			goto out;
