@@ -73,18 +73,18 @@ get_word (char * sentence, char ** word)
 }
 
 static int
-merge_words (char * dst, char * word, int space)
+merge_words (char ** dst, char * word, int space)
 {
 	char * p;
 	int len;
 
-	len = strlen(dst) + strlen(word) + space;
-	dst = realloc(dst, len + 1);
+	len = strlen(*dst) + strlen(word) + space;
+	*dst = realloc(*dst, len + 1);
 
-	if (!dst)
+	if (!*dst)
 		return 1;
 
-	p = dst;
+	p = *dst;
 
 	while (*p != '\0')
 		p++;
@@ -124,7 +124,7 @@ disassemble_map (vector pathvec, char * params, struct multipath * mpp)
 
 	for (i = 0; i < num_features; i++) {
 		p += get_word(p, &word);
-		merge_words(mpp->features, word, 1);
+		merge_words(&mpp->features, word, 1);
 		free(word);
 	}
 
@@ -167,7 +167,7 @@ disassemble_map (vector pathvec, char * params, struct multipath * mpp)
 			 */
 			p += get_word(p, &word);
 			num_pg_args = atoi(word);
-			merge_words(mpp->selector, word, 1);
+			merge_words(&mpp->selector, word, 1);
 			free(word);
 		} else {
 			p += get_word(p, NULL);
