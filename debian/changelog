@@ -1,0 +1,6 @@
+multipath-tools (0.3.0-1) unstable; urgency=high
+
+  * initial packaging, by upstream maintainer
+
+ -- Christophe Varoqui <christophe.varoqui@free.fr>  Thu, 30 Sep 2004 10:03:23 +0200
+
