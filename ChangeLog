@@ -1,3 +1,24 @@
+2004-10-26 multipath-tools-0.3.5
+
+	* [multipathd] fix broken test for path going up or shaky
+	  that kept executing multipath when it shouldn't
+	* change multipath.dev to exit early when udev' DEVNAME is
+	  a devmap (/dev/dm-*). This avoids a recursion case when
+	  the kernel devmapper keeps removing a map after multipath
+	  configures it.
+	* change multipath.rules to follow the new -D synthax
+	* [multipath] "-D major minor" synthax changed to 
+	  "-D major:minor" to match the sysfs attribute value.
+	  This change removes a few translations in multipath and
+	  multipathd.
+	* [multipath] fix segfault in test if conf->dev is a devmap
+	  (the one forwarded by MikeAnd)
+	* SG_IO ioctl seem to work in lk 2.6.10+, so remove all sg
+	  device knowledge and advertise (here) the new dependency.
+	* [multipath] remove unused do_tur()
+	* [multipath] fix sort_pg_by_summed_prio(), and don't add up
+	  failed path priority
+
 2004-10-26 multipath-tools-0.3.4
 
 	* [multipathd] exec multipath precisely : pass in the path
