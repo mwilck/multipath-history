@@ -1,4 +1,5 @@
 struct mpentry * find_mpe (char * wwid);
+char * get_mpe_wwid (char * alias);
 
 int select_pgpolicy (struct multipath * mp);
 int select_selector (struct multipath * mp);
