@@ -50,18 +50,14 @@ struct path
 struct paths
 {
 	pthread_mutex_t *lock;
-	struct path *paths_h;
+	vector pathvec;
 };
 
 struct event_thread
 {
 	pthread_t *thread;
 	pthread_mutex_t *waiter_lock;
-	char mapname[MAPNAMESIZE];
-};
-
-struct devmap
-{
+	int event_nr;
 	char mapname[MAPNAMESIZE];
 };
 
@@ -93,6 +89,29 @@ blacklist (char * dev) {
 	return 0;
 }
 
+static void strvec_free (vector vec)
+{
+	int i;
+	char * str;
+
+	for (i =0; i < VECTOR_SIZE(vec); i++)
+		if ((str = VECTOR_SLOT(vec, i)) != NULL) {
+			free(str);
+		}
+	vector_free(vec);
+}
+
+static void pathvec_free (vector vec)
+{
+	int i;
+	struct path * pp;
+
+	for (i =0; i < VECTOR_SIZE(vec); i++)
+		if ((pp = VECTOR_SLOT(vec, i)) != NULL)
+			free(pp);
+	vector_free(vec);
+}
+
 int select_checkfn(struct path *path_p, char *devname)
 {
 	char vendor[8];
@@ -102,7 +121,7 @@ int select_checkfn(struct path *path_p, char *devname)
 	struct hwentry * hwe;
 
 	/* default checkfn */
-	//path_p->checkfn = &readsector0;
+	path_p->checkfn = &readsector0;
 	
 	r = get_lun_strings(vendor, product, rev, devname);
 
@@ -125,9 +144,9 @@ int select_checkfn(struct path *path_p, char *devname)
 	return 0;
 }
 
-int get_devmaps (struct devmap *devmaps)
+int get_devmaps (vector devmaps)
 {
-	struct devmap *devmaps_p;
+	char *devmap;
 	struct dm_task *dmt, *dmt1;
 	struct dm_names *names = NULL;
 	unsigned next = 0;
@@ -137,12 +156,11 @@ int get_devmaps (struct devmap *devmaps)
 	char *target_type = NULL;
 	char *params;
 
-	memset (devmaps, 0, MAXMAPS * sizeof (struct devmap));
+	strvec_free (devmaps);
+	devmaps = vector_alloc();
 
-	if (!(dmt = dm_task_create(DM_DEVICE_LIST))) {
-		r = 1;
-		goto out;
-	}
+	if (!(dmt = dm_task_create(DM_DEVICE_LIST)))
+		return 1;
 
 	if (!dm_task_run(dmt)) {
 		r = 1;
@@ -159,8 +177,6 @@ int get_devmaps (struct devmap *devmaps)
 		goto out;
 	}
 
-	devmaps_p = devmaps;
-
 	do {
 		/* keep only multipath maps */
 
@@ -169,7 +185,7 @@ int get_devmaps (struct devmap *devmaps)
 		LOG (3, "iterate on devmap names : %s", names->name);
 
 		if (!(dmt1 = dm_task_create(DM_DEVICE_STATUS)))
-			goto out1;
+			goto out;
 		
 		if (!dm_task_set_name(dmt1, names->name))
 			goto out1;
@@ -192,18 +208,11 @@ int get_devmaps (struct devmap *devmaps)
 			
 			LOG (3, "test if target_type is multipath");
 			if (!strncmp (target_type, "multipath", 9)) {
-				strcpy (devmaps_p->mapname, names->name);
-				devmaps_p++;
-				
-				/* test vector overflow */
-				if (devmaps_p - devmaps >= MAXMAPS * sizeof (struct devmap)) {
-					LOG (1, "[get_devmaps] devmaps overflow");
-					dm_task_destroy(dmt1);
-					r = 1;
-					goto out;
-				}
+				devmap = malloc (MAPNAMESIZE);
+				strcpy (devmap, names->name);
+				vector_alloc_slot (devmaps);
+				vector_set_slot (devmaps, devmap);
 			}
-
 		} while (nexttgt);
 
 out1:
@@ -223,7 +232,6 @@ int checkpath (struct path *path_p)
 	int r;
 	
 	sprintf (devnode, "/tmp/.checker.%i.%i", path_p->major, path_p->minor);
-	
 	r = makenode (devnode, path_p->major, path_p->minor);
 
 	if (r < 0) {
@@ -241,17 +249,17 @@ int checkpath (struct path *path_p)
 	return r;
 }
 
-int updatepaths (struct devmap *devmaps, struct paths *failedpaths)
+int updatepaths (struct paths *failedpaths)
 {
 	struct path *path_p;
 	struct sysfs_directory * sdir;
 	struct sysfs_directory * devp;
-	char sysfs_path[FILENAMESIZE];
 	char path[FILENAMESIZE];
+	char sysfs_path[FILENAMESIZE];
 	char attr_path[FILENAMESIZE];
 	char attr_buff[17];
-	char *p1, *p2;
 	char word[5];
+	char *p1, *p2;
 	
 	if (sysfs_get_mnt_path (sysfs_path, FILENAMESIZE)) {
 		LOG (2, "can not find sysfs mount point");
@@ -260,11 +268,11 @@ int updatepaths (struct devmap *devmaps, struct paths *failedpaths)
 
 	sprintf (path, "%s/block", sysfs_path);
 	sdir = sysfs_open_directory (path);
-	sysfs_read_directory (sdir);
+	sysfs_read_dir_subdirs (sdir);
 
 	pthread_mutex_lock (failedpaths->lock);
-	memset (failedpaths->paths_h, 0, MAXPATHS * sizeof (struct path));
-	path_p = failedpaths->paths_h;
+	pathvec_free (failedpaths->pathvec);
+	failedpaths->pathvec = vector_alloc();
 
 	dlist_for_each_data (sdir->subdirs, devp, struct sysfs_directory) {
 		if (blacklist (devp->name)) {
@@ -272,11 +280,8 @@ int updatepaths (struct devmap *devmaps, struct paths *failedpaths)
 			continue;
 		}
 
-		sysfs_read_directory (devp);
-
-		if (devp->links == NULL)
-			continue;
-
+		memset (attr_buff, 0, sizeof (attr_buff));
+		memset (attr_path, 0, sizeof (attr_path));
 		sprintf(attr_path, "%s/block/%s/device/generic/dev",
 			sysfs_path, devp->name);
 
@@ -286,9 +291,11 @@ int updatepaths (struct devmap *devmaps, struct paths *failedpaths)
 			continue;
 		}
 
-		p1 = &word[0];
-		p2 = &attr_buff[0];
-		memset (&word, 0, 5 * sizeof (char));
+		path_p = malloc (sizeof (struct path));
+
+		p1 = word;
+		p2 = attr_buff;
+		memset (word, 0, sizeof (word));
 		
 		while (*p2 != ':') {
 			*p1 = *p2;
@@ -297,9 +304,9 @@ int updatepaths (struct devmap *devmaps, struct paths *failedpaths)
 		}
 		path_p->major = atoi (word);
 
-		p1 = &word[0];
+		p1 = word;
 		p2++;
-		memset (&word, 0, 5 * sizeof (char));
+		memset (&word, 0, sizeof (word));
 
 		while (*p2 != ' ' && *p2 != '\0') {
 			*p1 = *p2;
@@ -308,19 +315,21 @@ int updatepaths (struct devmap *devmaps, struct paths *failedpaths)
 		}
 		path_p->minor = atoi (word);
 
-		if (!select_checkfn (path_p, devp->name) &&
-		    checkpath (path_p)) {
-			LOG(2, "[updatepaths] discard %i:%i as valid path",
+		if (!select_checkfn(path_p, devp->name) && checkpath(path_p)) {
+			LOG(2, "discard %i:%i as valid path",
 			    path_p->major, path_p->minor);
-			memset (path_p, 0, sizeof(struct path));
+			free (path_p);
 			continue;
 		}
 
-		LOG (2, "[updatepaths] %i:%i added to failedpaths",
+		vector_alloc_slot (failedpaths->pathvec);
+		vector_set_slot (failedpaths->pathvec, path_p);
+
+		LOG (2, "%i:%i added to failedpaths",
 		     path_p->major, path_p->minor);
-		path_p++;
 	}
 	pthread_mutex_unlock (failedpaths->lock);
+	sysfs_close_directory (sdir);
 	return 0;
 }
 
@@ -338,12 +347,15 @@ int geteventnr (char *name)
 	if (!dm_task_run(dmt))
 		goto out;
 
-	if (!dm_task_get_info(dmt, &info))
-		return 0;
+	if (!dm_task_get_info(dmt, &info)) {
+		info.event_nr = 0;
+		goto out;
+	}
 
 	if (!info.exists) {
 		LOG(1, "Device %s does not exist", name);
-		return 0;
+		info.event_nr = 0;
+		goto out;
 	}
 
 out:
@@ -354,13 +366,13 @@ out:
 
 void *waitevent (void * et)
 {
-	int event_nr;
 	struct event_thread *waiter;
 
 	waiter = (struct event_thread *)et;
 	pthread_mutex_lock (waiter->waiter_lock);
 
-	event_nr = geteventnr (waiter->mapname);
+	waiter->event_nr = geteventnr (waiter->mapname);
+	LOG (3, "waiter->event_nr = %i", waiter->event_nr);
 
 	struct dm_task *dmt;
 
@@ -370,13 +382,14 @@ void *waitevent (void * et)
 	if (!dm_task_set_name(dmt, waiter->mapname))
 		goto out;
 
-	if (event_nr && !dm_task_set_event_nr(dmt, event_nr))
+	if (waiter->event_nr && !dm_task_set_event_nr(dmt, waiter->event_nr))
 		goto out;
 
 	dm_task_run(dmt);
 
 out:
 	dm_task_destroy(dmt);
+	LOG (1, "devmap event on %s", waiter->mapname);
 
 	/* tell waiterloop we have an event */
 	pthread_mutex_lock (event_lock);
@@ -393,26 +406,28 @@ out:
 void *waiterloop (void *ap)
 {
 	struct paths *failedpaths;
-	struct devmap *devmaps, *devmaps_p;
-	struct event_thread *waiters, *waiters_p;
+	vector devmaps;
+	char *devmap;
+	vector waiters;
+	struct event_thread *wp;
 	pthread_attr_t attr;
 	int r;
 	char *cmdargs[4] = {MULTIPATH, "-q", "-S"};
-	int status;
+	int i, j, status;
 
 	/* inits */
+	devmaps = vector_alloc();
 	failedpaths = (struct paths *)ap;
-	devmaps = malloc (MAXMAPS * sizeof (struct devmap));
-	waiters = malloc (MAXMAPS * sizeof (struct event_thread));
-	memset (waiters, 0, MAXMAPS * sizeof (struct event_thread));
+	waiters = vector_alloc ();
 	pthread_attr_init (&attr);
 	pthread_attr_setstacksize (&attr, 32 * 1024);
 
 	while (1) {
-		/* upon event and initial startup, do a preliminary
+		/* upon waiter events and initial startup, do a preliminary
 		   multipath exec, no signal to avoid recursion.
 		   don't run multipath if we are waked from SIGHUP
-		   because it already ran */
+		   (oper exec / checkers / hotplug) because it already ran */
+		
 		if (!from_sighup) {
 			LOG (2, "exec multipath helper");
 			if (fork () == 0)
@@ -426,50 +441,50 @@ void *waiterloop (void *ap)
 		get_devmaps (devmaps);
 
 		/* update failed paths list */
-		LOG (1, "[waiterloop] refresh failpaths list");
-		updatepaths (devmaps, failedpaths);
+		LOG (2, "refresh failpaths list");
+		updatepaths (failedpaths);
 		
 		/* start waiters on all devmaps */
-		LOG (1, "[waiterloop] start up event loops");
-		waiters_p = waiters;
-		devmaps_p = devmaps;
+		LOG (2, "start up event loops");
 
-		while (*devmaps_p->mapname != 0x0) {
+		for (i = 0; i < VECTOR_SIZE(devmaps); i++) {
+			devmap = VECTOR_SLOT (devmaps, i);
 			
-			/* find out if devmap already has a running waiter thread */
-			while (*waiters_p->mapname != 0x0) {
-				if (!strcmp (waiters_p->mapname, devmaps_p->mapname))
+			/* find out if devmap already has
+			   a running waiter thread */
+			for (j = 0; j < VECTOR_SIZE(waiters); j++) {
+				wp = VECTOR_SLOT (waiters, j);
+
+				if (!strcmp (wp->mapname, devmap))
 					break;
-				waiters_p++;
 			}
 					
 			/* no event_thread struct : init it */
-			if (*waiters_p->mapname == 0x0) {
-				strcpy (waiters_p->mapname, devmaps_p->mapname);
-				waiters_p->thread = malloc (sizeof (pthread_t));
-				waiters_p->waiter_lock = (pthread_mutex_t *) malloc (sizeof (pthread_mutex_t));
-				pthread_mutex_init (waiters_p->waiter_lock, NULL);
+			if (j == VECTOR_SIZE(waiters)) {
+				wp = zalloc (sizeof (struct event_thread));
+				strcpy (wp->mapname, devmap);
+				wp->thread = malloc (sizeof (pthread_t));
+				wp->waiter_lock = (pthread_mutex_t *) malloc (sizeof (pthread_mutex_t));
+				pthread_mutex_init (wp->waiter_lock, NULL);
+				vector_alloc_slot (waiters);
+				vector_set_slot (waiters, wp);
 			}
 			
 			/* event_thread struct found */
-			if (*waiters_p->mapname != 0x0) {
-				r = pthread_mutex_trylock (waiters_p->waiter_lock);
-				/* thread already running : out */
+			if (j < VECTOR_SIZE(waiters)) {
+				r = pthread_mutex_trylock (wp->waiter_lock);
 
+				/* thread already running : next devmap */
 				if (r)
-					goto out;
+					continue;
 				
-				pthread_mutex_unlock (waiters_p->waiter_lock);
+				pthread_mutex_unlock (wp->waiter_lock);
 			}
 			
-			LOG (1, "[waiterloop] create event thread for %s", waiters_p->mapname);
-			pthread_create (waiters_p->thread, &attr, waitevent, waiters_p);
-			pthread_detach (*waiters_p->thread);
-out:
-			waiters_p = waiters;
-			devmaps_p++;
+			LOG (1, "event checker startup : %s", wp->mapname);
+			pthread_create (wp->thread, &attr, waitevent, wp);
+			pthread_detach (*wp->thread);
 		}
-
 		/* wait event condition */
 		pthread_mutex_lock (event_lock);
 		pthread_cond_wait(event, event_lock);
@@ -483,46 +498,30 @@ void *checkerloop (void *ap)
 {
 	struct paths *failedpaths;
 	struct path *path_p;
-	char *cmdargs[5] = {MULTIPATH, "-D", NULL, NULL, "-q"};
-	char major[5];
-	char minor[5];
-	int status;
+	int i;
 
 	failedpaths = (struct paths *)ap;
 
 	LOG (1, "path checkers start up");
 
 	while (1) {
-		path_p = failedpaths->paths_h;
 		pthread_mutex_lock (failedpaths->lock);
-		LOG (2, "[checker thread] checking paths");
-		while (path_p->major != 0) {
+		LOG (3, "checking paths");
+
+		for (i = 0; i < VECTOR_SIZE(failedpaths->pathvec); i++) {
+			path_p = VECTOR_SLOT (failedpaths->pathvec, i);
 			
 			if (checkpath (path_p)) {
-				LOG (1, "[checker thread] exec multipath for device %i:%i\n",
-				     path_p->major, path_p->minor);
-				snprintf (major, 5, "%i", path_p->major);
-				snprintf (minor, 5, "%i", path_p->minor);
-				cmdargs[2] = major;
-				cmdargs[3] = minor;
-				if (fork () == 0)
-					execve (cmdargs[0], cmdargs, NULL);
-
-				wait (&status);
-				/* MULTIPATH will send back a SIGHUP */
-			}
-			
-			path_p++;
-			
-			/* test vector overflow */
-			if (path_p - failedpaths->paths_h >= MAXPATHS * sizeof (struct path)) {
-				LOG (1, "[checker thread] path_h overflow");
-				pthread_mutex_unlock (failedpaths->lock);
-				return (NULL);
+				/* tell waiterloop we have an event */
+				LOG (1, "path checker event on device %i:%i",
+					 path_p->major, path_p->minor);
+				pthread_mutex_lock (event_lock);
+				pthread_cond_signal(event);
+				pthread_mutex_unlock (event_lock);
 			}
 		}
 		pthread_mutex_unlock (failedpaths->lock);
-		sleep (CHECKINT);
+		sleep (checkint ? checkint : CHECKINT);
 	}
 
 	return (NULL);
@@ -533,8 +532,8 @@ struct paths *initpaths (void)
 	struct paths *failedpaths;
 
 	failedpaths = malloc (sizeof (struct paths));
-	failedpaths->paths_h = malloc (MAXPATHS * sizeof (struct path));
 	failedpaths->lock = (pthread_mutex_t *) malloc (sizeof (pthread_mutex_t));
+	failedpaths->pathvec = vector_alloc();
 	pthread_mutex_init (failedpaths->lock, NULL);
 	event = (pthread_cond_t *) malloc (sizeof (pthread_cond_t));
 	pthread_cond_init (event, NULL);
