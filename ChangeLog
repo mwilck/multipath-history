@@ -1,3 +1,20 @@
+2004-10-26 multipath-tools-0.3.3
+
+	* [checkers] add the emc_clariion path checker (lmb at Suse)
+	* [multipath] introduce safe_snprintf macro to complement the
+	  safe_sprintf. Needed to cover the sizeof(pointer) cases
+	  pointed by Dave Olien at OSDL
+	* [multipath] move to the common libchecker framework and
+	  activate the selector
+	* [multipath] fix an iopolicy selector bug (initialized lun
+	  iopolicy overrode controler-wide iopolicy)
+	* [multipathd] cleanly separate out the checker selector, as
+	  done with iopolicy selector
+	* [multipathd] move out the checkers into a common libcheckers
+	* [multipath] fix the anti-parallel-exec logic : use a write 
+	  lease for the task. From Dave Olien at osdl.
+	* [multipath] fix reinstate : pass a devt, not a devname
+
 2004-10-16 multipath-tools-0.3.2
 
 	* [multipath] add path reinstate logic :
