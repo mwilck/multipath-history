@@ -9,6 +9,7 @@
 
 /* Storage controlers capabilities */
 enum iopolicies { 
+	IOPOLICY_RESERVED,
 	FAILOVER,
 	MULTIBUS,
 	GROUP_BY_SERIAL,

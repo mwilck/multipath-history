@@ -903,7 +903,8 @@ setup_map (vector pathvec, vector mp, int slot)
 		hwe = VECTOR_SLOT(conf->hwtable, i);
 
 		if (MATCH (pp->vendor_id, hwe->vendor) &&
-		    MATCH (pp->product_id, hwe->product)) {
+		    MATCH (pp->product_id, hwe->product) &&
+		    hwe->iopolicy > 0) {
 			iopolicy = hwe->iopolicy;
 			get_pgpolicy_name(iopolicy_name, iopolicy);
 			dbg("controler override)\tiopolicy = %s", iopolicy_name);
@@ -916,15 +917,18 @@ setup_map (vector pathvec, vector mp, int slot)
 	for (i = 0; i < VECTOR_SIZE(conf->mptable); i++) {
 		mpe = VECTOR_SLOT(conf->mptable, i);
 
-		if (strcmp(mpe->wwid, mpp->wwid) == 0) {
+		if (strcmp(mpe->wwid, mpp->wwid) == 0 &&
+		    mpe->iopolicy > 0) {
 			iopolicy = mpe->iopolicy;
 			get_pgpolicy_name(iopolicy_name, iopolicy);
 			dbg("lun override)\t\tiopolicy = %s", iopolicy_name);
 		}
 	}
 
-	/* 5) cmd line flag has the last word */
-	if (conf->iopolicy_flag >= 0) {
+	/*
+	 * 5) cmd line flag has the last word
+	 */
+	if (conf->iopolicy_flag > 0) {
 		iopolicy = conf->iopolicy_flag;
 		get_pgpolicy_name(iopolicy_name, iopolicy);
 		dbg("cmd flag override)\tiopolicy = %s", iopolicy_name);
@@ -1221,14 +1225,14 @@ main (int argc, char *argv[])
 	 */
 	conf->dry_run = 0;		/* 1 == Do not Create/Update devmaps */
 	conf->verbosity = 1;		/* 1 == Print mp names */
-	conf->iopolicy_flag = -1;	/* do not override defaults */
+	conf->iopolicy_flag = 0;	/* do not override defaults */
 	conf->major = -1;
 	conf->minor = -1;
 	conf->signal = 1;		/* 1 == Send a signal to multipathd */
 	conf->dev = zalloc(sizeof(char) * FILE_NAME_SIZE);
 	conf->default_selector = NULL;
 	conf->default_selector_args = 0;
-	conf->default_iopolicy = -1;
+	conf->default_iopolicy = 0;
 	conf->mptable = NULL;
 	conf->hwtable = NULL;
 	conf->blist = NULL;
