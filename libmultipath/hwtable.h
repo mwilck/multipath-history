@@ -42,6 +42,6 @@ struct hwentry {
 };
 
 void setup_default_hwtable (vector hw);
-struct hwentry * find_hw (vector hwtable, char * vendor, char * product);
+struct hwentry * find_hwe (vector hwtable, char * vendor, char * product);
 
 #endif /* _HWTABLE_H */
