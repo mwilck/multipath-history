@@ -111,12 +111,9 @@ blacklist (char * dev) {
 	int i;
 	char *p;
 
-	for (i = 0; i < VECTOR_SIZE(blist); i++) {
-		p = VECTOR_SLOT(blist, i);
-		
+	vector_foreach_slot (blist, p, i)
 		if (memcmp(dev, p, strlen(p)) == 0)
 			return 1;
-	}
 	return 0;
 }
 
@@ -126,8 +123,8 @@ strvec_free (vector vec)
 	int i;
 	char * str;
 
-	for (i =0; i < VECTOR_SIZE(vec); i++)
-		if ((str = VECTOR_SLOT(vec, i)) != NULL)
+	vector_foreach_slot (vec, str, i)
+		if (str)
 			FREE(str);
 
 	vector_free(vec);
@@ -155,8 +152,7 @@ select_checkfn(struct path *pp, char *devname)
 		return r;
 	}
 
-	for (i = 0; i < VECTOR_SIZE(hwtable); i++) {
-		hwe = VECTOR_SLOT(hwtable, i);
+	vector_foreach_slot (hwtable, hwe, i) {
 		if (MATCH(hwe->vendor, vendor) &&
 		    MATCH(hwe->product, product) &&
 		    hwe->checker_index > 0) {
@@ -320,13 +316,11 @@ updatepaths (struct paths *allpaths)
 		 * if so, keep the old one for for checker context and
 		 * state persistance
 		 */
-		for (i = 0; i < VECTOR_SIZE(allpaths->pathvec); i++) {
-			pp = VECTOR_SLOT(allpaths->pathvec, i);
-
+		vector_foreach_slot (allpaths->pathvec, pp, i)
 			if (0 == strncmp(pp->dev_t, attr_buff,
 					strlen(pp->dev_t)))
 				break;
-		}
+
 		if (i < VECTOR_SIZE(allpaths->pathvec)) {
 			syslog(LOG_INFO, "path checker already active : %s",
 				pp->dev_t);
@@ -505,19 +499,14 @@ waiterloop (void *ap)
 		 */
 		syslog(LOG_INFO, "start up event loops");
 
-		for (i = 0; i < VECTOR_SIZE(devmaps); i++) {
-			devmap = VECTOR_SLOT (devmaps, i);
-			
+		vector_foreach_slot (devmaps, devmap, i) {
 			/*
 			 * find out if devmap already has
 			 * a running waiter thread
 			 */
-			for (j = 0; j < VECTOR_SIZE(waiters); j++) {
-				wp = VECTOR_SLOT (waiters, j);
-
+			vector_foreach_slot (waiters, wp, j)
 				if (!strcmp (wp->mapname, devmap))
 					break;
-			}
 					
 			/*
 			 * no event_thread struct : init it
@@ -585,8 +574,7 @@ checkerloop (void *ap)
 		pthread_mutex_lock(allpaths->lock);
 		syslog(LOG_DEBUG, "checking paths");
 
-		for (i = 0; i < VECTOR_SIZE(allpaths->pathvec); i++) {
-			pp = VECTOR_SLOT(allpaths->pathvec, i);
+		vector_foreach_slot (allpaths->pathvec, pp, i) {
 			newstate = checkpath(pp->dev_t, pp->checkfn,
 				      checker_msg, pp->checker_context);
 			
@@ -745,9 +733,7 @@ prepare_namespace(void)
 	/*
 	 * compute the optimal ramdisk size
 	 */
-	for (i = 0; i < VECTOR_SIZE(binvec); i++) {
-		bin = VECTOR_SLOT(binvec, i);
-
+	vector_foreach_slot (binvec, bin,i) {
 		if ((fd = open(bin, O_RDONLY)) < 0) {
 			syslog(LOG_ERR, "cannot open %s", bin);
 			return -1;
@@ -777,9 +763,7 @@ prepare_namespace(void)
 	/*
 	 * populate the ramfs with callout binaries
 	 */
-	for (i = 0; i < VECTOR_SIZE(binvec); i++) {
-		bin = VECTOR_SLOT(binvec, i);
-		
+	vector_foreach_slot (binvec, bin,i) {
 		if (copytodir(bin, CALLOUT_DIR) < 0) {
 			syslog(LOG_ERR, "cannot copy %s in ramfs", bin);
 			exit_daemon(1);
