@@ -1,3 +1,5 @@
+	* [multipathd] devmap event now triggers a multipath exec
+	  in addition to the usual updatepaths()
 	* [multipathd] move checkers from sg_io on BLK onto CHR
 	  readsector0 goes from read to sg_read
 	* [multipathd] rely on sysfs for failedpaths enum and no

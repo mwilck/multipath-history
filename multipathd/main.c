@@ -31,6 +31,9 @@
 #endif
 #define LOG(x, y, z...) if (DEBUG >= x) syslog(x, y, ##z)
 
+/* global */
+int from_sighup;
+
 struct path
 {
 	int major;
@@ -414,6 +417,8 @@ void *waiterloop (void *ap)
 	struct event_thread *waiters, *waiters_p;
 	pthread_attr_t attr;
 	int r;
+	char *cmdargs[4] = {MULTIPATH, "-q", "-S"};
+	int status;
 
 	/* inits */
 	failedpaths = (struct paths *)ap;
@@ -424,17 +429,28 @@ void *waiterloop (void *ap)
 	pthread_attr_setstacksize (&attr, 32 * 1024);
 
 	while (1) {
+		/* upon event and initial startup, do a preliminary
+		   multipath exec, no signal to avoid recursion.
+		   don't run multipath if we are waked from SIGHUP
+		   because it already ran */
+		if (!from_sighup) {
+			LOG (1, "[waiterloop] exec multipath");
+			if (fork () == 0)
+				execve (cmdargs[0], cmdargs, NULL);
+			wait (&status);
+		} else
+			from_sighup = 0;
 		
 		/* update devmap list */
-		LOG (1, "[event thread] refresh devmaps list");
+		LOG (1, "[waiterloop] refresh devmaps list");
 		get_devmaps (devmaps);
 
 		/* update failed paths list */
-		LOG (1, "[event thread] refresh failpaths list");
+		LOG (1, "[waiterloop] refresh failpaths list");
 		updatepaths (devmaps, failedpaths);
 		
 		/* start waiters on all devmaps */
-		LOG (1, "[event thread] start up event loops");
+		LOG (1, "[waiterloop] start up event loops");
 		waiters_p = waiters;
 		devmaps_p = devmaps;
 
@@ -466,7 +482,7 @@ void *waiterloop (void *ap)
 				pthread_mutex_unlock (waiters_p->waiter_lock);
 			}
 			
-			LOG (1, "[event thread] create event thread for %s", waiters_p->mapname);
+			LOG (1, "[waiterloop] create event thread for %s", waiters_p->mapname);
 			pthread_create (waiters_p->thread, &attr, waitevent, waiters_p);
 			pthread_detach (*waiters_p->thread);
 out:
@@ -479,7 +495,7 @@ out:
 		pthread_cond_wait(event, event_lock);
 		pthread_mutex_unlock (event_lock);
 
-		LOG (1, "[event thread] event caught");
+		LOG (1, "[waiterloop] event caught");
 	}
 
 	return (NULL);
@@ -489,7 +505,7 @@ void *checkerloop (void *ap)
 {
 	struct paths *failedpaths;
 	struct path *path_p;
-	char *cmdargs[4] = {MULTIPATH, "-D", NULL, NULL};
+	char *cmdargs[5] = {MULTIPATH, "-D", NULL, NULL, "-q"};
 	char major[5];
 	char minor[5];
 	int status;
@@ -505,7 +521,8 @@ void *checkerloop (void *ap)
 		while (path_p->major != 0) {
 			
 			if (checkpath (path_p)) {
-				LOG (1, "[checker thread] reconfigure %s\n", path_p->mapname);
+				LOG (1, "[checker thread] exec multipath for device %i:%i\n",
+				     path_p->major, path_p->minor);
 				snprintf (major, 5, "%i", path_p->major);
 				snprintf (minor, 5, "%i", path_p->minor);
 				cmdargs[2] = major;
@@ -514,7 +531,7 @@ void *checkerloop (void *ap)
 					execve (cmdargs[0], cmdargs, NULL);
 
 				wait (&status);
-				/* MULTIPATH will ask for failedpaths refresh (SIGHUP) */
+				/* MULTIPATH will send back a SIGHUP */
 			}
 			
 			path_p++;
@@ -527,7 +544,7 @@ void *checkerloop (void *ap)
 			}
 		}
 		pthread_mutex_unlock (failedpaths->lock);
-		sleep(CHECKINT);
+		sleep (CHECKINT);
 	}
 
 	return (NULL);
@@ -598,6 +615,9 @@ signal_set(int signo, void (*func) (int))
 void sighup (int sig)
 {
 	LOG (1, "[master thread] SIGHUP caught : refresh devmap list");
+
+	/* signal updatepaths() that we come from SIGHUP */
+	from_sighup = 1;
 
 	/* ask for failedpaths refresh */
 	pthread_mutex_lock (event_lock);
