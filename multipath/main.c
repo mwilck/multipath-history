@@ -869,24 +869,24 @@ signal_daemon (void)
 	pid_t pid;
 	char *buf;
 
-	buf = malloc (8);
+	buf = malloc(8);
 
-	file = fopen (DEFAULT_PIDFILE, "r");
+	file = fopen(DEFAULT_PIDFILE, "r");
 
 	if (!file) {
 		if (conf->verbosity > 0)
-			fprintf (stderr, "cannot signal daemon, "
-					 "pidfile not found\n");
+			fprintf(stderr, "cannot signal daemon, "
+					"pidfile not found\n");
 		return;
 	}
 
-	buf = fgets (buf, 8, file);
-	fclose (file);
+	buf = fgets(buf, 8, file);
+	fclose(file);
 
-	pid = (pid_t) atol (buf);
-	free (buf);
+	pid = (pid_t)atol(buf);
+	free(buf);
 
-	kill (pid, SIGHUP);
+	kill(pid, SIGHUP);
 }
 
 static void
@@ -1092,7 +1092,7 @@ main (int argc, char *argv[])
 	 * read the config file
 	 */
 	if (filepresent(DEFAULT_CONFIGFILE))
-		init_data (DEFAULT_CONFIGFILE, init_keywords);
+		init_data(DEFAULT_CONFIGFILE, init_keywords);
 	
 	/*
 	 * fill the voids left in the config file
