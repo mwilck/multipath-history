@@ -1,13 +1,32 @@
-EXEC        = dmadm
+BUILD = klibc
+
+EXEC = dmadm
 
 OBJS = util.o dmadm.o
 
 include ../Makefile.inc
 
-CFLAGS = -I../libsysfs ${REQFLAGS} ${OPTFLAGS}
+ifeq ($(strip $(BUILD)),klibc)
+	CFLAGS =  ${REQFLAGS} ${OPTFLAGS} -I../libsysfs \
+		  -I../libdevmapper
+else
+	CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes \
+		 -DDEBUG=$(DEBUG)
+	LDFLAGS = -ldevmapper -lsysfs
+endif
 
-$(EXEC): $(OBJS)
-	$(LD) -o $(EXEC) $(CRT0) $(OBJS) $(SYSFSOBJS) $(DMOBJS) $(KLIBC) $(LIBGCC)
+all: klibc
+
+prepare:
+	rm -f core *.o *.gz
+
+glibc: prepare $(OBJS)
+	$(CC) $(OBJS) -o $(EXEC) $(LDFLAGS)
+	$(STRIP) $(EXEC)
+
+klibc: prepare $(OBJS)
+	$(LD) -o $(EXEC) $(CRT0) $(OBJS) $(SYSFSLIB)-$(BUILD).a \
+	$(DMLIB)-$(BUILD).a $(KLIBC) $(LIBGCC)
 	$(STRIP) $(EXEC)
 
 clean:

@@ -2,18 +2,31 @@
 #
 # Copyright (C) 2003 Christophe Varoqui, <christophe.varoqui@free.fr>
 
+BUILD = klibc
+
 KERNEL_BUILD = /lib/modules/$(shell uname -r)/build
+
+ifeq ($(strip $(BUILD)),klibc)
+	BUILDDIRS = libsysfs libdevmapper libcheckers \
+		    libmultipath \
+		    devmap_name multipath multipathd kpartx
+else
+	BUILDDIRS = libsysfs libmultipath libcheckers \
+		    devmap_name multipath multipathd kpartx
+endif
+
 VERSION = $(shell basename ${PWD} | cut -d'-' -f3)
-
-BUILDDIRS = klibc libsysfs libdevmapper libcheckers \
-          devmap_name multipath multipathd kpartx
-
 INSTALLDIRS = devmap_name multipath multipathd kpartx
 
+all: recurse
+
 recurse:
-	$(shell ln -s ${KERNEL_BUILD} klibc/linux)
+	@if [ $(BUILD) = klibc ]; then\
+	ln -s ${KERNEL_BUILD} klibc/linux ; \
+	$(MAKE) -C klibc ; \
+	fi
 	@for dir in $(BUILDDIRS); do\
-	$(MAKE) -C $$dir ; \
+	$(MAKE) -C $$dir $(BUILD) BUILD=$(BUILD); \
 	done
 
 recurse_clean:
@@ -31,8 +44,6 @@ recurse_uninstall:
 	@for dir in $(INSTALLDIRS); do\
 	$(MAKE) -C $$dir uninstall ; \
 	done
-
-all: recurse
 
 clean:	recurse_clean
 	rm -f klibc/linux

@@ -1,25 +1,42 @@
 # Makefile
 #
 # Copyright (C) 2003 Christophe Varoqui, <christophe.varoqui@free.fr>
+BUILD = klibc
+
+include ../Makefile.inc
+
+ifeq ($(strip $(BUILD)),klibc)
+	CFLAGS = ${REQFLAGS} ${OPTFLAGS} -DDEBUG=${DEBUG} \
+		 -I../libdevmapper -I../libsysfs -I../libcheckers \
+		 -I../libmultipath
+else
+	CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes \
+		 -DDEBUG=$(DEBUG) -I../libmultipath -I../libcheckers
+	LDFLAGS = -ldevmapper -lsysfs
+endif
 
 EXEC = multipath
 DEBUG = 0
 
-include ../Makefile.inc
+OBJS = pgpolicies.o devinfo.o main.o callout.o dict.o \
+       ../libmultipath/libmultipath-$(BUILD).a \
+       ../libcheckers/libcheckers-$(BUILD).a
 
-CFLAGS = ${REQFLAGS} ${OPTFLAGS} -DDEBUG=${DEBUG}
+all: klibc
 
-OBJS = pgpolicies.o devinfo.o main.o callout.o \
-       vector.o parser.o dict.o memory.o
+prepare:
+	rm -f core *.o *.gz
 
-$(EXEC): $(OBJS)
-	$(LD) -o $(EXEC) $(CRT0) $(OBJS) $(SYSFSOBJS) $(DMOBJS) \
-		 $(CHECKERSOBJS) $(KLIBC) $(LIBGCC)
+glibc: prepare $(OBJS)
+	$(CC) $(OBJS) -o $(EXEC) $(LDFLAGS)
 	$(STRIP) $(EXEC)
 	$(GZIP) $(EXEC).8 > $(EXEC).8.gz
-
-clean:
-	rm -f core *.o $(EXEC) *.gz
+	
+klibc: prepare $(OBJS)
+	$(LD) -o $(EXEC) $(CRT0) $(OBJS) $(SYSFSLIB)-$(BUILD).a \
+	$(DMLIB)-$(BUILD).a $(CHECKERSLIB)-$(BUILD).a $(KLIBC) $(LIBGCC)
+	$(STRIP) $(EXEC)
+	$(GZIP) $(EXEC).8 > $(EXEC).8.gz
 
 install:
 	install -d $(DESTDIR)$(bindir)
@@ -37,5 +54,5 @@ uninstall:
 	rm $(DESTDIR)$(bindir)/$(EXEC)
 	rm $(DESTDIR)$(mandir)/multipath.8.gz
 
-# Code dependencies
-main.o: main.c main.h sg_include.h devinfo.h
+clean:
+	rm -f core *.o $(EXEC) *.gz

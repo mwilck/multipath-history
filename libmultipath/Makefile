@@ -1,8 +1,12 @@
 # Makefile
 #
 # Copyright (C) 2003 Christophe Varoqui, <christophe.varoqui@free.fr>
+#
+BUILD = glibc
 
 include ../Makefile.inc
+
+OBJS = memory.o parser.o vector.o
 
 ifeq ($(strip $(BUILD)),klibc)
 	CFLAGS = ${REQFLAGS} ${OPTFLAGS}
@@ -10,18 +14,14 @@ else
 	CFLAGS =
 endif
 
-OBJS = dlist.o \
-       sysfs_dir.o \
-       sysfs_utils.o
-
 prepare:
 	rm -f core *.o *.gz
 
-glibc: prepare $(OBJS)
-	ar rs libsysfs-glibc.a *.o
-	
 klibc: prepare $(OBJS)
-	ar rs libsysfs-klibc.a *.o
+	ar rs libmultipath-klibc.a *.o
+
+glibc: prepare $(OBJS)
+	ar rs libmultipath-glibc.a *.o
 
 all: klibc
 
