@@ -75,17 +75,19 @@ get_word (char * sentence, char ** word)
 static int
 merge_words (char * dst, char * word, int space)
 {
-	char * p = dst;
+	char * p;
 	int len;
-
-	while (*p != '\0')
-		p++;
 
 	len = strlen(dst) + strlen(word) + space;
 	dst = realloc(dst, len + 1);
 
 	if (!dst)
 		return 1;
+
+	p = dst;
+
+	while (*p != '\0')
+		p++;
 
 	while (space) {
 		*p = ' ';
