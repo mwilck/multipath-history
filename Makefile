@@ -48,7 +48,6 @@ recurse_uninstall:
 clean:	recurse_clean
 	rm -f klibc/linux
 	rm -rf rpms
-	rm -rf debian/tmp debian/stampdir
 
 install:	recurse_install
 
@@ -57,12 +56,6 @@ uninstall:	recurse_uninstall
 release:
 	sed -e "s/__VERSION__/${VERSION}/" \
 	multipath-tools.spec.in > multipath-tools.spec
-	sed -e "s/__VERSION__/${VERSION}/" \
-	debian/changelog.in > debian/changelog
 
 rpm: release
 	rpmbuild -bb multipath-tools.spec
-
-deb: release
-	dpkg-buildpackage
-
