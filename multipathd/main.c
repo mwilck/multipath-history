@@ -511,7 +511,7 @@ initpaths (void)
 static int
 prepare_namespace(void)
 {
-	mode_t mode;
+	mode_t mode = S_IRWXU;
 	struct stat *buf;
 	char ramfs_args[64];
 	int i;
