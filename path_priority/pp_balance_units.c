@@ -400,7 +400,7 @@ get_controlers (vector controlers, vector pathvec)
 		cp = find_controler(controlers, pp->serial);
 
 		if (!cp) {
-			cp = malloc(sizeof(struct controler));
+			cp = zalloc(sizeof(struct controler));
 			vector_alloc_slot(controlers);
 			vector_set_slot(controlers, cp);
 			strncpy(cp->serial, pp->serial, SERIAL_SIZE);
