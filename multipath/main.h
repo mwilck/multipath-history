@@ -82,26 +82,14 @@ struct path {
 	char product_id[16];
 	char rev[4];
 	char serial[SERIAL_SIZE];
-	int iopolicy;
 	int tur;
 };
 
 struct multipath {
 	char wwid[WWID_SIZE];
+	int iopolicy;
 	long size;
 	vector paths;
-};
-
-struct env {
-	int verbose;
-	int quiet;
-	int dry_run;
-	int iopolicy;
-	int with_sysfs;
-	int major;
-	int minor;
-	char hotplugdev[FILE_NAME_SIZE];
-	int signal;
 };
 
 /* Build version */
