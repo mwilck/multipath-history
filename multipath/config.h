@@ -5,6 +5,13 @@
 #include "vector.h"
 #endif
 
+enum devtypes {
+	DEV_NONE,
+	DEV_DEVT,
+	DEV_DEVNODE,
+	DEV_DEVMAP
+};
+
 struct mpentry {
 	int selector_args;
 	int pgpolicy;
@@ -24,6 +31,8 @@ struct config {
 	int with_sysfs;
 	int default_selector_args;
 	int default_pgpolicy;
+	int dev_type;
+	int minio;
 
 	char * dev;
 	char * udev_dir;
