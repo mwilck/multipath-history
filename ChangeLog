@@ -1,3 +1,41 @@
+2004-12-05 multipath-tools-0.3.9
+
+	* [multipath] add a "-l" flag to list the current
+	  multipath maps and their status info
+	* [priority] zalloc controler to avoid random path_count
+	  at allocation time
+	* [multipath] add configlet pointers in struct multipath
+	  to avoid searching for an entry over and over again
+	* [multipath] new reinstate policy : on multipath exec,
+	  reinstate all failed paths the checkers report as ready
+	  if they belong to enabled path groups (not disabled, not
+	  active path group)
+	* [multipath] fork a print_mp() out of print_all_mp()
+	* [multipath] introduce PG priority, which is the sum of
+	  its path priorities. Set first_pg in the map string to
+	  the highest prio PG index.
+	* [multipath] assemble maps scaning PG top down now that
+	  PG vector is unsorted
+	* [multipath] move select_*() to propsel.c
+	* [multipath] move devinfo() to devinfo.c
+	* [multipath] move h/b/t/l fetching to sysfs_devinfo()
+	* [multipath] move devt2devname() to devinfo.c so we can
+	  use it from dmparser.c too
+	* [multipath] introduce select_alias() and clarify a bit
+	  of code
+	* [multipath] don't sort PG anymore. We want the map as
+	  static as possible.
+	* [multipath] fix a segfault in apply_format() triggered
+	  when no config file found.
+	* [multipath] kill unused vars all over the place
+	* [multipath] add a struct pathgroup in struct multipath
+	  Store the pathvec in it. We now have a place to store
+	  PG status, etc ...
+	* [multipath] new dmparser.c, with disassemble_map(),
+	  disassemble_status()
+	* [multipath] suppress *selector_args keywords. Merge
+	  in the selector string. Update config file templates.
+
 2004-11-26 multipath-tools-0.3.8
 
 	* [priority] teach multipath to read callout keywords
