@@ -227,7 +227,7 @@ get_pathvec_sysfs (vector pathvec)
 	memset (refwwid, 0, WWID_SIZE);
 
 	if (sysfs_get_mnt_path(sysfs_path, FILE_NAME_SIZE)) {
-		fprintf(stderr, "[device] feature needs sysfs\n");
+		fprintf(stderr, "multipath tools need sysfs\n");
 		exit_tool(1);
 	}
 	
@@ -840,7 +840,7 @@ signal_daemon (void)
 
 	file = fopen (PIDFILE, "r");
 
-	if (!file) {
+	if (!file && conf->verbosity > 0) {
 		fprintf (stderr, "cannot signal daemon, pidfile not found\n");
 		return;
 	}
@@ -1003,51 +1003,51 @@ main (int argc, char *argv[])
 
 	while ((arg = getopt(argc, argv, ":qdSi:v:p:D:")) != EOF ) {
 		switch(arg) {
-			case 1: printf("optarg : %s\n",optarg);
-				break;
-			case 'v':
-				if (sizeof(optarg) > sizeof(char *) ||
-				    !isdigit(optarg[0]))
-					usage (argv[0]);
+		case 1: printf("optarg : %s\n",optarg);
+			break;
+		case 'v':
+			if (sizeof(optarg) > sizeof(char *) ||
+			    !isdigit(optarg[0]))
+				usage (argv[0]);
 
-				conf->verbosity = atoi(optarg);
-				break;
-			case 'd':
-				conf->dry_run = 1;
-				conf->signal = 0;
-				break;
-			case 'S':
-				conf->signal = 0;
-				break;
-			case 'p':
-				if (strcmp(optarg, "failover") == 0)
-					conf->iopolicy_flag = FAILOVER;
-				else if (strcmp(optarg, "multibus") == 0)
-					conf->iopolicy_flag = MULTIBUS;
-				else if (strcmp(optarg, "group_by_serial") == 0)
-					conf->iopolicy_flag = GROUP_BY_SERIAL;
-				else if (strcmp(optarg, "group_by_prio") == 0)
-					conf->iopolicy_flag = GROUP_BY_PRIO;
-				else
-				{
-					if (optarg)
-						printf("'%s' is not a valid "
-							"policy\n", optarg);
-					usage(argv[0]);
-				}                
-				break;
-			case 'D':
-				conf->major = atoi(optarg);
-				conf->minor = atoi(argv[optind++]);
-				break;
-			case ':':
-				fprintf(stderr, "Missing option arguement\n");
-				usage(argv[0]);        
-			case '?':
-				fprintf(stderr, "Unknown switch: %s\n", optarg);
+			conf->verbosity = atoi(optarg);
+			break;
+		case 'd':
+			conf->dry_run = 1;
+			conf->signal = 0;
+			break;
+		case 'S':
+			conf->signal = 0;
+			break;
+		case 'p':
+			if (strcmp(optarg, "failover") == 0)
+				conf->iopolicy_flag = FAILOVER;
+			else if (strcmp(optarg, "multibus") == 0)
+				conf->iopolicy_flag = MULTIBUS;
+			else if (strcmp(optarg, "group_by_serial") == 0)
+				conf->iopolicy_flag = GROUP_BY_SERIAL;
+			else if (strcmp(optarg, "group_by_prio") == 0)
+				conf->iopolicy_flag = GROUP_BY_PRIO;
+			else
+			{
+				if (optarg)
+					printf("'%s' is not a valid "
+						"policy\n", optarg);
 				usage(argv[0]);
-			default:
-				usage(argv[0]);
+			}                
+			break;
+		case 'D':
+			conf->major = atoi(optarg);
+			conf->minor = atoi(argv[optind++]);
+			break;
+		case ':':
+			fprintf(stderr, "Missing option arguement\n");
+			usage(argv[0]);        
+		case '?':
+			fprintf(stderr, "Unknown switch: %s\n", optarg);
+			usage(argv[0]);
+		default:
+			usage(argv[0]);
 		}
 	}        
 	if (optind<argc)
