@@ -75,7 +75,9 @@ update only the devmap the path pointed by
 .I device
 is in. 
 .I device
-is in the /dev/sdb format, as shown by udev in the $DEVNAME variable
+is in the /dev/sdb (as shown by udev in the $DEVNAME variable) or major:minor format.
+.I device
+may alternatively be a multipath mapname
 .SH "SEE ALSO"
 .BR udev (8),
 .BR dmsetup (8)
