@@ -45,13 +45,6 @@
 #define MATCH(x,y) 0 == strncmp (x, y, strlen(y))
 
 static int
-exit_tool (int status)
-{
-	unlink(RUN);
-	exit(status);
-}
-	
-static int
 devt2devname (char *devname, int major, int minor)
 {
 	struct sysfs_directory * sdir;
@@ -64,16 +57,16 @@ devt2devname (char *devname, int major, int minor)
 
 	if (sysfs_get_mnt_path(sysfs_path, FILE_NAME_SIZE)) {
 		fprintf(stderr, "-D feature available with sysfs only\n");
-		exit_tool(1);
+		exit(1);
 	}
 		
 	if(safe_sprintf(attr_ref_value, "%i:%i\n", major, minor)) {
 		fprintf(stderr, "attr_ref_value too small\n");
-		exit_tool(1);
+		exit(1);
 	}
 	if(safe_sprintf(block_path, "%s/block", sysfs_path)) {
 		fprintf(stderr, "block_path too small\n");
-		exit_tool(1);
+		exit(1);
 	}
 	sdir = sysfs_open_directory(block_path);
 	sysfs_read_directory(sdir);
@@ -82,7 +75,7 @@ devt2devname (char *devname, int major, int minor)
 		if(safe_sprintf(attr_path, "%s/%s/dev",
 				block_path, devp->name)) {
 			fprintf(stderr, "attr_path too small\n");
-			exit_tool(1);
+			exit(1);
 		}
 		sysfs_read_attribute_value(attr_path, attr_value,
 					   sizeof(attr_value));
@@ -91,7 +84,7 @@ devt2devname (char *devname, int major, int minor)
 			if(safe_sprintf(attr_path, "%s/%s",
 					block_path, devp->name)) {
 				fprintf(stderr, "attr_path too small\n");
-				exit_tool(1);
+				exit(1);
 			}
 			sysfs_get_name_from_path(attr_path, devname,
 						 FILE_NAME_SIZE);
@@ -152,7 +145,7 @@ devinfo (struct path *curpath)
 	if(safe_sprintf(buff, "%s /block/%s",
 			conf->default_getprio, curpath->dev)) {
 		fprintf(stderr, "buff too small\n");
-		exit_tool(1);
+		exit(1);
 	}
 
 	dbg("get prio callout :");
@@ -182,7 +175,7 @@ devinfo (struct path *curpath)
 			if(safe_sprintf(buff, "%s /block/%s",
 				 hwe->getuid, curpath->dev)) {
 				fprintf(stderr, "buff too small\n");
-				exit_tool(1);
+				exit(1);
 			}
 			if (execute_program(buff, curpath->wwid,
 			    WWID_SIZE) == 0) {
@@ -219,7 +212,7 @@ devinfo (struct path *curpath)
 	if(safe_sprintf(buff, "%s /block/%s",
 			conf->default_getuid, curpath->dev)) {
 		fprintf(stderr, "buff too small\n");
-		exit_tool(1);
+		exit(1);
 	}
 
 	dbg("default get uid callout :");
@@ -252,7 +245,7 @@ get_pathvec_sysfs (vector pathvec)
 
 	if (sysfs_get_mnt_path(sysfs_path, FILE_NAME_SIZE)) {
 		fprintf(stderr, "multipath tools need sysfs\n");
-		exit_tool(1);
+		exit(1);
 	}
 	
 	/*
@@ -281,7 +274,7 @@ get_pathvec_sysfs (vector pathvec)
 		curpath = zalloc(sizeof (struct path));
 		if(safe_sprintf(curpath->dev, "%s", buff)) {
 			fprintf(stderr, "curpath->dev too small\n");
-			exit_tool(1);
+			exit(1);
 		}
 
 		if (devinfo(curpath))
@@ -293,7 +286,7 @@ get_pathvec_sysfs (vector pathvec)
 		
 	if(safe_sprintf(path, "%s/block", sysfs_path)) {
 		fprintf(stderr, "path too small\n");
-		exit_tool(1);
+		exit(1);
 	}
 	sdir = sysfs_open_directory(path);
 	sysfs_read_directory(sdir);
@@ -319,7 +312,7 @@ get_pathvec_sysfs (vector pathvec)
 
 		if(safe_sprintf(curpath->dev, "%s", buff)) {
 			fprintf(stderr, "curpath->dev too small\n");
-			exit_tool(1);
+			exit(1);
 		}
 		if (devinfo(curpath)) {
 			free (curpath);
@@ -770,7 +763,7 @@ assemble_map (struct multipath * mp)
 
 	if (shift >= freechar) {
 		fprintf(stderr, "mp->params too small\n");
-		exit_tool(1);
+		exit(1);
 	}
 	p += shift;
 	freechar -= shift;
@@ -781,7 +774,7 @@ assemble_map (struct multipath * mp)
 			         selector, VECTOR_SIZE(pgpaths), selector_args);
 		if (shift >= freechar) {
 			fprintf(stderr, "mp->params too small\n");
-			exit_tool(1);
+			exit(1);
 		}
 		p += shift;
 		freechar -= shift;
@@ -791,7 +784,7 @@ assemble_map (struct multipath * mp)
 					 (char *)VECTOR_SLOT(pgpaths, j));
 			if (shift >= freechar) {
 				fprintf(stderr, "mp->params too small\n");
-				exit_tool(1);
+				exit(1);
 			}
 			p += shift;
 			freechar -= shift;
@@ -799,7 +792,7 @@ assemble_map (struct multipath * mp)
 	}
 	if (freechar < 1) {
 		fprintf(stderr, "mp->params too small\n");
-		exit_tool(1);
+		exit(1);
 	}
 	snprintf(p, 1, "\n");
 }
@@ -1118,7 +1111,7 @@ usage (char * progname)
 		"\t\t\t(udev-style $DEVNAME reference, eg /dev/sdb)\n" \
 		);
 
-	exit_tool(1);
+	exit(1);
 }
 
 int
@@ -1262,15 +1255,15 @@ main (int argc, char *argv[])
 
 	if (mp == NULL || pathvec == NULL) {
 		fprintf(stderr, "can not allocate memory\n");
-		exit_tool(1);
+		exit(1);
 	}
 
 	if (get_pathvec_sysfs(pathvec))
-		exit_tool(1);
+		exit(1);
 
 	if (VECTOR_SIZE(pathvec) == 0 && conf->verbosity > 0) {
-		fprintf (stdout, "no path found\n");
-		exit_tool(0);
+		fprintf(stdout, "no path found\n");
+		exit(0);
 	}
 
 	coalesce_paths(mp, pathvec);
