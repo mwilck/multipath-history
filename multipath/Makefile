@@ -7,11 +7,12 @@ include ../Makefile.inc
 
 ifeq ($(strip $(BUILD)),klibc)
 	CFLAGS = ${REQFLAGS} ${OPTFLAGS} -DDEBUG=${DEBUG} \
-		 -I../libdevmapper -I../libsysfs -I../libcheckers \
-		 -I../libmultipath
+		 -DVERSION=$(VERSION) -I$(multipathdir) \
+		 -I$(libdmdir) -I$(sysfsdir) -I$(checkersdir)
 else
 	CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes \
-		 -DDEBUG=$(DEBUG) -I../libmultipath -I../libcheckers
+		 -DDEBUG=$(DEBUG) -I$(multipathdir) -I$(checkersdir) \
+		 -DVERSION=$(VERSION)
 	LDFLAGS = -ldevmapper -lsysfs
 endif
 
@@ -19,8 +20,8 @@ EXEC = multipath
 DEBUG = 0
 
 OBJS = pgpolicies.o devinfo.o main.o callout.o dict.o \
-       ../libmultipath/libmultipath-$(BUILD).a \
-       ../libcheckers/libcheckers-$(BUILD).a
+       $(MULTIPATHLIB)-$(BUILD).a \
+       $(CHECKERSLIB)-$(BUILD).a
 
 all: klibc
 
@@ -37,6 +38,12 @@ klibc: prepare $(OBJS)
 	$(DMLIB)-$(BUILD).a $(CHECKERSLIB)-$(BUILD).a $(KLIBC) $(LIBGCC)
 	$(STRIP) $(EXEC)
 	$(GZIP) $(EXEC).8 > $(EXEC).8.gz
+
+$(CHECKERSLIB)-$(BUILD).a:
+	make -C $(checkersdir) BUILD=$(BUILD) $(BUILD)
+
+$(MULTIPATHLIB)-$(BUILD).a:
+	make -C $(multipathdir) BUILD=$(BUILD) $(BUILD)
 
 install:
 	install -d $(DESTDIR)$(bindir)

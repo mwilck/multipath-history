@@ -26,7 +26,7 @@ recurse:
 	$(MAKE) -C klibc ; \
 	fi
 	@for dir in $(BUILDDIRS); do\
-	$(MAKE) -C $$dir $(BUILD) BUILD=$(BUILD); \
+	$(MAKE) -C $$dir $(BUILD) BUILD=$(BUILD) VERSION=$(VERSION); \
 	done
 
 recurse_clean:
