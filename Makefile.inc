@@ -30,15 +30,16 @@ CFLAGS = -pipe -g -O2 -Wall -Wunused -Wstrict-prototypes -nostdinc \
          -I$(klibcdir)/klibc/include \
 	 -I$(klibcdir)/klibc/include/bits$(BITSIZE) \
          -I$(GCCINCDIR) -I$(KERNEL_BUILD)/include -I$(sysfsdir) -I. \
-         -I$(KERNEL_SOURCE)/include
+         -I$(KERNEL_SOURCE)/include -I$(KERNEL_BUILD)/include2
 
 CRT0 = $(klibcdir)/klibc/crt0.o
 LIB = $(klibcdir)/klibc/libc.a
 LIBGCC := $(shell $(CC) -print-libgcc-file-name )
 
-DMOBJS = $(libdmdir)/libdm-common.o $(libdmdir)/ioctl/libdm-iface.o
-SYSFSOBJS = $(sysfsdir)/dlist.o $(sysfsdir)/sysfs_bus.o \
-            $(sysfsdir)/sysfs_class.o $(sysfsdir)/sysfs_device.o \
-            $(sysfsdir)/sysfs_dir.o $(sysfsdir)/sysfs_driver.o \
+DMOBJS = $(libdmdir)/libdm-common.o \
+	 $(libdmdir)/ioctl/libdm-iface.o
+
+SYSFSOBJS = $(sysfsdir)/dlist.o \
+	    $(sysfsdir)/sysfs_dir.o \
             $(sysfsdir)/sysfs_utils.o
 
