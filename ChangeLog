@@ -1,3 +1,6 @@
+	* [multipath] add a flag to inihibit the final SIGHUP to
+	  multipathd. Needed to avoid recursion with the correction
+	  below
 	* [multipathd] devmap event now triggers a multipath exec
 	  in addition to the usual updatepaths()
 	* [multipathd] move checkers from sg_io on BLK onto CHR
