@@ -1,3 +1,19 @@
+2004-12-20 multipath-tools-0.4.1
+
+	* [multipath] bump SERIAL_SIZE to 19
+	* [multipath] add a new group_by_node_name pgpolicy
+	* [multipath] move getopt policy parser to
+	  get_policy_id()
+	* [multipath] remove get_evpd_wwid()
+	* [checkers] fix the wwn_set test in emc checker
+	  (Hergen Lange)
+	* [checkers] treat the emc checker in the name to 
+	  index translator function (Hergen Lange)
+	* [multipath] print to stderr DM unmet requirement
+	  (Guido Guenther)
+	* [multipath] fix realloc return value store not
+	  propagated to caller by merge_word() (Nicola Ranaldo)
+
 2004-12-10 multipath-tools-0.4.0
 
 	* [checkers] forgot to return back to caller the newly

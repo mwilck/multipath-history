@@ -155,8 +155,8 @@ struct pathgroup {
 /* Build version */
 #define PROG    "multipath"
 
-#define VERSION_CODE 0x000309
-#define DATE_CODE    0x050c04
+#define VERSION_CODE 0x000401
+#define DATE_CODE    0x150c04
 
 #define MULTIPATH_VERSION(version)	\
 	(version >> 16) & 0xFF,		\
