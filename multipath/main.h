@@ -109,6 +109,7 @@ struct path {
 	char product_id[SCSI_PRODUCT_SIZE];
 	char rev[SCSI_REV_SIZE];
 	char serial[SERIAL_SIZE];
+	unsigned long size;
 	int state;
 	int dmstate;
 	int failcount;
@@ -117,6 +118,8 @@ struct path {
 	char * getuid;
 	char * getprio;
 	int (*checkfn) (char *, char *, void **);
+
+	struct multipath * mpp;
 };
 
 struct multipath {
