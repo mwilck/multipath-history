@@ -29,12 +29,10 @@ push_callout(char * callout)
 	/*
 	 * if this callout is already stored in binvec, don't store it twice
 	 */
-	for (i = 0; i < VECTOR_SIZE(binvec); i++) {
-		bin = VECTOR_SLOT(binvec, i);
-
+	vector_foreach_slot (binvec, bin, i)
 		if (memcmp(bin, callout, p - callout) == 0)
 			return;
-	}
+
 	/*
 	 * else, store it
 	 */

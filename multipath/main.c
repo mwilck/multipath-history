@@ -107,12 +107,10 @@ blacklist (char * dev) {
 	int i;
 	char *p;
 
-	for (i = 0; i < VECTOR_SIZE(conf->blist); i++) {
-		p = VECTOR_SLOT(conf->blist, i);
-
+	vector_foreach_slot (conf->blist, p, i)
 		if (memcmp(dev, p, strlen(p)) == 0)
 			return 1;
-	}
+	
 	return 0;
 }
 
@@ -128,8 +126,7 @@ select_checkfn(struct path *pp)
 	 */
 	pp->checkfn = &readsector0;
 
-	for (i = 0; i < VECTOR_SIZE(conf->hwtable); i++) {
-		hwe = VECTOR_SLOT(conf->hwtable, i);
+	vector_foreach_slot (conf->hwtable, hwe, i) {
 		if (MATCH(hwe->vendor, pp->vendor_id) &&
 		    MATCH(hwe->product, pp->product_id) &&
 		    hwe->checker_index > 0) {
@@ -196,9 +193,7 @@ devinfo (struct path *curpath)
 	/*
 	 * get path uid
 	 */
-	for (i = 0; i < VECTOR_SIZE(conf->hwtable); i++) {
-		hwe = VECTOR_SLOT(conf->hwtable, i);
-
+	vector_foreach_slot (conf->hwtable, hwe, i) {
 		if (MATCH (curpath->vendor_id, hwe->vendor) &&
 		    MATCH (curpath->product_id, hwe->product)) {
 			/*
@@ -486,9 +481,7 @@ print_all_path (vector pathvec)
 
 	fprintf (stdout, "#\n# all paths :\n#\n");
 
-	for (k = 0; k < VECTOR_SIZE(pathvec); k++) {
-		pp = VECTOR_SLOT(pathvec, k);
-		
+	vector_foreach_slot (pathvec, pp, k) {
 		/* leave out paths with incomplete devinfo */
 		if (memcmp (empty_buff, pp->wwid, WWID_SIZE) == 0)
 			continue;
@@ -506,9 +499,7 @@ print_all_mp (vector mp)
 
 	fprintf (stdout, "#\n# all multipaths :\n#\n");
 
-	for (k = 0; k < VECTOR_SIZE(mp); k++) {
-		mpp = VECTOR_SLOT(mp, k);
-
+	vector_foreach_slot (mp, mpp, k) {
 		if (mpp->alias)
 			printf ("%s (%s)", mpp->alias, mpp->wwid);
 		else
@@ -517,10 +508,8 @@ print_all_mp (vector mp)
 		pp = VECTOR_SLOT(mpp->paths, 0);
 		printf (" [%.16s]\n", pp->product_id);
 
-		for (i = 0; i < VECTOR_SIZE(mpp->paths); i++) {
-			pp = VECTOR_SLOT(mpp->paths, i);
+		vector_foreach_slot (mpp->paths, pp, i)
 			print_path (pp, SHORT);
-		}
 	}
 }
 
@@ -530,12 +519,10 @@ find_mp (char * wwid)
 	int i;
 	struct mpentry * mpe;
 
-	for (i = 0; i < VECTOR_SIZE(conf->mptable); i++) {
-                mpe = VECTOR_SLOT(conf->mptable, i);
-
+	vector_foreach_slot (conf->mptable, mpe, i)
                 if (strcmp(mpe->wwid, wwid) == 0)
 			return mpe;
-	}
+
 	return NULL;
 }
 
@@ -552,8 +539,7 @@ coalesce_paths (vector mp, vector pathvec)
 	already_done = 0;
 	memset (empty_buff, 0, WWID_SIZE);
 
-	for (k = 0; k < VECTOR_SIZE(pathvec); k++) {
-		pp1 = VECTOR_SLOT(pathvec, k);
+	vector_foreach_slot (pathvec, pp1, k) {
 		/* skip this path for some reason */
 
 		/* 1. if path has no unique id */
@@ -561,11 +547,10 @@ coalesce_paths (vector mp, vector pathvec)
 			continue;
 
 		/* 2. if mp with this uid already instanciated */
-		for (i = 0; i < VECTOR_SIZE(mp); i++) {
-			mpp = VECTOR_SLOT(mp, i);
+		vector_foreach_slot (mp, mpp, i)
 			if (0 == strcmp (mpp->wwid, pp1->wwid))
 				already_done = 1;
-		}
+
 		if (already_done) {
 			already_done = 0;
 			continue;
@@ -769,9 +754,7 @@ select_selector (struct multipath * mp)
 	mp->selector_args = conf->default_selector_args;
 
 	/* 2) override by controler wide settings */
-	for (i = 0; i < VECTOR_SIZE(conf->hwtable); i++) {
-		hwe = VECTOR_SLOT(conf->hwtable, i);
-
+	vector_foreach_slot (conf->hwtable, hwe, i) {
 		if (strcmp(hwe->vendor, pp->vendor_id) == 0 &&
 		    strcmp(hwe->product, pp->product_id) == 0) {
 			mp->selector = (hwe->selector) ?
@@ -782,9 +765,7 @@ select_selector (struct multipath * mp)
 	}
 
 	/* 3) override by LUN specific settings */
-	for (i = 0; i < VECTOR_SIZE(conf->mptable); i++) {
-		mpe = VECTOR_SLOT(conf->mptable, i);
-
+	vector_foreach_slot (conf->mptable, mpe, i) {
 		if (strcmp(mpe->wwid, mp->wwid) == 0) {
 			mp->selector = (mpe->selector) ?
 				   mpe->selector : conf->default_selector;
@@ -830,8 +811,7 @@ assemble_map (struct multipath * mp)
 		p += shift;
 		freechar -= shift;
 
-		for (j = 0; j < VECTOR_SIZE(pgpaths); j++) {
-			pp = VECTOR_SLOT(pgpaths, j);
+		vector_foreach_slot (pgpaths, pp, j) {
 			shift = snprintf(p, freechar, " %s", pp->dev_t);
 			if (shift >= freechar) {
 				fprintf(stderr, "mp->params too small\n");
@@ -871,12 +851,10 @@ setup_map (vector pathvec, struct multipath * mpp)
 	 * don't bother if a constituant path is claimed
 	 * FIXME : claimed detection broken, always unclaimed for now
 	 */
-	for (i = 0; i < VECTOR_SIZE(mpp->paths); i++) {
-		pp = VECTOR_SLOT(mpp->paths, i);
-
+	vector_foreach_slot (mpp->paths, pp, i)
 		if (pp->claimed)
 			return 0;
-	}
+
 	pp = VECTOR_SLOT(mpp->paths, 0);
 
 	/*
@@ -909,9 +887,7 @@ setup_map (vector pathvec, struct multipath * mpp)
 	/*
 	 * 3) override by controler wide setting
 	 */
-	for (i = 0; i < VECTOR_SIZE(conf->hwtable); i++) {
-		hwe = VECTOR_SLOT(conf->hwtable, i);
-
+	vector_foreach_slot (conf->hwtable, hwe, i) {
 		if (MATCH (pp->vendor_id, hwe->vendor) &&
 		    MATCH (pp->product_id, hwe->product) &&
 		    hwe->iopolicy > 0) {
@@ -924,9 +900,7 @@ setup_map (vector pathvec, struct multipath * mpp)
 	/*
 	 * 4) override by LUN specific setting
 	 */
-	for (i = 0; i < VECTOR_SIZE(conf->mptable); i++) {
-		mpe = VECTOR_SLOT(conf->mptable, i);
-
+	vector_foreach_slot (conf->mptable, mpe, i) {
 		if (strcmp(mpe->wwid, mpp->wwid) == 0 &&
 		    mpe->iopolicy > 0) {
 			iopolicy = mpe->iopolicy;
@@ -1375,9 +1349,7 @@ main (int argc, char *argv[])
 	 * may be conf->dev is a mapname
 	 * if so, only reconfigure this map
 	 */
-	for (k = 0; k < VECTOR_SIZE(mp); k++) {
-		mpp = VECTOR_SLOT(mp, k);
-
+	vector_foreach_slot (mp, mpp, k) {
 		if (conf->dev && (
 		    (mpp->alias &&
 		    0 == strncmp(mpp->alias, conf->dev, FILE_NAME_SIZE)) ||
@@ -1395,10 +1367,8 @@ main (int argc, char *argv[])
 	if (conf->verbosity > 1)
 		fprintf(stdout, "#\n# device maps :\n#\n");
 
-	for (k = 0; k < VECTOR_SIZE(mp); k++) {
-		mpp = VECTOR_SLOT(mp, k);
+	vector_foreach_slot (mp, mpp, k)
 		setup_map(pathvec, mpp);
-	}
 
 out:
 	/*
