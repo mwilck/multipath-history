@@ -94,16 +94,16 @@ device_handler(vector strvec)
 static void
 vendor_handler(vector strvec)
 {
-	struct hwentry * hwe =
-		VECTOR_SLOT(conf->hwtable, VECTOR_SIZE(conf->hwtable) - 1);
+	struct hwentry * hwe = VECTOR_LAST_SLOT(conf->hwtable);
+
 	hwe->vendor = set_value(strvec);
 }
 
 static void
 product_handler(vector strvec)
 {
-	struct hwentry * hwe =
-		VECTOR_SLOT(conf->hwtable, VECTOR_SIZE(conf->hwtable) - 1);
+	struct hwentry * hwe = VECTOR_LAST_SLOT(conf->hwtable);
+
 	hwe->product = set_value(strvec);
 }
 
@@ -111,8 +111,7 @@ static void
 hw_iopolicy_handler(vector strvec)
 {
 	char * buff;
-	struct hwentry * hwe =
-		VECTOR_SLOT(conf->hwtable, VECTOR_SIZE(conf->hwtable) - 1);
+	struct hwentry * hwe = VECTOR_LAST_SLOT(conf->hwtable);
 
 	buff = set_value(strvec);
 	hwe->iopolicy = get_pgpolicy_id(buff);
@@ -122,8 +121,7 @@ hw_iopolicy_handler(vector strvec)
 static void
 hw_getuid_callout_handler(vector strvec)
 {
-	struct hwentry * hwe =
-		VECTOR_SLOT(conf->hwtable, VECTOR_SIZE(conf->hwtable) - 1);
+	struct hwentry * hwe = VECTOR_LAST_SLOT(conf->hwtable);
 
 	hwe->getuid = set_value(strvec);
 }
@@ -131,7 +129,7 @@ hw_getuid_callout_handler(vector strvec)
 static void
 hw_selector_handler(vector strvec)
 {
-	struct hwentry * hwe = VECTOR_SLOT(conf->hwtable, VECTOR_SIZE(conf->hwtable) - 1);
+	struct hwentry * hwe = VECTOR_LAST_SLOT(conf->hwtable);
 	
 	hwe->selector = set_value(strvec);
 }
@@ -140,7 +138,7 @@ static void
 hw_selector_args_handler(vector strvec)
 {
 	char * buff;
-	struct hwentry * hwe = VECTOR_SLOT(conf->hwtable, VECTOR_SIZE(conf->hwtable) - 1);
+	struct hwentry * hwe = VECTOR_LAST_SLOT(conf->hwtable);
 
 	buff = set_value(strvec);
 	hwe->selector_args = atoi(buff);
@@ -152,7 +150,7 @@ static void
 hw_path_checker_handler(vector strvec)
 {
 	char * buff;
-	struct hwentry * hwe = VECTOR_SLOT(conf->hwtable, VECTOR_SIZE(conf->hwtable) - 1);
+	struct hwentry * hwe = VECTOR_LAST_SLOT(conf->hwtable);
 
 	buff = set_value(strvec);
 	hwe->checker_index = get_checker_id(buff);

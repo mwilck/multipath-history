@@ -33,6 +33,7 @@ typedef struct _vector *vector;
 #define VECTOR_DEFAULT_SIZE 1
 #define VECTOR_SLOT(V,E) ((V)->slot[(E)])
 #define VECTOR_SIZE(V)   ((V)->allocated)
+#define VECTOR_LAST_SLOT(V)   ((V)->slot[((V)->allocated - 1)])
 
 #define vector_foreach_slot(v,p,i) \
 	for (i = 0; i < (v)->allocated && ((p) = (v)->slot[i]); i++)
