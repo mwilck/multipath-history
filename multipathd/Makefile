@@ -26,7 +26,7 @@ LDFLAGS = -lpthread -ldevmapper -lsysfs
 #
 # object files
 #
-OBJS = main.o copy.o devinfo.o callout.o dict.o \
+OBJS = main.o copy.o devinfo.o dict.o \
        $(CHECKERSLIB)-glibc.a \
        $(MULTIPATHLIB)-glibc.a \
 
