@@ -35,7 +35,6 @@
 #include "vector.h"
 
 /* Global definitions */
-#define CONF "/etc/keepalived/keepalived.conf"
 #define EOB  "}"
 #define MAXBUF	1024
 

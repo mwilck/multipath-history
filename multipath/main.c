@@ -146,8 +146,8 @@ devinfo (struct path *curpath)
 	 */
 	sprintf (buff, "%s /block/%s", conf->default_getprio, curpath->dev);
 
-	dbg("callout :");
-	dbg("=========");
+	dbg("get prio callout :");
+	dbg("==================");
 
 	if (execute_program(buff, prio, 16) == 0)
 		curpath->priority = atoi(prio);
@@ -162,15 +162,16 @@ devinfo (struct path *curpath)
 	 */
 	for (i = 0; i < VECTOR_SIZE(conf->hwtable); i++) {
 		hwe = VECTOR_SLOT(conf->hwtable, i);
-		sprintf (buff, "%s /block/%s", hwe->getuid, curpath->dev);
 
 		if (MATCH (curpath->vendor_id, hwe->vendor) &&
 		    MATCH (curpath->product_id, hwe->product)) {
 			/*
 			 * callout program
 			 */
-			dbg("callout :");
-			dbg("=========");
+			dbg("get uid callout :");
+			dbg("=================");
+			sprintf (buff, "%s /block/%s",
+				 hwe->getuid, curpath->dev);
 
 			if (execute_program(buff, curpath->wwid,
 			    WWID_SIZE) == 0) {
@@ -196,10 +197,18 @@ devinfo (struct path *curpath)
 		}
 	}
 	dbg("devinfo out : no match ... apply defaults");
+
+	/*
+	 * chances are we deal directly with disks here (no FC ctlr)
+	 * we need scsi_id for this fallback to work
+	 *
+	 * incidentaly, dealing with this case will make parallel SCSI
+	 * disks treated as 1-path multipaths, which is good : wider audience !
+	 */
 	sprintf (buff, "%s /block/%s", conf->default_getuid, curpath->dev);
 
-	dbg("callout :");
-	dbg("=========");
+	dbg("default get uid callout :");
+	dbg("=========================");
 
 	if (execute_program(buff, curpath->wwid, WWID_SIZE) == 0) {
 		dbg("devinfo found uid : %s", curpath->wwid);
@@ -443,7 +452,12 @@ print_all_mp (vector mp)
 
 	for (k = 0; k < VECTOR_SIZE(mp); k++) {
 		mpp = VECTOR_SLOT(mp, k);
-		printf ("%s", mpp->wwid);
+
+		if (mpp->alias)
+			printf ("%s (%s)", mpp->alias, mpp->wwid);
+		else
+			printf ("%s", mpp->wwid);
+
 		pp = VECTOR_SLOT(mpp->paths, 0);
 		printf (" [%.16s]\n", pp->product_id);
 
@@ -454,12 +468,28 @@ print_all_mp (vector mp)
 	}
 }
 
+static struct mpentry *
+find_mp (char * wwid)
+{
+	int i;
+	struct mpentry * mpe;
+
+	for (i = 0; i < VECTOR_SIZE(conf->mptable); i++) {
+                mpe = VECTOR_SLOT(conf->mptable, i);
+
+                if (strcmp(mpe->wwid, wwid) == 0)
+			return mpe;
+	}
+	return NULL;
+}
+
 static void
 coalesce_paths (vector mp, vector pathvec)
 {
 	int k, i, already_done;
 	char empty_buff[WWID_SIZE];
 	struct multipath * mpp;
+	struct mpentry * mpe;
 	struct path * pp1;
 	struct path * pp2;
 
@@ -485,10 +515,17 @@ coalesce_paths (vector mp, vector pathvec)
 			continue;
 		}
 
-		/* at this point, we know we really got a new mp */
+		/*
+		 * at this point, we know we really got a new mp
+		 */
 		vector_alloc_slot(mp);
 		mpp = zalloc(sizeof(struct multipath));
 		strcpy (mpp->wwid, pp1->wwid);
+
+		mpe = find_mp(mpp->wwid);
+		if (mpe)
+			mpp->alias = mpe->alias;
+
 		mpp->paths = vector_alloc();
 		vector_alloc_slot (mpp->paths);
 		vector_set_slot (mpp->paths, VECTOR_SLOT(pathvec, k));
@@ -615,7 +652,40 @@ assemble_map (struct multipath * mp)
 }
 
 static int
-setup_map (vector pathvec, vector mp, int slot,  int op)
+map_present (char * str)
+{
+        int r = 0;
+	struct dm_task *dmt;
+        struct dm_names *names;
+        unsigned next = 0;
+
+	if (!(dmt = dm_task_create (DM_DEVICE_LIST)))
+		return 0;
+
+	if (!dm_task_run (dmt))
+		goto out;
+
+	if (!(names = dm_task_get_names (dmt)))
+		goto out;
+
+	if (!names->dev) {
+		goto out;
+	}
+
+	do {
+		if (0 == strcmp (names->name, str))
+			r = 1;
+		next = names->next;
+		names = (void *) names + next;
+	} while (next);
+
+	out:
+	dm_task_destroy (dmt);
+	return r;
+}
+
+static int
+setup_map (vector pathvec, vector mp, int slot)
 {
 	struct path * pp;
 	struct multipath * mpp;
@@ -623,6 +693,8 @@ setup_map (vector pathvec, vector mp, int slot,  int op)
 	int fd;
 	struct hwentry * hwe = NULL;
 	struct mpentry * mpe;
+	char * mapname;
+	int op;
 
 	mpp = VECTOR_SLOT(mp, slot);
 	pp = VECTOR_SLOT(mpp->paths, 0);
@@ -724,22 +796,25 @@ setup_map (vector pathvec, vector mp, int slot,  int op)
 	fd = dup(2);
 	close(2);
 
+	mapname = mpp->alias ? mpp->alias : mpp->wwid;
+	op = map_present(mpp->wwid) ? DM_DEVICE_RELOAD : DM_DEVICE_CREATE;
+	
 	if (op == DM_DEVICE_RELOAD)
-		if (!dm_simplecmd(DM_DEVICE_SUSPEND, mpp->wwid)) {
+		if (!dm_simplecmd(DM_DEVICE_SUSPEND, mapname)) {
 			dup2(fd, 2);
 			close(fd);
 			return 0;
 		}
 
-	if (dm_addmap(op, mpp->wwid, mpp->params, mpp->size)) {
-		dm_simplecmd(DM_DEVICE_REMOVE, mpp->wwid);
+	if (dm_addmap(op, mapname, mpp->params, mpp->size)) {
+		dm_simplecmd(DM_DEVICE_REMOVE, mapname);
 		dup2(fd, 2);
 		close(fd);
 		return 0;
 	}
 
 	if (op == DM_DEVICE_RELOAD)
-		if (!dm_simplecmd(DM_DEVICE_RESUME, mpp->wwid)) {
+		if (!dm_simplecmd(DM_DEVICE_RESUME, mapname)) {
 			return 0;
 			close(fd);
 			return 0;
@@ -748,54 +823,13 @@ setup_map (vector pathvec, vector mp, int slot,  int op)
 	dup2(fd, 2);
 	close(fd);
 
-	if (!conf->quiet) {
-
-		if (op == DM_DEVICE_RELOAD)
-			printf ("U:");
-
-		if (op == DM_DEVICE_CREATE)
-			printf ("N:");
-
+	if (!conf->quiet)
 		printf ("%s:0 %li %s%s\n",
-			mpp->wwid,
+			mapname,
 			mpp->size, DM_TARGET,
 			mpp->params);
-	}
 
 	return 1;
-}
-
-static int
-map_present (char * str)
-{
-        int r = 0;
-	struct dm_task *dmt;
-        struct dm_names *names;
-        unsigned next = 0;
-
-	if (!(dmt = dm_task_create (DM_DEVICE_LIST)))
-		return 0;
-
-	if (!dm_task_run (dmt))
-		goto out;
-
-	if (!(names = dm_task_get_names (dmt)))
-		goto out;
-
-	if (!names->dev) {
-		goto out;
-	}
-
-	do {
-		if (0 == strcmp (names->name, str))
-			r = 1;
-		next = names->next;
-		names = (void *) names + next;
-	} while (next);
-
-	out:
-	dm_task_destroy (dmt);
-	return r;
 }
 
 static void
@@ -929,7 +963,6 @@ int
 main (int argc, char *argv[])
 {
 	vector mp;
-	struct multipath * mpp;
 	vector pathvec;
 	int k;
 	int try = 0;
@@ -937,7 +970,9 @@ main (int argc, char *argv[])
 	extern char *optarg;
 	extern int optind;
 
-	/* Don't run in parallel */
+	/*
+	 * Don't run in parallel
+	 */
 	while (filepresent (RUN) && try++ < MAXTRY)
 		usleep (100000);
 
@@ -946,16 +981,22 @@ main (int argc, char *argv[])
 		exit (1);
 	}
 	
-	/* Our turn */
+	/*
+	 * Our turn
+	 */
 	if (!open (RUN, O_CREAT)) {
 		fprintf (stderr, "can't create runfile\n");
 		exit (1);
 	}
 		
-	/* alloc config struct */
-	conf = malloc(sizeof(struct config));
+	/*
+	 * alloc config struct
+	 */
+	conf = zalloc(sizeof(struct config));
 				
-	/* internal defaults */
+	/*
+	 * internal defaults
+	 */
 	conf->dry_run = 0;		/* 1 == Do not Create/Update devmaps */
 	conf->verbose = 0;		/* 1 == Print pathvec and mp */
 	conf->quiet = 0;		/* 1 == Do not even print devmaps */
@@ -1026,36 +1067,38 @@ main (int argc, char *argv[])
 	if (optind<argc)
 		strncpy (conf->hotplugdev, argv[optind], FILE_NAME_SIZE);
 
-	/* read the config file */
+	/*
+	 * read the config file
+	 */
 	if (filepresent (CONFIGFILE))
 		init_data (CONFIGFILE, init_keywords);
 	
-	/* fill the voids left in the config file */
+	/*
+	 * fill the voids left in the config file
+	 */
 	if (conf->hwtable == NULL) {
 		conf->hwtable = vector_alloc();
 		setup_default_hwtable(conf->hwtable);
 	}
-	
 	if (conf->blist == NULL) {
 		conf->blist = vector_alloc();
 		setup_default_blist(conf->blist);
 	}
-
-	if (conf->mptable == NULL) {
+	if (conf->mptable == NULL)
 		conf->mptable = vector_alloc();
-	}
 
-	if (conf->default_selector == NULL) {
-		conf->default_selector = malloc(sizeof(char) * 12);
-		sprintf (conf->default_selector, "round-robin");
-	}
+	if (conf->default_selector == NULL)
+		conf->default_selector = DEFAULT_SELECTOR;
 
-	if (conf->udev_dir == NULL) {
-		conf->udev_dir = malloc(sizeof(char) * 6);
-		sprintf (conf->udev_dir, "/udev");
-	}
+	if (conf->udev_dir == NULL)
+		conf->udev_dir = DEFAULT_UDEVDIR;
 
-	/* allocate the two core vectors to store paths and multipaths*/
+	if (conf->default_getuid == NULL)
+		conf->default_getuid = DEFAULT_GETUID;
+
+	/*
+	 * allocate the two core vectors to store paths and multipaths
+	 */
 	mp = vector_alloc();
 	pathvec = vector_alloc();
 
@@ -1067,7 +1110,7 @@ main (int argc, char *argv[])
 	if (get_pathvec_sysfs(pathvec))
 		exit_tool(1);
 
-	if (VECTOR_SIZE(pathvec) == 0) {
+	if (VECTOR_SIZE(pathvec) == 0 && !conf->quiet) {
 		fprintf (stdout, "no path found\n");
 		exit_tool(0);
 	}
@@ -1079,31 +1122,33 @@ main (int argc, char *argv[])
 		print_all_mp(mp);
 	}
 
-	/* last chance to quit before messing with devmaps */
+	/*
+	 * last chance to quit before messing with devmaps
+	 */
 	if (conf->dry_run)
 		exit_tool(0);
 
 	if (conf->verbose)
 		fprintf (stdout, "#\n# device maps :\n#\n");
 
-	for (k = 0; k < VECTOR_SIZE(mp); k++) {
-		mpp = VECTOR_SLOT (mp, k);
-		if (map_present (mpp->wwid)) {
-			setup_map (pathvec, mp, k, DM_DEVICE_RELOAD);
-		} else {
-			setup_map (pathvec, mp, k, DM_DEVICE_CREATE);
-		}
-	}
+	for (k = 0; k < VECTOR_SIZE(mp); k++)
+		setup_map (pathvec, mp, k);
 
-	/* signal multipathd that new devmaps may have come up */
+	/*
+	 * signal multipathd that new devmaps may have come up
+	 */
 	if (conf->signal)
 		signal_daemon ();
 	
-	/* free allocs */
+	/*
+	 * free allocs
+	 */
 	free (mp);
 	free (pathvec);
 
-	/* release runfile */
+	/*
+	 * release runfile
+	 */
 	unlink (RUN);
 
 	exit (0);

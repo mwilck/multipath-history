@@ -34,6 +34,9 @@
 #define PIDFILE		"/var/run/multipathd.pid"
 #define RUN		"/var/run/multipath.run"
 #define CONFIGFILE	"/etc/multipath.conf"
+#define DEFAULT_GETUID	"/sbin/scsi_id -g -u -s"
+#define DEFAULT_UDEVDIR	"/udev"
+#define DEFAULT_SELECTOR	"round-robin"
 #define MAXTRY		50
 
 /* global types */
@@ -78,6 +81,7 @@ struct path {
 
 struct multipath {
 	char wwid[WWID_SIZE];
+	char * alias;
 	int iopolicy;
 	long size;
 	vector paths;

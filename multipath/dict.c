@@ -4,8 +4,7 @@
 #include "debug.h"
 
 /*
- * data handlers
- * global def handlers
+ * default block handlers
  */
 static void
 udev_dir_handler(vector strvec)
@@ -57,6 +56,9 @@ def_prio_callout_handler(vector strvec)
 	conf->default_getprio = set_value(strvec);
 }
 
+/*
+ * blacklist block handlers
+ */
 static void
 blacklist_handler(vector strvec)
 {
@@ -73,6 +75,9 @@ devnode_handler(vector strvec)
 	vector_set_slot(conf->blist, buff);
 }
 
+/*
+ * devices block handlers
+ */
 static void
 devices_handler(vector strvec)
 {
@@ -150,7 +155,10 @@ hw_selector_args_handler(vector strvec)
 	buff = set_value(strvec);
 	hwe->selector_args = atoi(buff);
 }
-			
+
+/*
+ * multipaths block handlers
+ */
 static void
 multipaths_handler(vector strvec)
 {
@@ -170,8 +178,17 @@ multipath_handler(vector strvec)
 static void
 wwid_handler(vector strvec)
 {
-	struct mpentry * mpe = VECTOR_SLOT(conf->mptable, VECTOR_SIZE(conf->mptable) - 1);
+	struct mpentry * mpe = VECTOR_SLOT(conf->mptable,
+					VECTOR_SIZE(conf->mptable) - 1);
 	mpe->wwid = set_value(strvec);
+}
+
+static void
+alias_handler(vector strvec)
+{
+        struct mpentry * mpe = VECTOR_SLOT(conf->mptable,
+				       VECTOR_SIZE(conf->mptable) - 1);
+        mpe->alias = set_value(strvec);
 }
 
 static void
@@ -225,7 +242,7 @@ init_keywords(void)
 	
 	install_keyword_root("devnode_blacklist", &blacklist_handler);
 	install_keyword("devnode", &devnode_handler);
-	
+
 	install_keyword_root("devices", &devices_handler);
 	install_keyword("device", &device_handler);
 	install_sublevel();
@@ -241,6 +258,7 @@ init_keywords(void)
 	install_keyword("multipath", &multipath_handler);
 	install_sublevel();
 	install_keyword("wwid", &wwid_handler);
+	install_keyword("alias", &alias_handler);
 	install_keyword("path_grouping_policy", &mp_iopolicy_handler);
 	install_keyword("path_selector", &mp_selector_handler);
 	install_keyword("path_selector_args", &mp_selector_args_handler);

@@ -1,4 +1,5 @@
 #include "memory.h"
+#include "log.h"
 
 void *
 zalloc(unsigned long size)
@@ -10,4 +11,3 @@ zalloc(unsigned long size)
 	
 	return mem;
 }
-

@@ -4,6 +4,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-extern void *zalloc(unsigned long size);
+#define MALLOC(a) zalloc(a)
+#define FREE(a) free(a)
 
-#endif
+extern void * zalloc (unsigned long size);
+
+#endif /* _MEMORY_H */
