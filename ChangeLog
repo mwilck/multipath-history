@@ -1,3 +1,8 @@
+	* [multipath] extend EVPD 0x83 id fetching logic.
+	  Code borrowed from scsi_id (thanks goes to Patrick
+	  Mansfield @IBM) and merged by Hannes Reinecke @SUSE
+	* [multipathd] fix regression noted by <genanr@emsphone.com>
+	  (segfault when no config file)
 2004-06-20 multipath-tools-0.2.4
 	* [multipathd] break free from system's libsysfs for now
 	  as it is not that common these days
