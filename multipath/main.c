@@ -540,42 +540,6 @@ coalesce_paths (vector mp, vector pathvec)
 }
 
 static int
-dm_get_map(char * name, char * outparams)
-{
-	int r = 0;
-	struct dm_task *dmt;
-	void *next = NULL;
-	uint64_t start, length;
-	char *target_type = NULL;
-	char *params;
-	int cmd;
-
-	cmd = DM_DEVICE_TABLE;
-
-	if (!(dmt = dm_task_create(cmd)))
-		return 0;
-
-	if (!dm_task_set_name(dmt, name))
-		goto out;
-
-	if (!dm_task_run(dmt))
-		goto out;
-
-	/* Fetch 1st target */
-	next = dm_get_next_target(dmt, next, &start, &length,
-				  &target_type, &params);
-
-	if (safe_snprintf(outparams, PARAMS_SIZE, params))
-		goto out;
-
-	r = 1;
-
-	out:
-	dm_task_destroy(dmt);
-	return r;
-}
-
-static int
 dm_reinstate(char * mapname, char * path)
 {
         int r = 0;
@@ -882,7 +846,7 @@ setup_map (vector pathvec, struct multipath * mpp)
 
 	if (op == DM_DEVICE_RELOAD) {
 		if (conf->dev && filepresent(conf->dev) &&
-		    dm_get_map(mapname, curparams) &&
+		    dm_get_map(mapname, NULL, &curparams) &&
 		    0 == strncmp(mpp->params, curparams, strlen(mpp->params))) {
 	                pp = zalloc(sizeof(struct path));
 	                basename(conf->dev, pp->dev);
