@@ -10,7 +10,7 @@ multipath \- Device mapper target autoconfig
 .RB [\| \-i\ \c
 .IR int \|]
 .RB [\| \-p\ \c
-.BR failover | multibus | group_by_serial | group_by_prio \|]
+.BR failover | multibus | group_by_serial | group_by_prio | group_by_node_name \|]
 .RB [\| -S \|]
 .RB [\| device \|]
 .SH DESCRIPTION
@@ -65,6 +65,9 @@ all paths in 1 priority group
 .TP
 .B group_by_prio
 1 priority group per priority value. Priorities are determined by callout programs specified as a global, per-controler or per-multipath option in the configuration file
+.TP
+.B group_by_node_name
+1 priority group per target node name. Target node names are fetched in /sys/class/fc_transport/target*/node_name.
 .RE
 .TP
 .B \-S

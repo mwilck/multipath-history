@@ -26,6 +26,7 @@
 /* global defs */
 #define WWID_SIZE	64
 #define SERIAL_SIZE	15
+#define NODE_NAME_SIZE	19
 #define PATH_STR_SIZE   16
 #define PARAMS_SIZE	256
 #define FILE_NAME_SIZE	256
@@ -109,6 +110,7 @@ struct path {
 	char product_id[SCSI_PRODUCT_SIZE];
 	char rev[SCSI_REV_SIZE];
 	char serial[SERIAL_SIZE];
+	char tgt_node_name[NODE_NAME_SIZE];
 	unsigned long size;
 	int state;
 	int dmstate;

@@ -343,11 +343,25 @@ sysfs_devinfo(struct path * curpath)
 			curpath->sg_id.lun);
 
 	/*
+	 * target node name
 	 */
+	if(safe_sprintf(attr_path,
+			"%s/class/fc_transport/target%i:%i:%i/node_name",
+			sysfs_path,
+			curpath->sg_id.host_no,
+			curpath->sg_id.channel,
+			curpath->sg_id.scsi_id)) {
+		fprintf(stderr, "attr_path too small\n");
 		return 1;
 	}
+	if (0 > readattr(attr_path, attr_buff))
 		return 1;
+	if (strlen(attr_buff) > 0)
+		strncpy(curpath->tgt_node_name, attr_buff,
+			strlen(attr_buff) - 1);
+	dbg("tgt_node_name = %s", curpath->tgt_node_name);
 
+	return 0;
 }
 
 static char *
