@@ -72,6 +72,9 @@ struct path {
 	int (*checkfn) (char *, char *, void **);
 	void * checker_context;
 	struct multipath * mpp;
+	
+	/* configlet pointers */
+	struct hwentry * hwe;
 };
 
 struct multipath {
@@ -101,5 +104,10 @@ struct pathgroup {
 	int priority;
 	vector paths;
 };
+
+struct path * alloc_path (void);
+struct multipath * alloc_multipath (void);
+void free_multipath (struct multipath *);
+struct multipath * find_mp (vector mp, char * alias);
 
 #endif
