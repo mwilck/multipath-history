@@ -322,7 +322,7 @@ filter_pathvec (vector pathvec, char * refwwid)
 /*
  * Transforms the path group vector into a proper device map string
  */
-void
+int
 assemble_map (struct multipath * mp)
 {
 	int i, j;
@@ -340,7 +340,7 @@ assemble_map (struct multipath * mp)
 
 	if (shift >= freechar) {
 		fprintf(stderr, "mp->params too small\n");
-		exit(1);
+		return 1;
 	}
 	p += shift;
 	freechar -= shift;
@@ -351,7 +351,7 @@ assemble_map (struct multipath * mp)
 				 VECTOR_SIZE(pgp->paths));
 		if (shift >= freechar) {
 			fprintf(stderr, "mp->params too small\n");
-			exit(1);
+			return 1;
 		}
 		p += shift;
 		freechar -= shift;
@@ -361,7 +361,7 @@ assemble_map (struct multipath * mp)
 					 pp->dev_t, conf->minio);
 			if (shift >= freechar) {
 				fprintf(stderr, "mp->params too small\n");
-				exit(1);
+				return 1;
 			}
 			p += shift;
 			freechar -= shift;
@@ -369,12 +369,14 @@ assemble_map (struct multipath * mp)
 	}
 	if (freechar < 1) {
 		fprintf(stderr, "mp->params too small\n");
-		exit(1);
+		return 1;
 	}
 	snprintf(p, 1, "\n");
-#if DEBUG
-	print_map(mp);
-#endif
+
+	if (conf->verbosity > 2)
+		print_map(mp);
+
+	return 0;
 }
 
 static int
