@@ -134,6 +134,8 @@ int select_checkfn(struct path *path_p, char *devname)
 		if (strncmp(vendor, wlist[i].vendor, 8) == 0 &&
 		    strncmp(product, wlist[i].product, 16) == 0) {
 			path_p->checkfn = wlist[i].checkfn;
+			LOG (2, "[select_checkfn] set checkfn for %s",
+			     devname);
 		}
 	}
 
@@ -242,15 +244,8 @@ int checkpath (struct path *path_p)
 	char devnode[FILENAMESIZE];
 	int r;
 	
-	LOG (2, "[checkpath] checking path %i:%i", path_p->major, path_p->minor);
 	sprintf (devnode, "/tmp/.checker.%i.%i", path_p->major, path_p->minor);
 	
-	if (path_p->checkfn == NULL) {
-		LOG (1, "[checkpath] test function not set for path %i:%i",
-		     path_p->major, path_p->minor);
-		return 1;
-	}
-
 	r = makenode (devnode, path_p->major, path_p->minor);
 
 	if (r < 0) {
@@ -261,6 +256,9 @@ int checkpath (struct path *path_p)
 	r = path_p->checkfn(devnode);
 	unlink (devnode);
 				
+	LOG (2, "[checkpath] checked path %i:%i => %i",
+	     path_p->major, path_p->minor, r);
+
 	return r;
 }
 
