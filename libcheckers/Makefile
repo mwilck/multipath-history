@@ -9,9 +9,13 @@ include ../Makefile.inc
 OBJS = readsector0.o tur.o selector.o checkers.o emc_clariion.o
 
 ifeq ($(strip $(BUILD)),klibc)
-	CFLAGS = ${REQFLAGS} ${OPTFLAGS}
+	CFLAGS = -I$(libdmdir)
 else
 	CFLAGS =
+
+ifneq	($(WITH_LOCAL_LIBDM),)
+	CFLAGS	+= -I$(libdmdir)
+endif
 endif
 
 all: $(BUILD)

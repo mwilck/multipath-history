@@ -4,7 +4,21 @@
 
 BUILD = glibc
 
-KERNEL_BUILD = /lib/modules/$(shell uname -r)/build
+#
+# Try to supply the linux kernel headers.
+#
+ifeq    ($(KRNLSRC),)
+KRNLLIB = /lib/modules/$(shell uname -r)
+ifeq    ($(shell test -r $(KRNLLIB)/source && echo 1),1)
+KRNLSRC = $(KRNLLIB)/source
+KRNLOBJ = $(KRNLLIB)/build
+else
+KRNLSRC = $(KRNLLIB)/build
+KRNLOBJ = $(KRNLLIB)/build
+endif
+endif
+export KRNLSRC
+export KRNLOBJ
 
 ifeq ($(strip $(BUILD)),klibc)
 	BUILDDIRS = libsysfs libdevmapper libcheckers \
@@ -14,6 +28,7 @@ else
 	BUILDDIRS = libmultipath libcheckers path_priority \
 		    devmap_name multipath multipathd kpartx
 endif
+ALLDIRS	= $(shell find . -type d -maxdepth 1 -mindepth 1)
 
 VERSION = $(shell basename ${PWD} | cut -d'-' -f3)
 INSTALLDIRS = devmap_name multipath multipathd kpartx path_priority
@@ -27,12 +42,12 @@ recurse:
 	done
 
 recurse_clean:
-	@for dir in $(BUILDDIRS); do\
+	@for dir in $(ALLDIRS); do\
 	$(MAKE) -C $$dir clean || exit $?; \
 	done
 
 recurse_clean_klibc:
-	@for dir in $(BUILDDIRS); do\
+	@for dir in $(ALLDIRS); do\
 	$(MAKE) -C $$dir BUILD=klibc clean || exit $?; \
 	done
 

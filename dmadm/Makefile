@@ -9,8 +9,21 @@ ifeq ($(strip $(BUILD)),klibc)
 	OBJS = util.o dmadm.o $(SYSFSLIB)-$(BUILD).a $(DMLIB)-$(BUILD).a
 else
 	CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes
-	LDFLAGS = -ldevmapper -lsysfs
+	LDFLAGS =
 	OBJS = util.o dmadm.o
+
+ifneq	($(WITH_LOCAL_LIBDM),)
+	CFLAGS	+= -I$(libdmdir)
+	OBJS	+=  $(DMLIB)-$(BUILD).a
+else
+	LDFLAGS	+= -ldevmapper
+endif
+ifneq	($(WITH_LOCAL_LIBSYSFS),)
+	CFLAGS	+= -I$(sysfsdir)
+	OBJS	+= $(SYSFSLIB)-$(BUILD).a
+else
+	LDFLAGS	+= -lsysfs
+endif
 endif
 
 all: $(BUILD)

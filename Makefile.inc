@@ -2,6 +2,17 @@
 #
 # Copyright (C) 2004 Christophe Varoqui, <christophe.varoqui@free.fr>
 
+#
+# Allow to force some libraries to be used statically. (Uncomment one of the
+# following lines or define the values when calling make.)
+#
+# WITH_LOCAL_LIBDM	= 1
+# WITH_LOCAL_LIBSYSFS	= 1
+
+ifeq ($(TOPDIR),)
+	TOPDIR	= ..
+endif
+
 ifeq ($(strip $(BUILD)),klibc)
 	CC=klcc
 endif
@@ -9,10 +20,10 @@ endif
 prefix      = 
 exec_prefix = $(prefix)
 bindir      = $(exec_prefix)/sbin
-libdmdir    = ../libdevmapper
-sysfsdir    = ../libsysfs
-checkersdir = ../libcheckers
-multipathdir = ../libmultipath
+libdmdir    = $(TOPDIR)/libdevmapper
+sysfsdir    = $(TOPDIR)/libsysfs
+checkersdir = $(TOPDIR)/libcheckers
+multipathdir = $(TOPDIR)/libmultipath
 mandir      = /usr/share/man/man8
 
 GZIP        = /bin/gzip -9 -c
@@ -22,5 +33,3 @@ DMLIB = $(libdmdir)/libdevmapper
 SYSFSLIB = $(sysfsdir)/libsysfs
 CHECKERSLIB = $(checkersdir)/libcheckers
 MULTIPATHLIB = $(multipathdir)/libmultipath
-
-KERNEL_BUILD = /lib/modules/$(shell uname -r)/build

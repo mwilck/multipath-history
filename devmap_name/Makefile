@@ -6,13 +6,20 @@ BUILD = glibc
 include ../Makefile.inc
 
 ifeq ($(strip $(BUILD)),klibc)
-	CFLAGS = ${REQFLAGS} ${OPTFLAGS} -I$(libdmdir)
+	CFLAGS = -I$(libdmdir)
 	OBJS = devmap_name.o $(DMLIB)-$(BUILD).a
 else
 	CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes \
 		 -DDEBUG=$(DEBUG)
-	LDFLAGS = -ldevmapper
+	LDFLAGS =
 	OBJS = devmap_name.o
+
+ifneq	($(WITH_LOCAL_LIBDM),)
+	CFLAGS	+= -I$(libdmdir)
+	OBJS	+= $(DMLIB)-$(BUILD).a
+else
+	LDFLAGS	+= -ldevmapper
+endif
 endif
 
 EXEC = devmap_name

@@ -11,9 +11,13 @@ OBJS = memory.o parser.o vector.o devmapper.o callout.o \
        structs.o
 
 ifeq ($(strip $(BUILD)),klibc)
-	CFLAGS = ${REQFLAGS} ${OPTFLAGS} -I$(libdmdir)
+	CFLAGS = -I$(libdmdir) -I$(sysfsdir)
 else
 	CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes
+
+ifneq ($(WITH_LOCAL_LIBSYSFS),)
+	CFLAGS += -I$(sysfsdir)
+endif
 endif
 
 all: $(BUILD)

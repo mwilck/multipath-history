@@ -9,7 +9,7 @@ OBJS = pgpolicies.o propsel.o devinfo.o main.o dict.o \
        $(MULTIPATHLIB)-$(BUILD).a $(CHECKERSLIB)-$(BUILD).a
 
 ifeq ($(strip $(BUILD)),klibc)
-	CFLAGS = ${REQFLAGS} ${OPTFLAGS} -DDEBUG=${DEBUG} \
+	CFLAGS = -DDEBUG=${DEBUG} \
 		 -DVERSION=$(VERSION) -I$(multipathdir) \
 		 -I$(libdmdir) -I$(sysfsdir) -I$(checkersdir)
 	OBJS += $(SYSFSLIB)-$(BUILD).a $(DMLIB)-$(BUILD).a
@@ -17,7 +17,20 @@ else
 	CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes \
 		 -DDEBUG=$(DEBUG) -I$(multipathdir) -I$(checkersdir) \
 		 -DVERSION=$(VERSION)
-	LDFLAGS = -ldevmapper -lsysfs
+	LDFLAGS =
+
+ifneq	($(WITH_LOCAL_LIBDM),)
+	CFLAGS	+= -I$(libdmdir)
+	OBJS	+= $(DMLIB)-$(BUILD).a
+else
+	LDFLAGS	+= -ldevmapper
+endif
+ifneq	($(WITH_LOCAL_LIBSYSFS),)
+	CFLAGS	+= -I$(sysfsdir)
+	OBJS	+= $(SYSFSLIB)-$(BUILD).a
+else
+	LDFLAGS	+= -lsysfs
+endif
 endif
 
 EXEC = multipath
