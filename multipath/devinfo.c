@@ -9,11 +9,16 @@
 #include <errno.h>
 #include <safe_printf.h>
 
-#include "../libsysfs/sysfs/libsysfs.h"
+#include <sysfs/dlist.h>
+#include <sysfs/libsysfs.h>
+#include <memory.h>
+#include <callout.h>
+
 #include "devinfo.h"
 #include "sg_include.h"
 #include "debug.h"
 #include "config.h"
+#include "propsel.h"
 
 #define readattr(a,b) \
 	sysfs_read_attribute_value(a, b, sizeof(b))
@@ -229,94 +234,101 @@ get_serial (char * str, char * devt)
         return 0;
 }
 
-int
+extern int
 sysfs_devinfo(struct path * curpath)
 {
 	char attr_path[FILE_NAME_SIZE];
-	char attr_buff[32];
+	char attr_buff[FILE_NAME_SIZE];
 	char sysfs_path[FILE_NAME_SIZE];
 	struct stat buf;
 
-	if (0 == sysfs_get_mnt_path(sysfs_path, FILE_NAME_SIZE)) {
-		if (safe_sprintf(attr_path, "%s/block/%s",
-				 sysfs_path, curpath->dev)) {
-			fprintf(stderr, "attr_path too small\n");
-			return 1;
-		}
-		
-		if(stat(attr_path, &buf))
-			return 1;
-
-		/*
-		 * vendor string
-		 */
-		if(safe_sprintf(attr_path, "%s/block/%s/device/vendor",
-			sysfs_path, curpath->dev)) {
-			fprintf(stderr, "attr_path too small\n");
-			return 1;
-		}
-		if (0 > readattr(attr_path, attr_buff))
-			return 1;
-		memcpy(curpath->vendor_id, attr_buff, 8);
- 
-		/*
-		 * model string
-		 */
-		if(safe_sprintf(attr_path, "%s/block/%s/device/model",
-			sysfs_path, curpath->dev)) {
-			fprintf(stderr, "attr_path too small\n");
-			return 1;
-		}
-		if (0 > readattr(attr_path, attr_buff))
-			return 1;
-		memcpy(curpath->product_id, attr_buff, 16);
- 
-		/*
-		 * revision string
-		 */
-		if(safe_sprintf(attr_path, "%s/block/%s/device/rev",
-			sysfs_path, curpath->dev)) {
-			fprintf(stderr, "attr_path too small\n");
-			return 1;
-		}
-		if (0 > readattr(attr_path, attr_buff))
-			return 1;
-		memcpy(curpath->rev, attr_buff, 4);
- 
-		/*
-		 * bdev major:minor string
-		 */
-		if(safe_sprintf(attr_path, "%s/block/%s/dev",
-			sysfs_path, curpath->dev)) {
-			fprintf(stderr, "attr_path too small\n");
-			return 1;
-		}
-		if (0 > readattr(attr_path, attr_buff))
-			return 1;
-		if (strlen(attr_buff) > 1)
-			strncpy(curpath->dev_t, attr_buff,
-				strlen(attr_buff) - 1);
-
-		/*
-		 * sg dev major:minor string
-		 */
-		if(safe_sprintf(attr_path, "%s/block/%s/device/generic/dev",
-			sysfs_path, curpath->dev)) {
-			fprintf(stderr, "attr_path too small\n");
-			return 1;
-		}
-		if (0 > readattr(attr_path, attr_buff)) {
-			fprintf(stderr, "please load the sg driver\n");
-			return 1;
-		}
-
-		if (strlen(attr_buff) > 1)
-			strncpy(curpath->sg_dev_t, attr_buff,
-				strlen(attr_buff) - 1);
-	} else {
+	if (sysfs_get_mnt_path(sysfs_path, FILE_NAME_SIZE)) {
 		fprintf(stderr, "need sysfs mounted : out\n");
 		return 1;
 	}
+	if (safe_sprintf(attr_path, "%s/block/%s", sysfs_path, curpath->dev)) {
+		fprintf(stderr, "attr_path too small\n");
+		return 1;
+	}
+	if(stat(attr_path, &buf))
+		return 1;
+
+	/*
+	 * vendor string
+	 */
+	if(safe_sprintf(attr_path, "%s/block/%s/device/vendor",
+			sysfs_path, curpath->dev)) {
+		fprintf(stderr, "attr_path too small\n");
+		return 1;
+	}
+	if (0 > readattr(attr_path, attr_buff))
+		return 1;
+	memcpy(curpath->vendor_id, attr_buff, 8);
+	dbg("vendor = %s", curpath->vendor_id);
+
+	/*
+	 * model string
+	 */
+	if(safe_sprintf(attr_path, "%s/block/%s/device/model",
+		sysfs_path, curpath->dev)) {
+		fprintf(stderr, "attr_path too small\n");
+		return 1;
+	}
+	if (0 > readattr(attr_path, attr_buff))
+			return 1;
+	memcpy(curpath->product_id, attr_buff, 16);
+	dbg("product = %s", curpath->product_id);
+
+	/*
+	 * revision string
+	 */
+	if(safe_sprintf(attr_path, "%s/block/%s/device/rev",
+		sysfs_path, curpath->dev)) {
+		fprintf(stderr, "attr_path too small\n");
+		return 1;
+	}
+	if (0 > readattr(attr_path, attr_buff))
+		return 1;
+	memcpy(curpath->rev, attr_buff, 4);
+	dbg("rev = %s", curpath->rev);
+
+	/*
+	 * bdev major:minor string
+	 */
+	if(safe_sprintf(attr_path, "%s/block/%s/dev",
+		sysfs_path, curpath->dev)) {
+		fprintf(stderr, "attr_path too small\n");
+		return 1;
+	}
+	if (0 > readattr(attr_path, attr_buff))
+		return 1;
+	if (strlen(attr_buff) > 1)
+		strncpy(curpath->dev_t, attr_buff,
+			strlen(attr_buff) - 1);
+	dbg("dev_t = %s", curpath->dev_t);
+
+	/*
+	 * host / bus / target / lun
+	 */
+	if(safe_sprintf(attr_path, "%s/block/%s/device",
+			sysfs_path, curpath->dev)) {
+		fprintf(stderr, "attr_path too small\n");
+		return 1;
+	}
+	if (0 > sysfs_get_link(attr_path, attr_buff, sizeof(attr_buff)))
+		return 1;
+	basename(attr_buff, attr_path);
+	sscanf(attr_path, "%i:%i:%i:%i",
+			&curpath->sg_id.host_no,
+			&curpath->sg_id.channel,
+			&curpath->sg_id.scsi_id,
+			&curpath->sg_id.lun);
+	dbg("h:b:t:l = %i:%i:%i:%i",
+			curpath->sg_id.host_no,
+			curpath->sg_id.channel,
+			curpath->sg_id.scsi_id,
+			curpath->sg_id.lun);
+
 	return 0;
 }
 
@@ -612,3 +624,151 @@ get_evpd_wwid (char * dev_t, char * wwid)
 	closenode(dev_t, fd);
         return retval;
 }
+
+static char *
+apply_format (char * string, int maxsize, struct path * pp)
+{
+	char * pos;
+	char * dst;
+	char * p;
+	int len;
+	int free;
+
+	if (!string)
+		return NULL;
+
+	dst = zalloc(maxsize);
+
+	if (!dst)
+		return NULL;
+
+	p = dst;
+	pos = strchr(string, '%');
+	free = maxsize;
+
+	if (!pos)
+		return string;
+
+	len = (int) (pos - string) + 1;
+	free -= len;
+
+	if (free < 2)
+		return NULL;
+
+	snprintf(p, len, "%s", string);
+	p += len - 1;
+	pos++;
+
+	switch (*pos) {
+	case 'n':
+		len = strlen(pp->dev) + 1;
+		free -= len;
+
+		if (free < 2)
+			return NULL;
+
+		snprintf(p, len, "%s", pp->dev);
+		p += len - 1;
+		break;
+	case 'd':
+		len = strlen(pp->dev_t) + 1;
+		free -= len;
+
+		if (free < 2)
+			return NULL;
+
+		snprintf(p, len, "%s", pp->dev_t);
+		p += len - 1;
+		break;
+	default:
+		break;
+	}
+	pos++;
+
+	if (!*pos)
+		return dst;
+
+	len = strlen(pos) + 1;
+	free -= len;
+
+	if (free < 2)
+		return NULL;
+
+	snprintf(p, len, "%s", pos);
+	dbg("reformated callout = %s", dst);
+	return dst;
+}
+
+extern int
+devinfo (struct path *pp)
+{
+	char * buff;
+	char prio[16];
+
+	dbg("===== path %s =====", pp->dev);
+
+	/*
+	 * fetch info available in sysfs
+	 */
+	if (sysfs_devinfo(pp))
+		return 1;
+
+	/*
+	 * then those not available through sysfs
+	 */
+	get_serial(pp->serial, pp->dev_t);
+	dbg("serial = %s", pp->serial);
+	pp->claimed = get_claimed(pp->dev_t);
+	dbg("claimed = %i", pp->claimed);
+
+	/*
+	 * get path state, no message collection, no context
+	 */
+	select_checkfn(pp);
+	pp->state = pp->checkfn(pp->dev_t, NULL, NULL);
+	dbg("state = %i", pp->state);
+	
+	/*
+	 * get path prio
+	 */
+	select_getprio(pp);
+	buff = apply_format(pp->getprio, CALLOUT_MAX_SIZE, pp);
+
+	if (!buff)
+		pp->priority = 1;
+	else if (execute_program(buff, prio, 16)) {
+		dbg("error calling out %s", buff);
+		pp->priority = 1;
+	} else
+		pp->priority = atoi(prio);
+
+	dbg("prio = %u", pp->priority);
+
+	/*
+	 * get path uid
+	 */
+	select_getuid(pp);
+
+	buff = apply_format(pp->getuid, CALLOUT_MAX_SIZE, pp);
+
+	if (!buff)
+		goto fallback;
+
+	if (execute_program(buff, pp->wwid, WWID_SIZE) == 0) {
+		dbg("uid = %s (callout)", pp->wwid);
+		return 0;
+	}
+
+	fallback:
+	if (!get_evpd_wwid(pp->dev_t, pp->wwid)) {
+		dbg("uid = %s (internal getuid)", pp->wwid);
+		return 0;
+	}
+	/*
+	 * no wwid : blank for safety
+	 */
+	dbg("uid = 0x0 (unable to fetch)");
+	memset(pp->wwid, 0, WWID_SIZE);
+	return 1;
+}
+

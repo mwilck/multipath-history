@@ -283,153 +283,6 @@ blacklist (char * dev) {
 	return 0;
 }
 
-static char *
-apply_format (char * string, int maxsize, struct path * pp)
-{
-	char * pos;
-	char * dst;
-	char * p;
-	char c;
-	int len;
-	int free;
-
-	dst = zalloc(maxsize);
-
-	if (!dst)
-		return NULL;
-
-	p = dst;
-	pos = strchr(string, '%');
-	free = maxsize;
-
-	if (!pos)
-		return string;
-
-	len = (int) (pos - string) + 1;
-	free -= len;
-
-	if (free < 2)
-		return NULL;
-
-	snprintf(p, len, "%s", string);
-	p += len - 1;
-	pos++;
-
-	switch (*pos) {
-	case 'n':
-		len = strlen(pp->dev) + 1;
-		free -= len;
-
-		if (free < 2)
-			return NULL;
-
-		snprintf(p, len, "%s", pp->dev);
-		p += len - 1;
-		break;
-	case 'd':
-		len = strlen(pp->dev_t) + 1;
-		free -= len;
-
-		if (free < 2)
-			return NULL;
-
-		snprintf(p, len, "%s", pp->dev_t);
-		p += len - 1;
-		break;
-	default:
-		break;
-	}
-	pos++;
-
-	if (!*pos)
-		return dst;
-
-	len = strlen(pos) + 1;
-	free -= len;
-
-	if (free < 2)
-		return NULL;
-
-	snprintf(p, len, "%s", pos);
-	dbg("reformated callout = %s", dst);
-	return dst;
-}
-
-static int
-devinfo (struct path *pp)
-{
-	int i;
-	struct hwentry * hwe;
-	char * buff;
-	char prio[16];
-
-	dbg("===== path %s =====", pp->dev);
-
-	/*
-	 * fetch info available in sysfs
-	 */
-	if (sysfs_devinfo(pp))
-		return 1;
-
-	/*
-	 * then those not available through sysfs
-	 */
-	get_serial(pp->serial, pp->dev_t);
-	dbg("serial = %s", pp->serial);
-	pp->claimed = get_claimed(pp->dev_t);
-	dbg("claimed = %i", pp->claimed);
-
-	/*
-	 * get path state, no message collection, no context
-	 */
-	select_checkfn(pp);
-	pp->state = pp->checkfn(pp->dev_t, NULL, NULL);
-	dbg("state = %i", pp->state);
-	
-	/*
-	 * get path prio
-	 */
-	select_getprio(pp);
-	buff = apply_format(pp->getprio, CALLOUT_MAX_SIZE, pp);
-
-	if (!buff)
-		pp->priority = 1;
-	else if (execute_program(buff, prio, 16)) {
-		dbg("error calling out %s", buff);
-		pp->priority = 1;
-	} else
-		pp->priority = atoi(prio);
-
-	dbg("prio = %u", pp->priority);
-
-	/*
-	 * get path uid
-	 */
-	select_getuid(pp);
-
-	buff = apply_format(pp->getuid, CALLOUT_MAX_SIZE, pp);
-
-	if (!buff)
-		goto fallback;
-
-	if (execute_program(buff, pp->wwid, WWID_SIZE) == 0) {
-		dbg("uid = %s (callout)", pp->wwid);
-		return 0;
-	}
-
-	fallback:
-	if (!get_evpd_wwid(pp->dev_t, pp->wwid)) {
-		dbg("uid = %s (internal getuid)", pp->wwid);
-		return 0;
-	}
-	/*
-	 * no wwid : blank for safety
-	 */
-	dbg("uid = 0x0 (unable to fetch)");
-	memset(pp->wwid, 0, WWID_SIZE);
-	return 1;
-}
-
 static int
 get_pathvec_sysfs (vector pathvec)
 {
@@ -521,20 +374,11 @@ get_pathvec_sysfs (vector pathvec)
 			free (curpath);
 			continue;
 		}
-
 		if (memcmp(empty_buff, refwwid, WWID_SIZE) != 0 && 
 		    memcmp(curpath->wwid, refwwid, WWID_SIZE) != 0) {
 			free(curpath);
 			continue;
 		}
-
-		basename(linkp->target, buff);
-		sscanf(buff, "%i:%i:%i:%i",
-			&curpath->sg_id.host_no,
-			&curpath->sg_id.channel,
-			&curpath->sg_id.scsi_id,
-			&curpath->sg_id.lun);
-
 		vector_alloc_slot(pathvec);
 		vector_set_slot(pathvec, curpath);
 	}
