@@ -861,7 +861,7 @@ main (int argc, char *argv[])
 	 */
 	conf->list = 0;
 	conf->dry_run = 0;		/* 1 == Do not Create/Update devmaps */
-	conf->verbosity = 1;
+	conf->verbosity = 2;
 	conf->pgpolicy_flag = 0;	/* do not override defaults */
 	conf->signal = 1;		/* 1 == Send a signal to multipathd */
 	conf->dev = NULL;
