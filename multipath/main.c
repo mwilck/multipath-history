@@ -338,23 +338,24 @@ print_mp (struct multipath * mpp)
 		if (mpp->selector)
 			printf("%s ", mpp->selector);
 
+		switch (pgp->status) {
+		case PGSTATE_ENABLED:
+			printf("[enabled]");
+			break;
+		case PGSTATE_DISABLED:
+			printf("[disabled]");
+			break;
+		case PGSTATE_ACTIVE:
+			printf("[active]");
+			break;
+		default:
+			break;
+		}
 		if (mpp->nextpg && mpp->nextpg == j + 1)
 			printf("[first]");
 
-		switch (pgp->status) {
-		case PGSTATE_ENABLED:
-			printf("[enabled]\n");
-			break;
-		case PGSTATE_DISABLED:
-			printf("[disabled]\n");
-			break;
-		case PGSTATE_ACTIVE:
-			printf("[active]\n");
-			break;
-		default:
-			printf("\n");
-			break;
-		}
+		printf("\n");
+
 		vector_foreach_slot (pgp->paths, pp, i)
 			print_path(pp, PRINT_PATH_SHORT);
 	}
