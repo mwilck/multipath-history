@@ -503,7 +503,8 @@ assemble_map (struct multipath * mp)
 		freechar -= shift;
 
 		vector_foreach_slot (pgp->paths, pp, j) {
-			shift = snprintf(p, freechar, " %s 1000" ,pp->dev_t);
+			shift = snprintf(p, freechar, " %s %d",
+					 pp->dev_t, conf->minio);
 			if (shift >= freechar) {
 				fprintf(stderr, "mp->params too small\n");
 				exit(1);
