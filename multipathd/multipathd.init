@@ -9,14 +9,18 @@ test -x $DAEMON || exit 0
 case "$1" in
   start)
 	echo -n "Starting multipath daemon: multipathd"
-	/sbin/modprobe sg;
         $DAEMON
 	echo "."
 	;;
   stop)
-	echo -n "Stopping multipath daemon: multipathd "
-	killall multipathd
+	echo -n "Stopping multipath daemon: multipathd"
 	echo "."
+	if [ -f $PIDFILE ]
+	then
+		kill `cat $PIDFILE`
+	else
+		echo "multipathd not running: Nothing to stop..."
+	fi
 	;;
   force-reload|restart)
 	$0 stop
@@ -25,6 +29,7 @@ case "$1" in
   *)
 	echo "Usage: /etc/init.d/multipathd {start|stop|restart|force-reload}"
 	exit 1
+	;;
 esac
 
 exit 0
