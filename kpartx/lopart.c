@@ -285,6 +285,7 @@ del_loop (const char *device)
 
 	if (ioctl (fd, LOOP_CLR_FD, 0) < 0) {
 		perror ("ioctl: LOOP_CLR_FD");
+		close (fd);
 		return 1;
 	}
 

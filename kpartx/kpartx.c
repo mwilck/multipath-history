@@ -34,6 +34,7 @@
 #define DM_TARGET	"linear"
 #define LO_NAME_SIZE    64
 #define PARTNAME_SIZE	128
+#define DELIM_SIZE	8
 
 struct slice slices[MAXSLICES];
 
@@ -68,6 +69,8 @@ initpts(void)
 	addpts("unixware", read_unixware_pt);
 }
 
+static char short_opts[] = "ladgvnp:t:";
+
 /* Used in gpt.c */
 int force_gpt=0;
 
@@ -77,6 +80,7 @@ usage(void) {
 	printf("\t-a add partition devmappings\n");
 	printf("\t-d del partition devmappings\n");
 	printf("\t-l list partitions devmappings that would be added by -a\n");
+	printf("\t-p set device name-partition number delimiter\n");
 	printf("\t-v verbose\n");
 	return 1;
 }
@@ -161,7 +165,7 @@ set_delimiter (char * device, char * delimiter)
 	while (*(p++) != 0x0)
 		continue;
 
-	if (isdigit (*(p - 2)))
+	if (isdigit(*(p - 2)))
 		*delimiter = 'p';
 }
 
@@ -193,7 +197,7 @@ find_devname_offset (char * device)
 			
 int
 main(int argc, char **argv){
-        int fd, i, j, k, n, op, off;
+        int fd, i, j, k, n, op, off, arg;
 	struct slice all;
 	struct pt *ptp;
 	enum action what = LIST;
@@ -203,7 +207,7 @@ main(int argc, char **argv){
 	struct dm_task *dmt;
 	char partname[PARTNAME_SIZE], params[30];
 	char * loopdev = NULL;
-	char delim[8] = "";
+	char * delim = NULL;
 	int loopro = 0;
 	struct stat buf;
 
@@ -218,55 +222,49 @@ main(int argc, char **argv){
 		exit(1);
 	}
 
-	for (i = 1; i < argc; ++i) {
-		if (0 == strcmp("-g", argv[i])) {
+	while ((arg = getopt(argc, argv, short_opts)) != EOF) switch(arg) {
+		case 'g':
 			force_gpt=1;
-			continue;
-		}
-		if (0 == strcmp("-t", argv[i])) {
-			strcpy(type, argv[++i]);
-			continue;
-		}
-		if (0 == strcmp("-v", argv[i])) {
+			break;
+		case 't':
+			type = optarg;
+			break;
+		case 'v':
 			verbose = 1;
-			continue;
-		}
-		if (0 == strcmp("-n", argv[i])) {
-			p = argv[++i];
+			break;
+		case 'n':
+			p = optarg;
 			lower = atoi(p);
 			if ((p[1] == '-') && p[2])
 				upper = atoi(p+2);
 			else
 				upper = lower;
-			continue;
-		}
-
-		if (0 == strcmp("-l", argv[i])) {
+			break;
+		case 'p':
+			delim = optarg;
+			break;
+		case 'l':
 			what = LIST;
-			continue;
-		}
-		else if (0 == strcmp("-a", argv[i])) {
+			break;
+		case 'a':
 			what = ADD;
-			continue;
-		}
-		else if (0 == strcmp("-d", argv[i])) {
+			break;
+		case 'd':
 			what = DELETE;
-			continue;
-		}
-		
-		if ((i == argc-2) && (argv[i][0] != '-')) {
-			device = argv[i];
-			diskdevice = argv[++i];
 			break;
-		}
+		default:
+			usage();
+			exit(1);
+	}
 
-		if ((i == argc-1) && (argv[i][0] != '-')) {
-			diskdevice = device = argv[i];
-			break;
-		}
-
-		usage ();
-		exit (1);
+	if (optind == argc-2) {
+		device = argv[optind];
+		diskdevice = argv[optind+1];
+	} else if (optind == argc-1) {
+		diskdevice = device = argv[optind];
+	} else {
+		usage();
+		exit(1);
 	}
 
 	if (stat (device, &buf)) {
@@ -275,10 +273,10 @@ main(int argc, char **argv){
 	}
 
 	if (S_ISREG (buf.st_mode)) {
-		loopdev = malloc(LO_NAME_SIZE * sizeof (char));
+		loopdev = malloc(LO_NAME_SIZE * sizeof(char));
 		
 		if (!loopdev)
-			exit (1);
+			exit(1);
 
 		/* already looped file ? */
 		loopdev = find_loop_by_file(device);
@@ -289,153 +287,134 @@ main(int argc, char **argv){
 		if (!loopdev) {
 			loopdev = find_unused_loop_device();
 
-			if (set_loop (loopdev, device, 0, &loopro)) {
-				fprintf (stderr,
-					 "can't set up loop\n");
+			if (set_loop(loopdev, device, 0, &loopro)) {
+				fprintf(stderr, "can't set up loop\n");
 				exit (1);
 			}
 		}
-
 		device = loopdev;
 	}
 
-	set_delimiter (device, &delim[0]);
-	off = find_devname_offset (device);
-
-	fd = open (device, O_RDONLY);
+	if (delim == NULL) {
+		delim = malloc(DELIM_SIZE);
+		memset(delim, 0, DELIM_SIZE);
+		set_delimiter(device, delim);
+	}
+	
+	off = find_devname_offset(device);
+	fd = open(device, O_RDONLY);
 
 	if (fd == -1) {
-		perror (device);
-		exit (1);
+		perror(device);
+		exit(1);
 	}
-
 	if (!lower)
 		lower = 1;
 
 	/* add/remove partitions to the kernel devmapper tables */
-
 	for (i = 0; i < ptct; i++) {
-
 		ptp = &pts[i];
 
-		if (type && strcmp (type, ptp->type) > 0)
+		if (type && strcmp(type, ptp->type) > 0)
 			continue;
 		
 		/* here we get partitions */
-		n = ptp->fn (fd, all, slices, SIZE(slices));
+		n = ptp->fn(fd, all, slices, SIZE(slices));
 
-		if (n >= 0 && verbose)
-			printf ("%s: %d slices\n", ptp->type, n);
+#ifdef DEBUG
+		if (n >= 0)
+			printf("%s: %d slices\n", ptp->type, n);
+#endif
 
 		if (n > 0)
-			close (fd);
+			close(fd);
+		else
+			continue;
 
-		if (n > 0 && what == LIST) {
-
-			for (j = 0; j < n; j++) {
-
-				if (slices[j].size == 0)
-					continue;
-
-				printf ("%s%s%d : 0 %d %s %d\n",
-				        device + off, delim, j+1,
-					slices[j].size, device,
-				        slices[j].start);
+		/*
+		 * test for overlap, as in the case of an extended partition
+		 * zero their size to avoid mapping
+		 */
+		for (j=0; j<n; j++) {
+			for (k=j+1; k<n; k++) {
+				if (slices[k].start > slices[j].start &&
+				    slices[k].start < slices[j].start +
+				    slices[j].size)
+					slices[j].size = 0;
 			}
 		}
 
-		if (n > 0 && what == DELETE) {
-
+		switch(what) {
+		case LIST:
 			for (j = 0; j < n; j++) {
-
-				sprintf (partname, 
-					 "%s%s%d", device + off , delim, j+1);
-
-				strip_slash (partname);
-			
 				if (slices[j].size == 0)
 					continue;
 
-				if (!map_present (partname))
+				printf("%s%s%d : 0 %lu %s %lu\n",
+					device + off, delim, j+1,
+					(unsigned long) slices[j].size, device,
+				        (unsigned long) slices[j].start);
+			}
+			break;
+
+		case DELETE:
+			for (j = 0; j < n; j++) {
+				sprintf(partname, "%s%s%d",
+					device + off , delim, j+1);
+				strip_slash(partname);
+
+				if (!slices[j].size || !map_present(partname))
 					continue;
 
-				if (!(dmt = dm_task_create (DM_DEVICE_REMOVE)))
-					return 0;
-
-				if (!dm_task_set_name (dmt, partname))
-					goto delout;
-			
-				if (!dm_task_run (dmt))
-					goto delout;
-
+				if (!dm_simplecmd(DM_DEVICE_REMOVE, partname))
+					continue;
+				
 				if (verbose)
-					printf ("Deleted device map : %s\n",
-						 partname);
-
-				delout:
-					dm_task_destroy (dmt);
+					printf("del devmap : %s\n", partname);
 			}
 
 			if (S_ISREG (buf.st_mode)) {
-
-				if (del_loop (device) && verbose) {
-				    printf ("can't delete loop : %s\n", device);
-				    exit (1);
+				if (del_loop(device)) {
+					if (verbose)
+				    		printf("can't del loop : %s\n",
+							device);
+					exit(1);
 				}
-
-				printf ("loop deleted : %s\n", device);
+				printf("loop deleted : %s\n", device);
 			}
-		}
+			break;
 
-		if (n > 0 && what == ADD) {
-
-			/* test for overlap, as in the case of an
-			   extended partition, and reduce size */
-
+		case ADD:
 			for (j=0; j<n; j++) {
-
-				for (k=j+1; k<n; k++) {
-
-					if (slices[k].start > slices[j].start &&
-					    slices[k].start < slices[j].start +
-					    slices[j].size) {
-						slices[j].size = slices[k].start -
-								 slices[j].start;
-
-						if (verbose)
-							printf("reduced size of "
-							       "partition #%d to %d\n",
-							       lower+j, slices[j].size);
-					}
-				}
-			}
-
-			for (j=0; j<n; j++) {
-
 				if (slices[j].size == 0)
 					continue;
 
 				sprintf(partname, "%s%s%d", 
 					device + off , delim, j+1);
+				strip_slash(partname);
+				sprintf(params, "%s %lu",
+					device, (unsigned long)slices[j].start);
 
-				strip_slash (partname);
+				op = (map_present(partname) ?
+					DM_DEVICE_RELOAD : DM_DEVICE_CREATE);
 
-				sprintf(params, "%s %d", device, (unsigned) slices[j].start);
-
-				op = (map_present (partname) ? DM_DEVICE_RELOAD : DM_DEVICE_CREATE);
-
-				dm_addmap (op, partname, params, (unsigned) slices[j].size);
+				dm_addmap(op, partname, params, slices[j].size);
 
 				if (op == DM_DEVICE_RELOAD)
-					dm_simplecmd (DM_DEVICE_RESUME, partname);
+					dm_simplecmd(DM_DEVICE_RESUME,
+							partname);
 
 				if (verbose)
 					printf("add map %s : 0 %lu %s %s\n",
 						partname, slices[j].size,
 						DM_TARGET, params);
 			}
-		}
+			break;
 
+		default:
+			break;
+
+		}
 		if (n > 0)
 			break;
 	}
