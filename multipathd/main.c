@@ -56,10 +56,6 @@
 
 #define CALLOUT_DIR "/var/cache/multipathd"
 
-#ifndef LOGLEVEL
-#define LOGLEVEL 5
-#endif
-
 #define LOG_MSG(a,b) \
 	if (strlen(a)) { \
 		log_safe(LOG_WARNING, "%s: %s", b, a); \
@@ -167,13 +163,21 @@ get_devmaps (void)
 		
 		if (dm_type(names->name, "multipath")) {
 			devmap = MALLOC(WWID_SIZE);
+
+			if (!devmap)
+				goto out1;
+
 			strcpy(devmap, names->name);
-			vector_alloc_slot(devmaps);
+			
+			if (!vector_alloc_slot(devmaps)) {
+				free(devmap);
+				goto out1;
+			}
 			vector_set_slot(devmaps, devmap);
 		} else
 			log_safe(LOG_DEBUG,
 			       "   skip non multipath target");
-
+out1:
 		next = names->next;
 	} while (next);
 
@@ -192,7 +196,7 @@ updatepaths (struct paths *allpaths, char *sysfs_path)
 	return 0;
 }
 
-static void
+static int
 mark_failed_path (struct paths *allpaths, char *mapname)
 {
 	struct multipath *mpp;
@@ -200,19 +204,26 @@ mark_failed_path (struct paths *allpaths, char *mapname)
 	struct path *pp;
 	struct path *app;
 	char *params, *status;
-	int i, j;
+	int i, j, r;
 
 	mpp = alloc_multipath();
-	if (!mpp)
-		return;
 
-	dm_get_map(mapname, &mpp->size, &params);
-	dm_get_status(mapname, &status);
+	if (!mpp)
+		return 1;
+
+	if (dm_get_map(mapname, &mpp->size, &params))
+		return 1;
+
+	if (dm_get_status(mapname, &status))
+		return 1;
 	
 	pthread_mutex_lock(allpaths->lock);
-	disassemble_map(allpaths->pathvec, params, mpp);
+	r = disassemble_map(allpaths->pathvec, params, mpp);
 	pthread_mutex_unlock(allpaths->lock);
 	
+	if (r)
+		return 1;
+
 	disassemble_status(status, mpp);
 
 	pthread_mutex_lock(allpaths->lock);
@@ -232,9 +243,9 @@ mark_failed_path (struct paths *allpaths, char *mapname)
 	pthread_mutex_unlock(allpaths->lock);
 	free(params);
 	free(status);
-	free_multipath(mpp);
+	free_multipath(mpp, KEEP_PATHS);
 
-	return;
+	return 0;
 }
 
 static void *
