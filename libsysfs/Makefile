@@ -13,10 +13,11 @@ OBJS = dlist.o \
        sysfs_utils.o
 
 all: $(OBJS)
+	ar rs libsysfs.a *.o
 
 install:
 
 uninstall:
 
 clean:
-	rm -f core *.o *.gz
+	rm -f core *.a *.o *.gz

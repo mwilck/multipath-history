@@ -8,13 +8,21 @@ mandir = /usr/share/man/man8
 rcdir = /etc/init.d
 
 CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes -DDEBUG=1 -DFLOATING_STACKS
-LDFLAGS = -lpthread -ldevmapper -lsysfs
+#LDFLAGS = -lpthread -ldevmapper -lsysfs
+LDFLAGS = -lpthread -ldevmapper
 
-OBJS = main.o devinfo.o checkers.o parser.o vector.o dict.o memory.o
+OBJS = main.o devinfo.o checkers.o parser.o vector.o dict.o memory.o libsysfs/libsysfs.a
+
+all: sysfs $(EXEC)
 
 $(EXEC): $(OBJS)
-	$(CC) $(LDFLAGS) $(OBJS) -o $(EXEC)
+	$(CC) $(OBJS) -o $(EXEC) $(LDFLAGS)
 	strip $(EXEC)
+
+sysfs:
+	tar cf - ../libsysfs/ --exclude "*.[oa]" --exclude Makefile|tar xvf -
+	grep -v include ../libsysfs/Makefile > libsysfs/Makefile
+	make -C libsysfs
 
 install:
 	install -d $(DESTDIR)$(bindir)
@@ -28,4 +36,5 @@ uninstall:
 
 clean:
 	rm -f core *.o $(EXEC) *.gz
+	rm -rf libsysfs
 
