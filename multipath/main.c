@@ -635,6 +635,45 @@ setup_map (struct multipath * mpp)
 	return 0;
 }
 
+/*
+ * detect if a path is in the map we are about to create but not in the
+ * current one (triggers a valid reload)
+ * if a path is in the current map but not in the one we are about to create,
+ * don't reload : it may come back latter so save the reload burden
+ */
+static int
+pgcmp2 (struct multipath * mpp, struct multipath * cmpp)
+{
+	int i, j, k, l;
+	struct pathgroup * pgp;
+	struct pathgroup * cpgp;
+	struct path * pp;
+	struct path * cpp;
+	int found = 0;
+
+	vector_foreach_slot (mpp->pg, pgp, i) {
+		vector_foreach_slot (pgp->paths, pp, j) {
+			vector_foreach_slot (cmpp->pg, cpgp, k) {
+				vector_foreach_slot (cpgp->paths, cpp, l) {
+					if (pp == cpp) {
+						found = 1;
+						break;
+					}
+				}
+				if (found)
+					break;
+			}
+			if (found) {
+				found = 0;
+				break;
+			} else
+				return 1;
+		}
+	}
+	return 0;
+}
+
+#if 0
 static int
 pgcmp (struct multipath * mpp, struct multipath * cmpp)
 {
@@ -656,6 +695,7 @@ pgcmp (struct multipath * mpp, struct multipath * cmpp)
 	}
 	return r;
 }
+#endif
 
 static void
 select_action (struct multipath * mpp, vector curmp)
@@ -695,7 +735,7 @@ select_action (struct multipath * mpp, vector curmp)
 			mpp->action = ACT_RELOAD;
 			return;
 		}
-		if (pgcmp(mpp, cmpp)) {
+		if (pgcmp2(mpp, cmpp)) {
 			dbg("different path group topology");
 			mpp->action = ACT_RELOAD;
 			return;
