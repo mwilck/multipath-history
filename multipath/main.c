@@ -68,7 +68,7 @@ get_refwwid (vector pathvec)
 			vector_set_slot(pathvec, pp);
 			strncpy(pp->dev, buff, FILE_NAME_SIZE);
 		}
-		if (devinfo(pp))
+		if (devinfo(pp, conf->hwtable))
 			return NULL;
 
 		refwwid = zalloc(WWID_SIZE);
@@ -95,7 +95,7 @@ get_refwwid (vector pathvec)
 				exit(1);
 			}
 		}
-		if (devinfo(pp))
+		if (devinfo(pp, conf->hwtable))
 			return NULL;
 
 		refwwid = zalloc(WWID_SIZE);
@@ -833,7 +833,7 @@ update_pathvec (vector pathvec)
 	vector_foreach_slot (pathvec, pp, i) {
 		if (strlen(pp->dev) == 0) {
 			devt2devname(pp->dev, pp->dev_t);
-			devinfo(pp);
+			devinfo(pp, conf->hwtable);
 		}
 		if (pp->state == PATH_UNCHECKED)
 			pp->state = pp->checkfn(pp->fd, NULL, NULL);
