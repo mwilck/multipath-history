@@ -1,13 +1,6 @@
 #!/bin/sh -e
 
-dev_prefix=$(basename $DEVNAME|cut -c 1-3)
-
-if [ "$dev_prefix" = "dm-" ]
-then
-	exit
-fi
-
-map=$(/sbin/multipath -v 1 $DEVNAME)
+map=$(/sbin/multipath -S -v 1 $DEVNAME)
 
 if [ -z $map ]
 then
@@ -15,5 +8,8 @@ then
 fi
 
 echo "path $DEVNAME : multipath $map"
-sleep 1
-kpartx -v -a /dev/$map
+
+if [ -b /dev/$map ] 
+then
+	kpartx -v -a /dev/$map
+fi
