@@ -145,31 +145,30 @@ int select_checkfn(struct path *path_p, char *devname)
 	return 0;
 }
 
-int get_devmaps (vector devmaps)
+void * get_devmaps (void)
 {
 	char *devmap;
 	struct dm_task *dmt, *dmt1;
 	struct dm_names *names = NULL;
 	unsigned next = 0;
 	void *nexttgt;
-	int r = 0;
 	uint64_t start, length;
 	char *target_type = NULL;
 	char *params;
+	vector devmaps;
 
-	strvec_free (devmaps);
 	devmaps = vector_alloc();
 
 	if (!(dmt = dm_task_create(DM_DEVICE_LIST)))
-		return 1;
+		return NULL;
 
 	if (!dm_task_run(dmt)) {
-		r = 1;
+		devmaps = NULL;
 		goto out;
 	}
 
 	if (!(names = dm_task_get_names(dmt))) {
-		r = 1;
+		devmaps = NULL;
 		goto out;
 	}
 
@@ -224,7 +223,7 @@ out1:
 
 out:
 	dm_task_destroy(dmt);
-	return r;
+	return devmaps;
 }
 
 int checkpath (struct path *path_p)
@@ -407,7 +406,7 @@ out:
 void *waiterloop (void *ap)
 {
 	struct paths *failedpaths;
-	vector devmaps;
+	vector devmaps = NULL;
 	char *devmap;
 	vector waiters;
 	struct event_thread *wp;
@@ -417,7 +416,6 @@ void *waiterloop (void *ap)
 	int i, j, status;
 
 	/* inits */
-	devmaps = vector_alloc();
 	failedpaths = (struct paths *)ap;
 	waiters = vector_alloc ();
 	pthread_attr_init (&attr);
@@ -439,7 +437,15 @@ void *waiterloop (void *ap)
 		
 		/* update devmap list */
 		LOG (2, "refresh devmaps list");
-		get_devmaps (devmaps);
+		if (devmaps != NULL)
+			strvec_free(devmaps);
+
+		devmaps = get_devmaps();
+
+		if (devmaps == NULL) {
+			LOG (1, "can't get devmaps ... bad bad");
+			exit(1);
+		}
 
 		/* update failed paths list */
 		LOG (2, "refresh failpaths list");
@@ -544,6 +550,68 @@ struct paths *initpaths (void)
 	return (failedpaths);
 }
 
+#define VECTOR_ADDSTR(a, b) \
+	str = zalloc (6 * sizeof(char)); \
+	sprintf (str, b); \
+	vector_alloc_slot(a); \
+	vector_set_slot(a, str);
+
+static void
+setup_default_blist (vector blist)
+{
+	char * str;
+
+	VECTOR_ADDSTR(blist, "cciss");
+	VECTOR_ADDSTR(blist, "fd");
+	VECTOR_ADDSTR(blist, "hd");
+	VECTOR_ADDSTR(blist, "md");
+	VECTOR_ADDSTR(blist, "dm");
+	VECTOR_ADDSTR(blist, "sr");
+	VECTOR_ADDSTR(blist, "scd");
+	VECTOR_ADDSTR(blist, "st");
+	VECTOR_ADDSTR(blist, "ram");
+	VECTOR_ADDSTR(blist, "raw");
+	VECTOR_ADDSTR(blist, "loop");
+}
+
+#define VECTOR_ADDHWE(a, b, c, d) \
+	hwe = zalloc (sizeof(struct hwentry)); \
+	hwe->vendor = zalloc (9 * sizeof(char)); \
+	sprintf (hwe->vendor, b); \
+	hwe->product = zalloc (17 * sizeof(char)); \
+	sprintf (hwe->product, c); \
+	hwe->checker_index = d; \
+	vector_alloc_slot(a); \
+	vector_set_slot(a, hwe);
+
+static void
+setup_default_hwtable (vector hwtable)
+{
+	struct hwentry * hwe;
+
+	VECTOR_ADDHWE(hwtable, "COMPAQ", "HSV110 (C)COMPAQ", 0);
+	VECTOR_ADDHWE(hwtable, "COMPAQ", "MSA1000", 0);
+	VECTOR_ADDHWE(hwtable, "COMPAQ", "MSA1000 VOLUME", 0);
+	VECTOR_ADDHWE(hwtable, "DEC", "HSG80", 0);
+	VECTOR_ADDHWE(hwtable, "HP", "HSV110", 0);
+	VECTOR_ADDHWE(hwtable, "HP", "A6189A", 0);
+	VECTOR_ADDHWE(hwtable, "HP", "OPEN-", 0);
+	VECTOR_ADDHWE(hwtable, "DDN", "SAN DataDirector", 0);
+	VECTOR_ADDHWE(hwtable, "FSC", "CentricStor", 0);
+	VECTOR_ADDHWE(hwtable, "HITACHI", "DF400", 0);
+	VECTOR_ADDHWE(hwtable, "HITACHI", "DF500", 0);
+	VECTOR_ADDHWE(hwtable, "HITACHI", "DF600", 0);
+	VECTOR_ADDHWE(hwtable, "IBM", "ProFibre 4000R", 0);
+	VECTOR_ADDHWE(hwtable, "SGI", "TP9100", 0);
+	VECTOR_ADDHWE(hwtable, "SGI", "TP9300", 0);
+	VECTOR_ADDHWE(hwtable, "SGI", "TP9400", 0);
+	VECTOR_ADDHWE(hwtable, "SGI", "TP9500", 0);
+	VECTOR_ADDHWE(hwtable, "3PARdata", "VV", 0);
+	VECTOR_ADDHWE(hwtable, "STK", "OPENstorage D280", 0);
+	VECTOR_ADDHWE(hwtable, "SUN", "StorEdge 3510", 0);
+	VECTOR_ADDHWE(hwtable, "SUN", "T4", 0);
+}
+
 void pidfile (pid_t pid)
 {
 	FILE *file;
@@ -626,7 +694,7 @@ int main (int argc, char *argv[])
 	struct paths *failedpaths;
 	pid_t pid;
 
-	pid = fork ();
+	pid = fork();
 
 	/* can't fork */
 	if (pid < 0)
@@ -634,28 +702,39 @@ int main (int argc, char *argv[])
 
 	/* let the parent die happy */
 	if (pid > 0)
-		exit (0);
+		exit(0);
 	
 	/* child's play */
-	openlog (argv[0], 0, LOG_DAEMON);
-	LOG (1, "--------start up--------");
+	openlog(argv[0], 0, LOG_DAEMON);
+	LOG(1, "--------start up--------");
 
-	pidfile (pid);
-	signal_init ();
+	pidfile(pid);
+	signal_init();
 
-	failedpaths = initpaths ();
+	failedpaths = initpaths();
 
-	LOG (2, "read " CONFIGFILE);
+	LOG(2, "read " CONFIGFILE);
 	init_data(CONFIGFILE, init_keywords);
 
+	/* fill the voids left in the config file */
+	if (hwtable == NULL) {
+		hwtable = vector_alloc();
+		setup_default_hwtable(hwtable);
+	}
 
-	pthread_attr_init (&attr);
-	pthread_attr_setstacksize (&attr, 64 * 1024);
+	if (blist == NULL) {
+		blist = vector_alloc();
+		setup_default_blist(blist);
+	}
+
+	/* start threads */
+	pthread_attr_init(&attr);
+	pthread_attr_setstacksize(&attr, 64 * 1024);
 	
-	pthread_create (&wait, &attr, waiterloop, failedpaths);
-	pthread_create (&check, &attr, checkerloop, failedpaths);
-	pthread_join (wait, NULL);
-	pthread_join (check, NULL);
+	pthread_create(&wait, &attr, waiterloop, failedpaths);
+	pthread_create(&check, &attr, checkerloop, failedpaths);
+	pthread_join(wait, NULL);
+	pthread_join(check, NULL);
 
 	return 0;
 }

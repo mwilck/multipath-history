@@ -1,4 +1,5 @@
 EXEC = multipathd
+DEBUG = 1
 
 CC = gcc
 GZIP = /bin/gzip -9 -c
@@ -7,7 +8,7 @@ bindir = /usr/bin
 mandir = /usr/share/man/man8
 rcdir = /etc/init.d
 
-CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes -DDEBUG=1 -DFLOATING_STACKS
+CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes -DDEBUG=$(DEBUG) -DFLOATING_STACKS
 #LDFLAGS = -lpthread -ldevmapper -lsysfs
 LDFLAGS = -lpthread -ldevmapper
 
@@ -20,7 +21,7 @@ $(EXEC): $(OBJS)
 	strip $(EXEC)
 
 sysfs:
-	tar cf - ../libsysfs/ --exclude "*.[oa]" --exclude Makefile|tar xvf -
+	(cd ..;tar cf - libsysfs/ --exclude "*.[oa]" --exclude Makefile)|tar xvf -
 	grep -v include ../libsysfs/Makefile > libsysfs/Makefile
 	make -C libsysfs
 
