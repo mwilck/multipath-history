@@ -1,3 +1,36 @@
+2004-07-16 multipath-tools-0.2.7
+	* [multipath] args parser moved to getopt
+	  <genanr@emsphone.com>
+	* [multipath] zero conf->hotplugdev at allocation
+	  <genanr@emsphone.com>
+	* [multipath] clean up failed devmap creation attempt
+	* [libs] update to libdevmapper 1.00.19
+	* [multipath] framework for claimed device skipping
+	  still lacks a reliable way to know if the device is
+	  claimed and by who (fs, swap, md, dm, ...). If you
+	  think it is valid to let libdevmapper hit the wall,
+	  please speak up and tell so.
+	* [multipath] shut down stderr when calling into libdm
+	* [multipath] reformat the verbose output
+	* [multipath] framework for path priority handling (ULUA)
+	* [multipath] kill all reference to group_by_tur
+	* [multipath] integrate path state logic into multibus &
+	  failover pgpolicies. This obsoletes the group_by_tur one
+	  which is now the same as multibus.
+	* [multipath] zalloc mp structs to avoid garbage in ->size
+	* bump version requisite for scsi_id to 0.6 to support the new
+	  '-u' flag (s/ /_/ for proper JBOD device map naming)
+	* [multipath] correct the for(;;) limits to accept 1-slot
+	  pathvecs
+	* [multipath] push WWID_SIZE to 64 char (scsi_id w/ JBODs)
+	* [multipath] add a exit_tool() wrapper fn for runfile unlink
+	* [multipath] add a "default_path_grouping_policy" keyword in the
+	  "defaults" block.
+	* [multipath] add a "default_getuid_callout" keyword in the
+	  "defaults" block. Now multipath is going to work with JBODs
+	* [multipath] fix segfault when pathvec is empty after
+	  get_pathvec()
+	* move to template based specfile to avoid regular version skew
 2004-07-16 multipath-tools-0.2.6
 	* [multipathd] implement the system-disk-on-SAN safety net
 	* [multipathd] add exit_daemon() wrapper function

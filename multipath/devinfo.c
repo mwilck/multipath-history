@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <errno.h>
 #include "devinfo.h"
 #include "sg_include.h"
 #include "debug.h"
@@ -23,7 +24,7 @@ basename(char * str1, char * str2)
 }
 
 static int
-opennode (char * devt)
+opennode (char * devt, int mode)
 {
 	char devpath[FILE_NAME_SIZE];
 	uint32_t major;
@@ -34,7 +35,7 @@ opennode (char * devt)
 
 	/* first, try with udev reverse mappings */
 	sprintf(devpath, "%s/reverse/%u:%u", conf->udev_dir, major, minor);
-	fd = open(devpath, O_RDONLY);
+	fd = open(devpath, mode);
 
 	if (fd >= 0)
 		return fd;
@@ -44,7 +45,7 @@ opennode (char * devt)
 	sprintf(devpath, "/tmp/.multipath.%u.%u.devnode", major, minor);
 	unlink (devpath);
 	mknod(devpath, S_IFBLK|S_IRUSR|S_IWUSR, makedev(major, minor));
-	fd = open(devpath, O_RDONLY);
+	fd = open(devpath, mode);
 	
 	if (fd < 0)
 		unlink(devpath);
@@ -67,6 +68,24 @@ closenode (char * devt, int fd)
 	sprintf(devpath, "/tmp/.multipath.%u.%u.devnode", major, minor);
 	unlink(devpath);
 }
+
+int
+get_claimed(char *devt)
+{
+	int fd;
+
+	/*
+	 * FIXME : O_EXCL always fails ?
+	 */
+	fd = opennode(devt, O_RDONLY);
+
+	if (fd < 0)
+		return 1;
+
+	closenode(devt, fd);
+
+	return 0;
+}	
 
 static int
 do_inq(int sg_fd, int cmddt, int evpd, unsigned int pg_op,
@@ -121,16 +140,15 @@ do_inq(int sg_fd, int cmddt, int evpd, unsigned int pg_op,
 }
 
 int
-get_serial (char * str, char * devname)
+get_serial (char * str, char * devt)
 {
 	int fd;
         int len;
         char buff[MX_ALLOC_LEN + 1];
-	char devpath[100];
 
-	sprintf(devpath, "/dev/%s", devname);
+	fd = opennode(devt, O_RDONLY);
 
-	if ((fd = open(devpath, O_RDONLY)) < 0)
+	if (fd < 0)
                 return 0;
 
 	if (0 == do_inq(fd, 0, 1, 0x80, buff, MX_ALLOC_LEN, 0)) {
@@ -142,7 +160,8 @@ get_serial (char * str, char * devname)
 		close(fd);
 		return 1;
 	}
-	close(fd);
+
+	closenode(devt, fd);
         return 0;
 }
 
@@ -415,12 +434,13 @@ get_disk_size (char * devname) {
 	char buff[FILE_NAME_SIZE];
 
 	if (0 == sysfs_get_mnt_path(sysfs_path, FILE_NAME_SIZE)) {
+		memset(attr_path, 0, FILE_NAME_SIZE);
 		sprintf(attr_path, "%s/block/%s/size",
 			sysfs_path, devname);
 		if (0 > sysfs_read_attribute_value(attr_path, buff,
-			FILE_NAME_SIZE * sizeof(char)))
+			FILE_NAME_SIZE))
 			return -1;
-		size = atoi(buff);
+		size = atol(buff);
 		return size;
 	}
 	dbg("get_disk_size need sysfs");
@@ -435,7 +455,7 @@ do_tur(char *devt)
 	unsigned char sense_buffer[32];
 	int fd;
 
-	fd = opennode(devt);
+	fd = opennode(devt, O_RDONLY);
 	
 	if (fd < 0)
 		return 0;
@@ -463,8 +483,6 @@ do_tur(char *devt)
 	return 1;
 }
 
-/* getuid functions */
-
 /*
  * get EVPD page 0x83 off 8
  * tested ok with StorageWorks
@@ -475,7 +493,7 @@ get_evpd_wwid (char * dev_t, char * wwid)
         int fd, j, weight, weight_cur, offset_cur, retval = 0;
         char buff[MX_ALLOC_LEN + 1];
 
-	fd = opennode(dev_t);
+	fd = opennode(dev_t, O_RDONLY);
 
         if (fd < 0)
 		return 1;

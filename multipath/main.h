@@ -34,9 +34,10 @@
 #define SCSI_IOCTL_GET_BUS_NUMBER       0x5386
 
 /* global defs */
-#define WWID_SIZE	36
-#define SERIAL_SIZE	14
+#define WWID_SIZE	64
+#define SERIAL_SIZE	15
 #define MAX_MP_PATHS	32
+#define PARAMS_SIZE	256
 #define FILE_NAME_SIZE	256
 #define DEF_TIMEOUT	60000
 #define EBUFF_SZ	256
@@ -78,11 +79,13 @@ struct path {
 	struct scsi_idlun scsi_id;
 	struct sg_id sg_id;
 	char wwid[WWID_SIZE];
-	char vendor_id[8];
-	char product_id[16];
-	char rev[4];
+	char vendor_id[9];
+	char product_id[17];
+	char rev[5];
 	char serial[SERIAL_SIZE];
 	int tur;
+	int priority;
+	int claimed;
 };
 
 struct multipath {
@@ -90,6 +93,8 @@ struct multipath {
 	int iopolicy;
 	long size;
 	vector paths;
+	vector pg;
+	char params[PARAMS_SIZE];
 };
 
 /* Build version */

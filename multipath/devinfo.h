@@ -19,7 +19,7 @@ int get_serial (char *, char *);
 int sysfs_devinfo (struct path *);
 long get_disk_size (char *);
 int do_tur (char *);
+int get_claimed(char *);
 
-/* getuid methods */
+/* internal getuid methods */
 int get_evpd_wwid (char *, char *);
-int get_null_uid (char *, char *);
