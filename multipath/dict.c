@@ -1,5 +1,5 @@
 #include "parser.h"
-#include "hwtable.h"
+#include "global.h"
 
 /* data handlers */
 /* Global def handlers */
