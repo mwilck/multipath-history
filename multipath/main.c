@@ -156,9 +156,6 @@ devinfo (struct path *curpath, struct hwentry * hwtable)
 			
 			curpath->iopolicy = hwtable[i].iopolicy;
 
-			if (getuid == NULL)
-				return 1;
-
 			if (hwtable[i].getuid (curpath->sg_dev, curpath->wwid))
 				return 1;
 		}
