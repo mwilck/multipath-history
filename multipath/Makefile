@@ -8,14 +8,11 @@ include ../Makefile.inc
 OBJS = main.o $(MULTIPATHLIB)-$(BUILD).a $(CHECKERSLIB)-$(BUILD).a
 
 ifeq ($(strip $(BUILD)),klibc)
-	CFLAGS = -DDEBUG=${DEBUG} \
-		 -DVERSION=$(VERSION) -I$(multipathdir) \
-		 -I$(libdmdir) -I$(sysfsdir) -I$(checkersdir)
+	CFLAGS = -I$(multipathdir) -I$(checkersdir)
 	OBJS += $(SYSFSLIB)-$(BUILD).a $(DMLIB)-$(BUILD).a
 else
 	CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes \
-		 -DDEBUG=$(DEBUG) -I$(multipathdir) -I$(checkersdir) \
-		 -DVERSION=$(VERSION)
+		 -I$(multipathdir) -I$(checkersdir)
 	LDFLAGS =
 
 ifneq	($(WITH_LOCAL_LIBDM),)

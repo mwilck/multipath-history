@@ -20,14 +20,8 @@ endif
 export KRNLSRC
 export KRNLOBJ
 
-ifeq ($(strip $(BUILD)),klibc)
-	BUILDDIRS = libsysfs libdevmapper libcheckers \
-		    libmultipath path_priority \
-		    devmap_name multipath multipathd kpartx
-else
-	BUILDDIRS = libmultipath libcheckers path_priority \
-		    devmap_name multipath multipathd kpartx
-endif
+BUILDDIRS = libmultipath libcheckers path_priority \
+	    devmap_name multipath multipathd kpartx
 ALLDIRS	= $(shell find . -type d -maxdepth 1 -mindepth 1)
 
 VERSION = $(shell basename ${PWD} | cut -d'-' -f3)
@@ -46,11 +40,6 @@ recurse_clean:
 	$(MAKE) -C $$dir clean || exit $?; \
 	done
 
-recurse_clean_klibc:
-	@for dir in $(ALLDIRS); do\
-	$(MAKE) -C $$dir BUILD=klibc clean || exit $?; \
-	done
-
 recurse_install:
 	@for dir in $(INSTALLDIRS); do\
 	$(MAKE) -C $$dir install || exit $?; \
@@ -61,7 +50,7 @@ recurse_uninstall:
 	$(MAKE) -C $$dir uninstall || exit $?; \
 	done
 
-clean:	recurse_clean recurse_clean_klibc
+clean:	recurse_clean
 	rm -f multipath-tools.spec
 	rm -rf rpms
 
