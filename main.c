@@ -601,20 +601,19 @@ static void
 usage(char * progname)
 {
 	fprintf(stderr, VERSION_STRING);
-	fprintf(stderr, "Usage: %s [-v|-q] [-d] [-m max_devs] [device]",
+	fprintf(stderr, "Usage: %s [-v|-q] [-d] [-m max_devs]",
 		progname);
-	fprintf(stderr,	"[-p failover|multibus|group_by_serial]\n");
+	fprintf(stderr,	"[-p failover|multibus|group_by_serial] [device]\n");
 	fprintf(stderr, "\t-v\t\tverbose, print all paths and multipaths\n");
 	fprintf(stderr, "\t-q\t\tquiet, no output at all\n");
 	fprintf(stderr, "\t-d\t\tdry run, do not create or update devmaps\n");
 	fprintf(stderr, "\t-m max_devs\tscan {max_devs} devices at most\n");
 	fprintf(stderr, "\t-p policy\tforce maps to specified policy :\n");
-	fprintf(stderr, "\t\t\tfailover\t1 path per priority group\n");
-	fprintf(stderr, "\t\t\tmultibus\tall paths in 1 priority group\n");
-	fprintf(stderr, "\t\t\tgroup_by_serial\t1 priority group per serial\n");
-	fprintf(stderr, "\tdevice\t\tlimit scope to the multipath including the specified device\n");
-	fprintf(stderr, "\t\t\tdevice is relative to the sysfs mountpoint, in the devices hierarchy\n");
-	fprintf(stderr, "\t\t\t(hotplug-style reference)\n");
+	fprintf(stderr, "\t   failover\t\t- 1 path per priority group\n");
+	fprintf(stderr, "\t   multibus\t\t- all paths in 1 priority group\n");
+	fprintf(stderr, "\t   group_by_serial\t- 1 priority group per serial\n");
+	fprintf(stderr, "\tdevice\t\tlimit scope to the device's multipath\n");
+	fprintf(stderr, "\t\t\t(hotplug-style $DEVPATH reference)\n");
 	exit(1);
 }
 
@@ -649,23 +648,19 @@ main(int argc, char *argv[])
 			conf.quiet = 1;
 		} else if (0 == strcmp("-d", argv[i]))
 			conf.dry_run = 1;
-		else if (0 == strcmp("-p", argv[i++])) {
+		else if (0 == strcmp("-p", argv[i])) {
+			i++;
 			if (!strcmp(argv[i], "failover"))
 				conf.iopolicy = FAILOVER;
 			if (!strcmp(argv[i], "multibus"))
 				conf.iopolicy = MULTIBUS;
 			if (!strcmp(argv[i], "group_by_serial"))
 				conf.iopolicy = GROUP_BY_SERIAL;
-		} else if (0 == strncmp("/devices", argv[i], 8))
-			strcpy(conf.hotplugdev, argv[i]);
-		else if (*argv[i] == '-') {
+		} else if (*argv[i] == '-') {
 			fprintf(stderr, "Unknown switch: %s\n", argv[i]);
 			usage(argv[0]);
-		} else if (*argv[i] != '-') {
-			fprintf(stderr, "Unknown argument\n");
-			usage(argv[0]);
-		}
-
+		} else
+			strncpy(conf.hotplugdev, argv[i], FILE_NAME_SIZE);
 	}
 
 	/* dynamic allocations */
