@@ -23,11 +23,12 @@
 static struct path *
 find_path (vector pathvec, char * dev_t)
 {
-	int i;
+	int i, len;
 	struct path * pp;
 
 	vector_foreach_slot (pathvec, pp, i)
-		if (!strncmp(pp->dev_t, dev_t, strlen(dev_t)))
+		if (((len = strlen(dev_t)) == strlen(pp->dev_t)) &&
+		    !strncmp(pp->dev_t, dev_t, len))
 			return pp;
 
 	dbg("path %s not found in pathvec\n", dev_t);
