@@ -1,3 +1,9 @@
+2004-07-10 multipath-tools-0.2.5
+	* [multipathd] fix misbehaviour noted by <genanr@emsphone.com>
+	  improper tar directive in Makefile on some systems
+	* [multipathd] fix bug noted by <genanr@emsphone.com>
+	  get_devmaps fills a private vector and forget to pass its
+	  address to caller
 	* [multipath] extend EVPD 0x83 id fetching logic.
 	  Code borrowed from scsi_id (thanks goes to Patrick
 	  Mansfield @IBM) and merged by Hannes Reinecke @SUSE
