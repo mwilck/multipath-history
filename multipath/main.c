@@ -85,7 +85,7 @@ get_pathvec_sysfs (vector pathvec)
 	 * if called from /etc/dev.d or pathcheckers, only consider the paths
 	 * that relate to the device pointed by conf->dev
 	 */
-	if (conf->dev && filepresent(conf->dev)) {
+	if (conf->dev_type == DEV_DEVNODE) {
 		dbg("limited scope = %s", conf->dev);
 		curpath = zalloc(sizeof (struct path));
 		basename(conf->dev, curpath->dev);
@@ -101,7 +101,7 @@ get_pathvec_sysfs (vector pathvec)
 	 * if devt specified on the cmd line,
 	 * only consider affiliated paths
 	 */
-	if (conf->dev && !devt2devname(buff, conf->dev)) {
+	if (conf->dev_type == DEV_DEVT && !devt2devname(buff, conf->dev)) {
 		dbg("limited scope = %s", conf->dev);
 		curpath = zalloc(sizeof (struct path));
 		if(safe_sprintf(curpath->dev, "%s", buff)) {
