@@ -1,0 +1,12 @@
+#!/bin/sh -e
+
+map=$(/sbin/multipath -v 1 $DEVNAME)
+
+if [ -z $map ]
+then
+	exit
+fi
+
+echo "multipath $DEVNAME : $map"
+sleep 1
+kpartx -v -a /dev/$map
