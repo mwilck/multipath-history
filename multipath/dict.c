@@ -210,16 +210,16 @@ multipath_handler(vector strvec)
 static void
 wwid_handler(vector strvec)
 {
-	struct mpentry * mpe = VECTOR_SLOT(conf->mptable,
-					VECTOR_SIZE(conf->mptable) - 1);
+	struct mpentry * mpe = VECTOR_LAST_SLOT(conf->mptable);
+
 	mpe->wwid = set_value(strvec);
 }
 
 static void
 alias_handler(vector strvec)
 {
-        struct mpentry * mpe = VECTOR_SLOT(conf->mptable,
-				       VECTOR_SIZE(conf->mptable) - 1);
+	struct mpentry * mpe = VECTOR_LAST_SLOT(conf->mptable);
+
         mpe->alias = set_value(strvec);
 }
 
@@ -227,7 +227,7 @@ static void
 mp_pgpolicy_handler(vector strvec)
 {
 	char * buff;
-	struct mpentry * mpe = VECTOR_SLOT(conf->mptable, VECTOR_SIZE(conf->mptable) - 1);
+	struct mpentry * mpe = VECTOR_LAST_SLOT(conf->mptable);
 
 	buff = set_value(strvec);
 	mpe->pgpolicy = get_pgpolicy_id(buff);
