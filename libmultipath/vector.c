@@ -26,7 +26,7 @@
 
 /* 
  * Initialize vector struct.
- * allocalted 'size' slot elements then return vector.
+ * allocated 'size' slot elements then return vector.
  */
 vector
 vector_alloc(void)
@@ -53,12 +53,31 @@ vector_insert_slot(vector v, int slot, void *value)
 	
 	vector_alloc_slot(v);
 
-	for (i = v->allocated - 2; i >= slot; i -= VECTOR_DEFAULT_SIZE)
-		v->slot[i+VECTOR_DEFAULT_SIZE] = v->slot[i];
+	for (i = (v->allocated /VECTOR_DEFAULT_SIZE) - 2; i >= slot; i--)
+		v->slot[i + 1] = v->slot[i];
 
-	v->slot[slot*VECTOR_DEFAULT_SIZE] = value;
+	v->slot[slot] = value;
 }
-		
+
+void
+vector_del_slot(vector v, int slot)
+{
+	int i;
+
+	if (!v->allocated)
+		return;
+
+	for (i = slot + 1; i < (v->allocated / VECTOR_DEFAULT_SIZE); i++)
+		v->slot[i-1] = v->slot[i];
+
+	v->allocated -= VECTOR_DEFAULT_SIZE;
+
+	if (!v->allocated)
+		v->slot = NULL;
+	else
+		v = realloc(v->slot, sizeof (void *) * v->allocated);
+}
+
 /* Free memory vector allocation */
 void
 vector_free(vector v)
