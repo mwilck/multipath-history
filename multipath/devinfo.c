@@ -113,6 +113,7 @@ devt2devname (char *devname, char *devt)
 	char block_path[FILE_NAME_SIZE];
 	char attr_path[FILE_NAME_SIZE];
 	char attr_value[16];
+	int len;
 
 	if (sysfs_get_mnt_path(sysfs_path, FILE_NAME_SIZE)) {
 		fprintf(stderr, "feature available with sysfs only\n");
@@ -135,7 +136,13 @@ devt2devname (char *devname, char *devt)
 		sysfs_read_attribute_value(attr_path, attr_value,
 					   sizeof(attr_value));
 
-		if (!strncmp(attr_value, devt, strlen(devt))) {
+		len = strlen(attr_value);
+
+		/* discard newline */
+		if (len > 1) len--;
+
+		if (strlen(devt) == len &&
+		    strncmp(attr_value, devt, len) == 0) {
 			if(safe_sprintf(attr_path, "%s/%s",
 					block_path, devp->name)) {
 				fprintf(stderr, "attr_path too small\n");
@@ -300,9 +307,7 @@ sysfs_devinfo(struct path * curpath)
 		fprintf(stderr, "attr_path too small\n");
 		return 1;
 	}
-	if (0 > readattr(attr_path, attr_buff))
-		return 1;
-	if (strlen(attr_buff) > 0)
+	if (0 <= readattr(attr_path, attr_buff) && strlen(attr_buff) > 0)
 		strncpy(curpath->tgt_node_name, attr_buff,
 			strlen(attr_buff) - 1);
 	dbg("tgt_node_name = %s", curpath->tgt_node_name);
