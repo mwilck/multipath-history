@@ -8,18 +8,9 @@
 #include <string.h>
 #include <syslog.h>
 #include <errno.h>
+#include <util.h>
 
 #define FILESIZE 128
-
-static void
-basename(char * str1, char * str2)
-{
-	char *p = str1 + (strlen(str1) - 1);
-
-	while (*--p != '/')
-		continue;
-	strcpy(str2, ++p);
-}
 
 int
 copy (char * src, char * dst)

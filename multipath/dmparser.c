@@ -8,7 +8,8 @@
 #include <string.h>
 #include <vector.h>
 #include <memory.h>
-#include "main.h"
+#include <structs.h>
+
 #include "devinfo.h"
 
 #define WORD_SIZE 64
@@ -198,7 +199,7 @@ disassemble_map (vector pathvec, char * params, struct multipath * mpp)
 			pp = find_path(pathvec, word);
 			if (!pp) {
 				pp = zalloc(sizeof(struct path));
-				strncpy(pp->dev_t, word, DEV_T_SIZE);
+				strncpy(pp->dev_t, word, BLK_DEV_SIZE);
 				devt2devname(pp->dev, pp->dev_t);
 				devinfo(pp);
 			}

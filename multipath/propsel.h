@@ -1,4 +1,3 @@
-struct hwentry * find_hw (char * vendor, char * product);
 struct mpentry * find_mp (char * wwid);
 
 int select_pgpolicy (struct multipath * mp);

@@ -13,7 +13,11 @@
 #include <sysfs/libsysfs.h>
 #include <memory.h>
 #include <callout.h>
+#include <util.h>
+#include <vector.h>
+#include <structs.h>
 
+#include "sysfs_devinfo.h"
 #include "devinfo.h"
 #include "sg_include.h"
 #include "debug.h"
@@ -22,16 +26,6 @@
 
 #define readattr(a,b) \
 	sysfs_read_attribute_value(a, b, sizeof(b))
-
-void
-basename (char * str1, char * str2)
-{
-        char *p = str1 + (strlen(str1) - 1);
- 
-        while (*--p != '/')
-                continue;
-        strcpy(str2, ++p);
-}
 
 static int
 opennode (char * devt, int mode)
@@ -240,84 +234,36 @@ sysfs_devinfo(struct path * curpath)
 	char attr_path[FILE_NAME_SIZE];
 	char attr_buff[FILE_NAME_SIZE];
 	char sysfs_path[FILE_NAME_SIZE];
-	struct stat buf;
 
 	if (sysfs_get_mnt_path(sysfs_path, FILE_NAME_SIZE)) {
 		fprintf(stderr, "need sysfs mounted : out\n");
 		return 1;
 	}
-	if (safe_sprintf(attr_path, "%s/block/%s", sysfs_path, curpath->dev)) {
-		fprintf(stderr, "attr_path too small\n");
-		return 1;
-	}
-	if(stat(attr_path, &buf))
-		return 1;
 
-	/*
-	 * vendor string
-	 */
-	if(safe_sprintf(attr_path, "%s/block/%s/device/vendor",
-			sysfs_path, curpath->dev)) {
-		fprintf(stderr, "attr_path too small\n");
+	if (sysfs_get_vendor(sysfs_path, curpath->dev,
+			     curpath->vendor_id, SCSI_VENDOR_SIZE))
 		return 1;
-	}
-	if (0 > readattr(attr_path, attr_buff))
-		return 1;
-	memcpy(curpath->vendor_id, attr_buff, 8);
 	dbg("vendor = %s", curpath->vendor_id);
 
-	/*
-	 * model string
-	 */
-	if(safe_sprintf(attr_path, "%s/block/%s/device/model",
-		sysfs_path, curpath->dev)) {
-		fprintf(stderr, "attr_path too small\n");
+	if (sysfs_get_model(sysfs_path, curpath->dev,
+			    curpath->product_id, SCSI_PRODUCT_SIZE))
 		return 1;
-	}
-	if (0 > readattr(attr_path, attr_buff))
-			return 1;
-	memcpy(curpath->product_id, attr_buff, 16);
 	dbg("product = %s", curpath->product_id);
 
-	/*
-	 * revision string
-	 */
-	if(safe_sprintf(attr_path, "%s/block/%s/device/rev",
-		sysfs_path, curpath->dev)) {
-		fprintf(stderr, "attr_path too small\n");
+	if (sysfs_get_rev(sysfs_path, curpath->dev,
+			  curpath->rev, SCSI_REV_SIZE))
 		return 1;
-	}
-	if (0 > readattr(attr_path, attr_buff))
-		return 1;
-	memcpy(curpath->rev, attr_buff, 4);
 	dbg("rev = %s", curpath->rev);
 
-	/*
-	 * bdev major:minor string
-	 */
-	if(safe_sprintf(attr_path, "%s/block/%s/dev",
-		sysfs_path, curpath->dev)) {
-		fprintf(stderr, "attr_path too small\n");
+	if (sysfs_get_dev(sysfs_path, curpath->dev,
+			  curpath->dev_t, BLK_DEV_SIZE))
 		return 1;
-	}
-	if (0 > readattr(attr_path, attr_buff))
-		return 1;
-	if (strlen(attr_buff) > 1)
-		strncpy(curpath->dev_t, attr_buff,
-			strlen(attr_buff) - 1);
 	dbg("dev_t = %s", curpath->dev_t);
 
-	/*
-	 * size
-	 */
-	if(safe_sprintf(attr_path, "%s/block/%s/size",
-		sysfs_path, curpath->dev)) {
-		fprintf(stderr, "attr_path too small\n");
+	curpath->size = sysfs_get_size(sysfs_path, curpath->dev);
+
+	if (curpath->size == 0)
 		return 1;
-	}
-	if (0 > readattr(attr_path, attr_buff))
-		return 1;
-	curpath->size = strtoul(attr_buff, NULL, 0);
 	dbg("size = %lu", curpath->size);
 
 	/*

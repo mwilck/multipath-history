@@ -36,6 +36,11 @@
 #include <checkers.h>
 #include <path_state.h>
 #include <safe_printf.h>
+#include <blacklist.h>
+#include <hwtable.h>
+#include <util.h>
+#include <defaults.h>
+#include <structs.h>
 
 #include "main.h"
 #include "devinfo.h"
@@ -55,18 +60,6 @@ filepresent (char * run) {
 
 	if(!stat(run, &buf))
 		return 1;
-	return 0;
-}
-
-static int
-blacklist (char * dev) {
-	int i;
-	char *p;
-
-	vector_foreach_slot (conf->blist, p, i)
-		if (memcmp(dev, p, strlen(p)) == 0)
-			return 1;
-	
 	return 0;
 }
 
@@ -133,7 +126,7 @@ get_pathvec_sysfs (vector pathvec)
 	sysfs_read_directory(sdir);
 
 	dlist_for_each_data(sdir->subdirs, devp, struct sysfs_directory) {
-		if (blacklist(devp->name))
+		if (blacklist(conf->blist, devp->name))
 			continue;
 
 		sysfs_read_directory(devp);
@@ -237,7 +230,7 @@ print_map (struct multipath * mpp)
 {
 	if (mpp->size && mpp->params)
 		printf("0 %lu %s %s\n",
-			 mpp->size, DM_TARGET, mpp->params);
+			 mpp->size, DEFAULT_TARGET, mpp->params);
 	return;
 }
 
@@ -403,7 +396,8 @@ coalesce_paths (vector mp, vector pathvec)
 		mpp->size = pp1->size;
 
 		mpp->mpe = find_mp(pp1->wwid);
-		mpp->hwe = find_hw(pp1->vendor_id, pp1->product_id);
+		mpp->hwe = find_hw(conf->hwtable,
+				   pp1->vendor_id, pp1->product_id);
 
 		mpp->paths = vector_alloc();
 		vector_alloc_slot (mpp->paths);
@@ -861,7 +855,7 @@ dm_get_maps (vector mp, char * type)
 		goto out;
 
 	do {
-		if (dm_type(names->name, DM_TARGET)) {
+		if (dm_type(names->name, DEFAULT_TARGET)) {
 			dm_get_map(names->name, &length, &params);
 			dm_get_status(names->name, &status);
 			mpp = zalloc(sizeof(struct multipath));
@@ -898,7 +892,7 @@ signal_daemon (void)
 
 	buf = malloc (8);
 
-	file = fopen (PIDFILE, "r");
+	file = fopen (DEFAULT_PIDFILE, "r");
 
 	if (!file) {
 		if (conf->verbosity > 0)
@@ -914,69 +908,6 @@ signal_daemon (void)
 	free (buf);
 
 	kill (pid, SIGHUP);
-}
-
-#define VECTOR_ADDSTR(a, b) \
-	str = zalloc (6 * sizeof(char)); \
-	snprintf (str, 6, b); \
-	vector_alloc_slot(a); \
-	vector_set_slot(a, str);
-
-static void
-setup_default_blist (vector blist)
-{
-	char * str;
-	
-	VECTOR_ADDSTR(blist, "cciss");
-	VECTOR_ADDSTR(blist, "fd");
-	VECTOR_ADDSTR(blist, "hd");
-	VECTOR_ADDSTR(blist, "md");
-	VECTOR_ADDSTR(blist, "dm");
-	VECTOR_ADDSTR(blist, "sr");
-	VECTOR_ADDSTR(blist, "scd");
-	VECTOR_ADDSTR(blist, "st");
-	VECTOR_ADDSTR(blist, "ram");
-	VECTOR_ADDSTR(blist, "raw");
-	VECTOR_ADDSTR(blist, "loop");
-}
-
-#define VECTOR_ADDHWE(a, b, c, d, e) \
-	hwe = zalloc (sizeof(struct hwentry)); \
-	hwe->vendor = zalloc (SCSI_VENDOR_SIZE * sizeof(char)); \
-	snprintf (hwe->vendor, SCSI_VENDOR_SIZE, b); \
-	hwe->product = zalloc (SCSI_PRODUCT_SIZE * sizeof(char)); \
-	snprintf (hwe->product, SCSI_PRODUCT_SIZE, c); \
-	hwe->pgpolicy = d; \
-	hwe->getuid = e; \
-	vector_alloc_slot(a); \
-	vector_set_slot(a, hwe);
-	
-static void
-setup_default_hwtable (vector hwtable)
-{
-	struct hwentry * hwe;
-	
-	VECTOR_ADDHWE(hwtable, "COMPAQ", "HSV110 (C)COMPAQ", MULTIBUS, "/bin/scsi_id -g -s");
-	VECTOR_ADDHWE(hwtable, "COMPAQ", "MSA1000", MULTIBUS, "/bin/scsi_id -g -s");
-	VECTOR_ADDHWE(hwtable, "COMPAQ", "MSA1000 VOLUME", MULTIBUS, "/bin/scsi_id -g -s");
-	VECTOR_ADDHWE(hwtable, "DEC", "HSG80", MULTIBUS, "/bin/scsi_id -g -s");
-	VECTOR_ADDHWE(hwtable, "HP", "HSV110", MULTIBUS, "/bin/scsi_id -g -s");
-	VECTOR_ADDHWE(hwtable, "HP", "A6189A", MULTIBUS, "/bin/scsi_id -g -s");
-	VECTOR_ADDHWE(hwtable, "HP", "OPEN-", MULTIBUS, "/bin/scsi_id -g -s");
-	VECTOR_ADDHWE(hwtable, "DDN", "SAN DataDirector", MULTIBUS, "/bin/scsi_id -g -s");
-	VECTOR_ADDHWE(hwtable, "FSC", "CentricStor", MULTIBUS, "/bin/scsi_id -g -s");
-	VECTOR_ADDHWE(hwtable, "HITACHI", "DF400", MULTIBUS, "/bin/scsi_id -g -s");
-	VECTOR_ADDHWE(hwtable, "HITACHI", "DF500", MULTIBUS, "/bin/scsi_id -g -s");
-	VECTOR_ADDHWE(hwtable, "HITACHI", "DF600", MULTIBUS, "/bin/scsi_id -g -s");
-	VECTOR_ADDHWE(hwtable, "IBM", "ProFibre 4000R", MULTIBUS, "/bin/scsi_id -g -s");
-	VECTOR_ADDHWE(hwtable, "SGI", "TP9100", MULTIBUS, "/bin/scsi_id -g -s");
-	VECTOR_ADDHWE(hwtable, "SGI", "TP9300", MULTIBUS, "/bin/scsi_id -g -s");
-	VECTOR_ADDHWE(hwtable, "SGI", "TP9400", MULTIBUS, "/bin/scsi_id -g -s");
-	VECTOR_ADDHWE(hwtable, "SGI", "TP9500", MULTIBUS, "/bin/scsi_id -g -s");
-	VECTOR_ADDHWE(hwtable, "3PARdata", "VV", MULTIBUS, "/bin/scsi_id -g -s");
-	VECTOR_ADDHWE(hwtable, "STK", "OPENstorage D280", GROUP_BY_SERIAL, "/bin/scsi_id -g -s");
-	VECTOR_ADDHWE(hwtable, "SUN", "StorEdge 3510", MULTIBUS, "/bin/scsi_id -g -s");
-	VECTOR_ADDHWE(hwtable, "SUN", "T4", MULTIBUS, "/bin/scsi_id -g -s");
 }
 
 static void
@@ -1055,16 +986,16 @@ main (int argc, char *argv[])
 	extern char *optarg;
 	extern int optind;
 
-	if (dm_prereq(DM_TARGET, 1, 0, 3)) {
+	if (dm_prereq(DEFAULT_TARGET, 1, 0, 3)) {
 		fprintf(stderr, "device mapper prerequisites not met.\n");
 		exit(1);
 	}
 
 	/*
 	 * Don't run in parallel
-	 * ie, acquire a F_WRLCK-type lock on RUN
+	 * ie, acquire a F_WRLCK-type lock on DEFAULT_RUNFILE
 	 */
-	if (try_lock(RUN)) {
+	if (try_lock(DEFAULT_RUNFILE)) {
 		fprintf(stderr, "waited for to long. exiting\n");
 		exit(1);
 	}
@@ -1108,7 +1039,7 @@ main (int argc, char *argv[])
 			conf->signal = 0;
 			break;
 		case 'F':
-			dm_flush_maps(DM_TARGET);
+			dm_flush_maps(DEFAULT_TARGET);
 			goto out;
 			break;
 		case 'l':
@@ -1155,8 +1086,8 @@ main (int argc, char *argv[])
 	/*
 	 * read the config file
 	 */
-	if (filepresent(CONFIGFILE))
-		init_data (CONFIGFILE, init_keywords);
+	if (filepresent(DEFAULT_CONFIGFILE))
+		init_data (DEFAULT_CONFIGFILE, init_keywords);
 	
 	/*
 	 * fill the voids left in the config file
@@ -1193,7 +1124,7 @@ main (int argc, char *argv[])
 	if (get_pathvec_sysfs(pathvec))
 		exit(1);
 
-	dm_get_maps(curmp, DM_TARGET);
+	dm_get_maps(curmp, DEFAULT_TARGET);
 
 	if (VECTOR_SIZE(pathvec) == 0 && conf->verbosity > 0) {
 		fprintf(stdout, "no path found\n");

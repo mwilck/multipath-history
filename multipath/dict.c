@@ -1,9 +1,13 @@
+#include <checkers.h>
+#include <vector.h>
+#include <hwtable.h>
+#include <structs.h>
+
 #include "parser.h"
 #include "config.h"
 #include "pgpolicies.h"
 #include "debug.h"
 #include "memory.h"
-#include "../libcheckers/checkers.h"
 
 /*
  * default block handlers

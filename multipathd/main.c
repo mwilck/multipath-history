@@ -31,36 +31,32 @@
 /*
  * libmultipath
  */
+#include <sysfs_devinfo.h>
 #include <parser.h>
 #include <vector.h>
 #include <memory.h>
 #include <callout.h>
 #include <safe_printf.h>
+#include <blacklist.h>
+#include <hwtable.h>
+#include <defaults.h>
+#include <structs.h>
 
-#include "hwtable.h"
+#include "main.h"
 #include "dict.h"
 #include "devinfo.h"
 #include "copy.h"
 #include "clone_platform.h"
 
-#define MAXPATHS 1024
-#define MAXMAPS 256
-#define FILENAMESIZE 256
-#define MAPNAMESIZE 64
-#define TARGETTYPESIZE 16
-#define PARAMSSIZE 2048
-#define DEV_T_SIZE 32
+#define FILE_NAME_SIZE 256
 #define CMDSIZE 160
 
-#define PIDFILE "/var/run/multipathd.pid"
-#define CONFIGFILE "/etc/multipath.conf"
 #define CALLOUT_DIR "/var/cache/multipathd"
 
 #ifndef LOGLEVEL
 #define LOGLEVEL 5
 #endif
 
-#define MATCH(x, y) strncmp(x, y, strlen(x)) == 0
 #define LOG_MSG(a,b) \
 	if (strlen(a)) { \
 		syslog(LOG_WARNING, "%s: %s", b, a); \
@@ -77,13 +73,6 @@ pthread_cond_t *event;
 /*
  * structs
  */
-struct path {
-	char dev_t[DEV_T_SIZE];
-	int state;
-	int (*checkfn) (char *, char *, void **);
-	void * checker_context;
-};
-
 struct paths {
 	pthread_mutex_t *lock;
 	vector pathvec;
@@ -93,23 +82,12 @@ struct event_thread {
 	pthread_t *thread;
 	pthread_mutex_t *waiter_lock;
 	int event_nr;
-	char mapname[MAPNAMESIZE];
+	char mapname[WWID_SIZE];
 };
 
 /*
  * helpers functions
  */
-static int
-blacklist (char * dev) {
-	int i;
-	char *p;
-
-	vector_foreach_slot (blist, p, i)
-		if (memcmp(dev, p, strlen(p)) == 0)
-			return 1;
-	return 0;
-}
-
 static void
 strvec_free (vector vec)
 {
@@ -126,11 +104,11 @@ strvec_free (vector vec)
 static int
 select_checkfn(struct path *pp, char *devname)
 {
-	char vendor[8];
-	char product[16];
-	char rev[4];
+	char vendor[SCSI_VENDOR_SIZE];
+	char product[SCSI_PRODUCT_SIZE];
+	char rev[SCSI_REV_SIZE];
 	char checker_name[CHECKER_NAME_SIZE];
-	int i, r;
+	int r;
 	struct hwentry * hwe;
 
 	/*
@@ -144,19 +122,17 @@ select_checkfn(struct path *pp, char *devname)
 		syslog(LOG_ERR, "can not get scsi strings");
 		return r;
 	}
+	hwe = find_hw(hwtable, vendor, product);
 
-	vector_foreach_slot (hwtable, hwe, i) {
-		if (MATCH(hwe->vendor, vendor) &&
-		    MATCH(hwe->product, product) &&
-		    hwe->checker_index > 0) {
-			get_checker_name(checker_name, hwe->checker_index);
-			syslog(LOG_INFO, "set %s path checker for %s",
-			     checker_name, devname);
-			pp->checkfn = get_checker_addr(hwe->checker_index);
-			return 0;
-		}
+	if (hwe && hwe->checker_index > 0) {
+		get_checker_name(checker_name, hwe->checker_index);
+		syslog(LOG_INFO, "set %s path checker for %s",
+		     checker_name, devname);
+		pp->checkfn = get_checker_addr(hwe->checker_index);
+		return 0;
 	}
-	syslog(LOG_INFO, "set readsector0 path checker for %s", devname);
+	syslog(LOG_INFO, "set readsector0 path checker for %s (default)",
+		devname);
 	return 0;
 }
 
@@ -170,7 +146,7 @@ exit_daemon (int status)
 	umount(CALLOUT_DIR);
 
 	syslog(LOG_INFO, "unlink pidfile");
-	unlink(PIDFILE);
+	unlink(DEFAULT_PIDFILE);
 
 	syslog(LOG_NOTICE, "--------shut down-------");
 	exit(status);
@@ -243,7 +219,7 @@ get_devmaps (void)
 			}
 			
 			if (!strncmp(target_type, "multipath", 9)) {
-				devmap = MALLOC(MAPNAMESIZE);
+				devmap = MALLOC(WWID_SIZE);
 				strcpy(devmap, names->name);
 				vector_alloc_slot(devmaps);
 				vector_set_slot(devmaps, devmap);
@@ -270,8 +246,8 @@ updatepaths (struct paths *allpaths, char *sysfs_path)
 	struct path *pp;
 	struct sysfs_directory * sdir;
 	struct sysfs_directory * devp;
-	char path[FILENAMESIZE];
-	char attr_path[FILENAMESIZE];
+	char path[FILE_NAME_SIZE];
+	char attr_path[FILE_NAME_SIZE];
 	char attr_buff[17];
 	
 	if (safe_sprintf(path, "%s/block", sysfs_path)) {
@@ -292,7 +268,7 @@ updatepaths (struct paths *allpaths, char *sysfs_path)
 	pthread_mutex_lock(allpaths->lock);
 
 	dlist_for_each_data(sdir->subdirs, devp, struct sysfs_directory) {
-		if (blacklist(devp->name)) {
+		if (blacklist(blist, devp->name)) {
 			syslog(LOG_DEBUG, "%s blacklisted", devp->name);
 			continue;
 		}
@@ -330,7 +306,7 @@ updatepaths (struct paths *allpaths, char *sysfs_path)
 		 */
 		pp = MALLOC(sizeof(struct path));
 
-		if (safe_snprintf(pp->dev_t, DEV_T_SIZE, "%s",
+		if (safe_snprintf(pp->dev_t, BLK_DEV_SIZE, "%s",
 				  attr_buff)) {
 			fprintf(stderr, "dev_t too small\n");
 			FREE(pp);
@@ -448,12 +424,12 @@ waiterloop (void *ap)
 	int r;
 	char buff[1];
 	int i, j;
-	char sysfs_path[FILENAMESIZE];
+	char sysfs_path[FILE_NAME_SIZE];
 
 	syslog(LOG_NOTICE, "start DM events thread");
 	mlockall(MCL_CURRENT | MCL_FUTURE);
 
-	if (sysfs_get_mnt_path(sysfs_path, FILENAMESIZE)) {
+	if (sysfs_get_mnt_path(sysfs_path, FILE_NAME_SIZE)) {
 		syslog(LOG_ERR, "can not find sysfs mount point");
 		return NULL;
 	}
@@ -514,7 +490,7 @@ waiterloop (void *ap)
 			 */
 			if (j == VECTOR_SIZE(waiters)) {
 				wp = MALLOC (sizeof (struct event_thread));
-				strncpy (wp->mapname, devmap, MAPNAMESIZE);
+				strncpy (wp->mapname, devmap, WWID_SIZE);
 				wp->thread = MALLOC (sizeof (pthread_t));
 				wp->waiter_lock = (pthread_mutex_t *) 
 					MALLOC (sizeof (pthread_mutex_t));
@@ -646,68 +622,6 @@ initpaths (void)
 	return (allpaths);
 }
 
-#define VECTOR_ADDSTR(a, b) \
-	str = MALLOC (6 * sizeof(char)); \
-	snprintf(str, 6, b); \
-	vector_alloc_slot(a); \
-	vector_set_slot(a, str);
-
-static void
-setup_default_blist (vector blist)
-{
-	char * str;
-
-	VECTOR_ADDSTR(blist, "cciss");
-	VECTOR_ADDSTR(blist, "fd");
-	VECTOR_ADDSTR(blist, "hd");
-	VECTOR_ADDSTR(blist, "md");
-	VECTOR_ADDSTR(blist, "dm");
-	VECTOR_ADDSTR(blist, "sr");
-	VECTOR_ADDSTR(blist, "scd");
-	VECTOR_ADDSTR(blist, "st");
-	VECTOR_ADDSTR(blist, "ram");
-	VECTOR_ADDSTR(blist, "raw");
-	VECTOR_ADDSTR(blist, "loop");
-}
-
-#define VECTOR_ADDHWE(a, b, c, d) \
-	hwe = MALLOC (sizeof(struct hwentry)); \
-	hwe->vendor = MALLOC (9 * sizeof(char)); \
-	snprintf (hwe->vendor, 9, b); \
-	hwe->product = MALLOC (17 * sizeof(char)); \
-	snprintf (hwe->product, 17, c); \
-	hwe->checker_index = d; \
-	vector_alloc_slot(a); \
-	vector_set_slot(a, hwe);
-
-static void
-setup_default_hwtable (vector hwtable)
-{
-	struct hwentry * hwe;
-
-	VECTOR_ADDHWE(hwtable, "COMPAQ", "HSV110 (C)COMPAQ", 0);
-	VECTOR_ADDHWE(hwtable, "COMPAQ", "MSA1000", 0);
-	VECTOR_ADDHWE(hwtable, "COMPAQ", "MSA1000 VOLUME", 0);
-	VECTOR_ADDHWE(hwtable, "DEC", "HSG80", 0);
-	VECTOR_ADDHWE(hwtable, "HP", "HSV110", 0);
-	VECTOR_ADDHWE(hwtable, "HP", "A6189A", 0);
-	VECTOR_ADDHWE(hwtable, "HP", "OPEN-", 0);
-	VECTOR_ADDHWE(hwtable, "DDN", "SAN DataDirector", 0);
-	VECTOR_ADDHWE(hwtable, "FSC", "CentricStor", 0);
-	VECTOR_ADDHWE(hwtable, "HITACHI", "DF400", 0);
-	VECTOR_ADDHWE(hwtable, "HITACHI", "DF500", 0);
-	VECTOR_ADDHWE(hwtable, "HITACHI", "DF600", 0);
-	VECTOR_ADDHWE(hwtable, "IBM", "ProFibre 4000R", 0);
-	VECTOR_ADDHWE(hwtable, "SGI", "TP9100", 0);
-	VECTOR_ADDHWE(hwtable, "SGI", "TP9300", 0);
-	VECTOR_ADDHWE(hwtable, "SGI", "TP9400", 0);
-	VECTOR_ADDHWE(hwtable, "SGI", "TP9500", 0);
-	VECTOR_ADDHWE(hwtable, "3PARdata", "VV", 0);
-	VECTOR_ADDHWE(hwtable, "STK", "OPENstorage D280", 0);
-	VECTOR_ADDHWE(hwtable, "SUN", "StorEdge 3510", 0);
-	VECTOR_ADDHWE(hwtable, "SUN", "T4", 0);
-}
-
 /*
  * this logic is all about keeping callouts working in case of
  * system disk outage (think system over SAN)
@@ -816,7 +730,7 @@ pidfile (pid_t pid)
 
 	buf = MALLOC(sizeof(struct stat));
 
-	if (!stat(PIDFILE, buf)) {
+	if (!stat(DEFAULT_PIDFILE, buf)) {
 		syslog(LOG_ERR, "already running : out");
 		FREE(buf);
 		exit(1);
@@ -830,7 +744,7 @@ pidfile (pid_t pid)
 		exit(1);
 	}
 	
-	file = fopen(PIDFILE, "w");
+	file = fopen(DEFAULT_PIDFILE, "w");
 	fprintf(file, "%d\n", pid);
 	fclose(file);
 	FREE(buf);
@@ -920,8 +834,8 @@ child (void * param)
 	allpaths = initpaths();
 	checkint = CHECKINT;
 
-	syslog(LOG_INFO, "read " CONFIGFILE);
-	init_data(CONFIGFILE, init_keywords);
+	syslog(LOG_INFO, "read " DEFAULT_CONFIGFILE);
+	init_data(DEFAULT_CONFIGFILE, init_keywords);
 
 	/*
 	 * fill the voids left in the config file

@@ -2,8 +2,9 @@
 #include <string.h>
 #include <vector.h>
 #include <checkers.h>
+#include <hwtable.h>
 
-#include "main.h"
+#include "structs.h"
 #include "pgpolicies.h"
 #include "config.h"
 #include "debug.h"
@@ -11,20 +12,6 @@
 /*
  * helpers
  */
-extern struct hwentry *
-find_hw (char * vendor, char * product)
-{
-	int i;
-	struct hwentry * hwe;
-
-	vector_foreach_slot (conf->hwtable, hwe, i)
-		if (hwe->vendor && hwe->product &&
-		    strcmp(hwe->vendor, vendor) == 0 &&
-		    strcmp(hwe->product, product) == 0)
-			return hwe;
-	return NULL;
-}
-
 extern struct mpentry *
 find_mp (char * wwid)
 {
@@ -142,7 +129,7 @@ select_checkfn(struct path *pp)
 	char checker_name[CHECKER_NAME_SIZE];
 	struct hwentry * hwe = NULL;
 
-	hwe = find_hw(pp->vendor_id, pp->product_id);
+	hwe = find_hw(conf->hwtable, pp->vendor_id, pp->product_id);
 
 	if (hwe && hwe->checker_index > 0) {
 		get_checker_name(checker_name, hwe->checker_index);
@@ -161,7 +148,7 @@ select_getuid (struct path * pp)
 {
 	struct hwentry * hwe = NULL;
 
-	hwe = find_hw(pp->vendor_id, pp->product_id);
+	hwe = find_hw(conf->hwtable, pp->vendor_id, pp->product_id);
 
 	if (hwe && hwe->getuid) {
 		pp->getuid = hwe->getuid;
@@ -178,7 +165,7 @@ select_getprio (struct path * pp)
 {
 	struct hwentry * hwe = NULL;
 
-	hwe = find_hw(pp->vendor_id, pp->product_id);
+	hwe = find_hw(conf->hwtable, pp->vendor_id, pp->product_id);
 
 	if (hwe && hwe->getprio) {
 		pp->getprio = hwe->getprio;

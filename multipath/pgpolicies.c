@@ -3,13 +3,13 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
-
 #include <string.h>
+
 #include <path_state.h>
 #include <safe_printf.h>
-
 #include <memory.h>
-#include "main.h"
+#include <vector.h>
+#include <structs.h>
 #include "pgpolicies.h"
 
 extern int
