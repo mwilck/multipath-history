@@ -111,16 +111,13 @@ get_pathvec_sysfs (vector pathvec)
 	 * if devt specified on the cmd line,
 	 * only consider affiliated paths
 	 */
-	if (conf->devt) {
-		if (devt2devname(buff, conf->devt))
-			return 1;
-		
+	if (conf->dev && !devt2devname(buff, conf->dev)) {
+		dbg("limited scope = %s", conf->dev);
 		curpath = zalloc(sizeof (struct path));
 		if(safe_sprintf(curpath->dev, "%s", buff)) {
 			fprintf(stderr, "curpath->dev too small\n");
 			exit(1);
 		}
-
 		if (devinfo(curpath))
 			return 1;
 
@@ -164,6 +161,7 @@ get_pathvec_sysfs (vector pathvec)
 		}
 		if (memcmp(empty_buff, refwwid, WWID_SIZE) != 0 && 
 		    memcmp(curpath->wwid, refwwid, WWID_SIZE) != 0) {
+			dbg("skip path %s : out of scope", curpath->dev);
 			free(curpath);
 			continue;
 		}
