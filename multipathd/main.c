@@ -183,87 +183,10 @@ out:
 static int
 updatepaths (struct paths *allpaths, char *sysfs_path)
 {
-	int i;
-	struct path *pp;
-	struct sysfs_directory * sdir;
-	struct sysfs_directory * devp;
-	char path[FILE_NAME_SIZE];
-	char attr_path[FILE_NAME_SIZE];
-	char attr_buff[17];
-	
-	if (safe_sprintf(path, "%s/block", sysfs_path)) {
-		fprintf(stderr, "updatepaths: path too small\n");
-		return 1;
-	}
-	sdir = sysfs_open_directory(path);
-
-	if (!sdir) {
-		log_safe(LOG_ERR, "cannot open %s/block", sysfs_path);
-		return 1;
-	}
-	if (sysfs_read_dir_subdirs(sdir) < 0) {
-		log_safe(LOG_ERR, "cannot open %s/block subdirs", sysfs_path);
-		sysfs_close_directory(sdir);
-		return 1;
-	}
 	pthread_mutex_lock(allpaths->lock);
-
-	dlist_for_each_data(sdir->subdirs, devp, struct sysfs_directory) {
-		if (blacklist(blist, devp->name)) {
-			log_safe(LOG_DEBUG, "%s blacklisted", devp->name);
-			continue;
-		}
-		memset(attr_buff, 0, sizeof (attr_buff));
-		memset(attr_path, 0, sizeof (attr_path));
-
-		if (safe_sprintf(attr_path, "%s/block/%s/dev",
-			sysfs_path, devp->name)) {
-			fprintf(stderr, "updatepaths: attr_path too small\n");
-			continue;
-		}
-		if (0 > sysfs_read_attribute_value(attr_path, attr_buff, 17)) {
-			log_safe(LOG_ERR, "no such attribute : %s",
-				attr_path);
-			continue;
-		}
-		/*
-		 * detect if path already exists in path vector
-		 * if so, keep the old one for for checker context and
-		 * state persistance
-		 */
-		vector_foreach_slot (allpaths->pathvec, pp, i)
-			if (!strncmp(pp->dev_t, attr_buff,
-					strlen(pp->dev_t) + 1))
-				break;
-
-		if (i < VECTOR_SIZE(allpaths->pathvec)) {
-			log_safe(LOG_INFO, "path checker already active : %s",
-				pp->dev_t);
-			continue;
-		}
-
-		/*
-		 * ok, really allocate a path
-		 */
-		pp = MALLOC(sizeof(struct path));
-
-		if (safe_snprintf(pp->dev_t, BLK_DEV_SIZE, "%s",
-				  attr_buff)) {
-			fprintf(stderr, "dev_t too small\n");
-			FREE(pp);
-			continue;
-		}
-		if (select_checkfn(pp, devp->name)) {
-			FREE(pp);
-			continue;
-		}
-		pp->state = pp->checkfn(pp->dev_t, NULL, &pp->checker_context);
-		vector_alloc_slot(allpaths->pathvec);
-		vector_set_slot(allpaths->pathvec, pp);
-		log_safe(LOG_NOTICE, "path checker startup : %s", pp->dev_t);
-	}
+	path_discovery(allpaths->pathvec, conf);
 	pthread_mutex_unlock(allpaths->lock);
-	sysfs_close_directory(sdir);
+
 	return 0;
 }
 
