@@ -58,6 +58,109 @@ filepresent (char * run) {
 	return 0;
 }
 
+static char *
+get_refwwid (vector pathvec)
+{
+	struct path * pp;
+	char buff[FILE_NAME_SIZE];
+	char * refwwid;
+
+	if (conf->dev_type == DEV_NONE)
+		return NULL;
+
+	if (conf->dev_type == DEV_DEVNODE) {
+		dbg("limited scope = %s", conf->dev);
+		basename(conf->dev, buff);
+		pp = find_path_by_dev(pathvec, buff);
+		
+		if (!pp) {
+			pp = zalloc(sizeof (struct path));
+			vector_alloc_slot(pathvec);
+			vector_set_slot(pathvec, pp);
+			strncpy(pp->dev, buff, FILE_NAME_SIZE);
+		}
+		if (devinfo(pp))
+			return NULL;
+
+		refwwid = zalloc(WWID_SIZE);
+
+		if (!refwwid)
+			return NULL;
+
+		memcpy(refwwid, pp->wwid, WWID_SIZE);
+		return refwwid;
+	}
+
+	if (conf->dev_type == DEV_DEVT) {
+		dbg("limited scope = %s", conf->dev);
+		pp = find_path_by_devt(pathvec, conf->dev);
+		
+		if (!pp) {
+			pp = zalloc(sizeof (struct path));
+			vector_alloc_slot(pathvec);
+			vector_set_slot(pathvec, pp);
+			devt2devname(conf->dev, buff);
+
+			if(safe_sprintf(pp->dev, "%s", buff)) {
+				fprintf(stderr, "pp->dev too small\n");
+				exit(1);
+			}
+		}
+		if (devinfo(pp))
+			return NULL;
+
+		refwwid = zalloc(WWID_SIZE);
+
+		if (!refwwid)
+			return NULL;
+		
+		memcpy(refwwid, pp->wwid, WWID_SIZE);
+		return refwwid;
+	}
+	if (conf->dev_type == DEV_DEVMAP) {
+		dbg("limited scope = %s", conf->dev);
+		/*
+		 * may be an alias
+		 */
+		refwwid = get_mpe_wwid(conf->dev);
+
+		if (refwwid)
+			return refwwid;
+		
+		/*
+		 * or directly a wwid
+		 */
+		refwwid = zalloc(WWID_SIZE);
+
+		if (!refwwid)
+			return NULL;
+
+		strncpy(refwwid, conf->dev, WWID_SIZE);
+		return refwwid;
+	}
+	return NULL;
+}
+
+static int
+filter_pathvec (vector pathvec, char * refwwid)
+{
+	int i;
+	struct path * pp;
+
+	if (!refwwid || !strlen(refwwid))
+		return 0;
+
+	vector_foreach_slot (pathvec, pp, i) {
+		if (memcmp(pp->wwid, refwwid, WWID_SIZE) != 0) {
+			dbg("skip path %s : out of scope", pp->dev);
+			free(pp);
+			vector_del_slot(pathvec, i);
+			i--;
+		}
+	}
+	return 0;
+}
+
 static int
 get_pathvec_sysfs (vector pathvec)
 {
