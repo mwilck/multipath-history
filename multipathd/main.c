@@ -581,36 +581,63 @@ static void *
 checkerloop (void *ap)
 {
 	struct paths *failedpaths;
-	struct path *path_p;
+	struct path *pp;
 	int i;
+	int newstate;
+	char buff[1];
+	char * bin;
+	char checker_msg[MAX_CHECKER_MSG_SIZE];
+
+	memset(checker_msg, 0, MAX_CHECKER_MSG_SIZE);
 
 	mlockall(MCL_CURRENT | MCL_FUTURE);
 	failedpaths = (struct paths *)ap;
 
-	LOG (1, "path checkers start up");
+	syslog(LOG_NOTICE, "path checkers start up");
 
 	while (1) {
 		pthread_mutex_lock(failedpaths->lock);
-		LOG(3, "checking paths");
+		syslog(LOG_DEBUG, "checking paths");
 
 		for (i = 0; i < VECTOR_SIZE(failedpaths->pathvec); i++) {
-			path_p = VECTOR_SLOT(failedpaths->pathvec, i);
+			pp = VECTOR_SLOT(failedpaths->pathvec, i);
+			newstate = checkpath(pp->sg_dev_t, pp->checkfn,
+				      checker_msg, pp->checker_context);
 			
-			if (checkpath(path_p->sg_dev_t, path_p->checkfn)) {
+			if (newstate != pp->state) {
+				pp->state = newstate;
+				LOG_MSG(checker_msg, pp->sg_dev_t);
+
+				/*
+				 * don't trigger map reconfiguration for
+				 * path going down. It will be handled
+				 * in due time by DM event waiters
+				 */
+				if (newstate & (PATH_DOWN | PATH_SHAKY))
+					continue;
+
+				/*
+				 * reconfigure map now
+				 */
+				bin = MALLOC(strlen(multipath) + DEV_T_SIZE);
+				sprintf(bin, "%s -D %i %i", multipath,
+						pp->major, pp->minor);
+
+				syslog(LOG_DEBUG, "%s", bin);
+				syslog(LOG_INFO, "reconfigure multipath map");
+				execute_program(bin, buff, 1);
+
 				/*
 				 * tell waiterloop we have an event
 				 */
-				LOG(1, "path checker event on device %s",
-					path_p->sg_dev_t);
 				pthread_mutex_lock (event_lock);
 				pthread_cond_signal(event);
 				pthread_mutex_unlock (event_lock);
-			} else
-				LOG (2, "check path %s => down",
-				     path_p->sg_dev_t);
+			}
+			pp->state = newstate;
 		}
 		pthread_mutex_unlock(failedpaths->lock);
-		sleep(checkint ? checkint : CHECKINT);
+		sleep(checkint);
 	}
 
 	return (NULL);
