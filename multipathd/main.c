@@ -778,7 +778,10 @@ prepare_namespace(void)
 	LOG(3, "copied " MULTIPATH " in ramfs");
 
 	/*
-	 * bind the ramfs to /sbin & /bin
+	 * bind the ramfs to :
+	 * /sbin : home of multipath
+	 * /bin  : home of scsi_id
+	 * /tmp  : home of tools temp files
 	 */
 	if (mount(CALLOUT_DIR, "/sbin", NULL, MS_BIND, NULL) < 0) {
 		LOG(1, "cannot bind ramfs on /sbin");
@@ -790,6 +793,11 @@ prepare_namespace(void)
 		return -1;
 	}
 	LOG(3, "bound ramfs on /bin");
+	if (mount(CALLOUT_DIR, "/tmp", NULL, MS_BIND, NULL) < 0) {
+		LOG(1, "cannot bind ramfs on /tmp");
+		return -1;
+	}
+	LOG(3, "bound ramfs on /tmp");
 
 	return 0;
 }

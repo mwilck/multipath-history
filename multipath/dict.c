@@ -2,8 +2,10 @@
 #include "global.h"
 #include "debug.h"
 
-/* data handlers */
-/* Global def handlers */
+/*
+ * data handlers
+ * global def handlers
+ */
 static void
 udev_dir_handler(vector strvec)
 {
@@ -24,7 +26,30 @@ def_selector_args_handler(vector strvec)
 	buff = set_value(strvec);
 	conf->default_selector_args = atoi(buff);
 }
-			
+
+static void
+def_iopolicy_handler(vector strvec)
+{
+	char * buff;
+	int i = 0;
+
+	buff = set_value(strvec);
+	while (iopolicy_list[i].name) {
+		if (0 == strcmp(iopolicy_list[i].name, buff)) {
+			conf->default_iopolicy = iopolicy_list[i].iopolicy;
+			break;
+		}
+		i++;
+	}
+	free(buff);
+}
+
+static void
+def_getuid_callout_handler(vector strvec)
+{
+	conf->default_getuid = set_value(strvec);
+}
+
 static void
 blacklist_handler(vector strvec)
 {
@@ -187,6 +212,8 @@ init_keywords(void)
 	install_keyword("udev_dir", &udev_dir_handler);
 	install_keyword("default_selector", &def_selector_handler);
 	install_keyword("default_selector_args", &def_selector_args_handler);
+	install_keyword("default_path_grouping_policy", &def_iopolicy_handler);
+	install_keyword("default_getuid_callout", &def_getuid_callout_handler);
 	
 	install_keyword_root("devnode_blacklist", &blacklist_handler);
 	install_keyword("devnode", &devnode_handler);

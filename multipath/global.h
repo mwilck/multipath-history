@@ -8,7 +8,6 @@
 #define FAILOVER	0
 #define MULTIBUS	1
 #define GROUP_BY_SERIAL	2
-#define GROUP_BY_TUR	3
 
 /* lists */
 static struct {
@@ -18,7 +17,6 @@ static struct {
 	{"failover", FAILOVER},
 	{"multibus", MULTIBUS},
 	{"group_by_serial", GROUP_BY_SERIAL},
-	{"group_by_tur", GROUP_BY_TUR},
 	{NULL, -1},
 };
 
@@ -44,7 +42,7 @@ struct config {
 	int verbose;
 	int quiet;
 	int dry_run;
-	int iopolicy;
+	int iopolicy_flag;
 	int with_sysfs;
 	int major;
 	int minor;
@@ -54,6 +52,8 @@ struct config {
 	char * udev_dir;
 	char * default_selector;
 	int default_selector_args;
+	int default_iopolicy;
+	char * default_getuid;
 
 	vector mptable;
 	vector hwtable;
