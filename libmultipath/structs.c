@@ -16,10 +16,62 @@ alloc_path (void)
 void
 free_path (struct path * pp)
 {
-	if (pp->fd > 0)
+	if (pp && pp->fd > 0)
 		close(pp->fd);
 
 	free(pp);
+}
+
+void
+free_pathvec (vector vec, int free_paths)
+{
+	int i;
+	struct path * pp;
+
+	if (free_paths && vec && VECTOR_SIZE(vec) > 0)
+		vector_foreach_slot(vec, pp, i)
+			free_path(pp);
+
+	vector_free(vec);
+}
+
+struct pathgroup *
+alloc_pathgroup (void)
+{
+	struct pathgroup * pgp;
+
+	pgp = zalloc(sizeof(struct pathgroup));
+
+	if (!pgp)
+		return NULL;
+
+	pgp->paths = vector_alloc();
+
+	if (!pgp->paths)
+		free(pgp);
+
+	return pgp;
+}
+
+void
+free_pathgroup (struct pathgroup * pgp, int free_paths)
+{
+	if (pgp && pgp->paths)
+		free_pathvec(pgp->paths, free_paths);
+
+	free(pgp);
+}
+
+void
+free_pgvec (vector pgvec, int free_paths)
+{
+	int i;
+	struct pathgroup * pgp;
+
+	vector_foreach_slot(pgvec, pgp, i)
+		free_pathgroup(pgp, free_paths);
+
+	vector_free(pgvec);
 }
 
 struct multipath *
@@ -29,21 +81,36 @@ alloc_multipath (void)
 }
 
 void
-free_multipath (struct multipath * mpp)
+free_multipath (struct multipath * mpp, int free_paths)
 {
-	struct pathgroup * pgp;
-	int i;
-
 	if (mpp->paths)
-		vector_free(mpp->paths);
+		free_pathvec(mpp->paths, free_paths);
 
-	vector_foreach_slot (mpp->pg, pgp, i) {
-		if (pgp->paths)
-			vector_free(pgp->paths);
-	}
+	if (mpp->pg)
+		free_pgvec(mpp->pg, free_paths);
 	free(mpp);
+}
 
-	return;
+int
+store_path (vector pathvec, struct path * pp)
+{
+	if (!vector_alloc_slot(pathvec))
+		return 1;
+
+	vector_set_slot(pathvec, pp);
+
+	return 0;
+}
+
+int
+store_pathgroup (vector pgvec, struct pathgroup * pgp)
+{
+	if (!vector_alloc_slot(pgvec))
+		return 1;
+
+	vector_set_slot(pgvec, pgp);
+
+	return 0;
 }
 
 struct multipath *

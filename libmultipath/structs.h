@@ -14,6 +14,9 @@
 #define SCSI_PRODUCT_SIZE	17
 #define SCSI_REV_SIZE		5
 
+#define KEEP_PATHS		0
+#define FREE_PATHS		1
+
 enum pathstates {
 	PSTATE_RESERVED,
 	PSTATE_FAILED,
@@ -107,9 +110,17 @@ struct pathgroup {
 };
 
 struct path * alloc_path (void);
+struct pathgroup * alloc_pathgroup (void);
 struct multipath * alloc_multipath (void);
 void free_path (struct path *);
-void free_multipath (struct multipath *);
+void free_pathvec (vector vec, int free_paths);
+void free_pathgroup (struct pathgroup * pgp, int free_paths);
+void free_pgvec (vector pgvec, int free_paths);
+void free_multipath (struct multipath *, int free_paths);
+
+int store_path (vector pathvec, struct path * pp);
+int store_pathgroup (vector pgvec, struct pathgroup * pgp);
+
 struct multipath * find_mp (vector mp, char * alias);
 struct path * find_path_by_devt (vector pathvec, char * devt);
 struct path * find_path_by_dev (vector pathvec, char * dev);
