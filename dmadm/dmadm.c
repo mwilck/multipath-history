@@ -82,6 +82,18 @@ sort_by_disknum (struct device * a, struct device * b)
 	return (a->super.this_disk.number < b->super.this_disk.number ? a : b);
 }
 
+static void
+format_devname (char * devname)
+{
+	char * p = devname;
+
+	while (*p) {
+		if (*p == '!')
+			*p = '/';
+		p++;
+	}
+}
+
 unsigned long long
 get_disk_size (char * sysfs_path, char * devname) {
 	unsigned long long size;
@@ -277,7 +289,8 @@ int main (int argc, char **argv)
 	sysfs_read_directory (sdir);
 
 	dlist_for_each_data (sdir->subdirs, devp, struct sysfs_directory) {
-
+		format_devname (devp->name);
+		
 		if (blacklist (devp->name))
 			continue;
 
