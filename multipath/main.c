@@ -616,7 +616,7 @@ setup_map (struct multipath * mpp)
 	mpp->nextpg = 1;
 	vector_foreach_slot (mpp->pg, pgp, i) {
 		vector_foreach_slot (pgp->paths, pp, j) {
-			pgp->id ^= (int)pp;
+			pgp->id ^= (long)pp;
 			if (pp->state != PATH_DOWN)
 				pgp->priority += pp->priority;
 		}
@@ -1207,7 +1207,9 @@ main (int argc, char *argv[])
 		dbg("status = %s", mpp->status);
 		disassemble_map(pathvec, mpp->params, mpp);
 		disassemble_status(mpp->status, mpp);
-		reinstate_paths(mpp);
+
+		if (!conf->dry_run)
+			reinstate_paths(mpp);
 	}
 	if (conf->list) {
 		print_all_mp(curmp);
