@@ -62,29 +62,43 @@ devt2devname (char *devname, int major, int minor)
 	char attr_value[16];
 	char attr_ref_value[16];
 
-	if (sysfs_get_mnt_path (sysfs_path, FILE_NAME_SIZE)) {
-		fprintf (stderr, "-D feature available with sysfs only\n");
-		exit (1);
+	if (sysfs_get_mnt_path(sysfs_path, FILE_NAME_SIZE)) {
+		fprintf(stderr, "-D feature available with sysfs only\n");
+		exit_tool(1);
 	}
 		
-	sprintf (attr_ref_value, "%i:%i\n", major, minor);
-	sprintf (block_path, "%s/block", sysfs_path);
-	sdir = sysfs_open_directory (block_path);
-	sysfs_read_directory (sdir);
+	if(safe_sprintf(attr_ref_value, "%i:%i\n", major, minor)) {
+		fprintf(stderr, "attr_ref_value too small\n");
+		exit_tool(1);
+	}
+	if(safe_sprintf(block_path, "%s/block", sysfs_path)) {
+		fprintf(stderr, "block_path too small\n");
+		exit_tool(1);
+	}
+	sdir = sysfs_open_directory(block_path);
+	sysfs_read_directory(sdir);
 
 	dlist_for_each_data (sdir->subdirs, devp, struct sysfs_directory) {
-		sprintf (attr_path, "%s/%s/dev", block_path, devp->name);
-		sysfs_read_attribute_value (attr_path, attr_value, sizeof(attr_value));
+		if(safe_sprintf(attr_path, "%s/%s/dev",
+				block_path, devp->name)) {
+			fprintf(stderr, "attr_path too small\n");
+			exit_tool(1);
+		}
+		sysfs_read_attribute_value(attr_path, attr_value,
+					   sizeof(attr_value));
 
-		if (!strcmp (attr_value, attr_ref_value)) {
-			sprintf (attr_path, "%s/%s", block_path, devp->name);
-			sysfs_get_name_from_path (attr_path, devname, FILE_NAME_SIZE);
+		if (!strcmp(attr_value, attr_ref_value)) {
+			if(safe_sprintf(attr_path, "%s/%s",
+					block_path, devp->name)) {
+				fprintf(stderr, "attr_path too small\n");
+				exit_tool(1);
+			}
+			sysfs_get_name_from_path(attr_path, devname,
+						 FILE_NAME_SIZE);
 			break;
 		}
 	}
-
-	sysfs_close_directory (sdir);
-	
+	sysfs_close_directory(sdir);
 	return 0;
 }
 
@@ -135,7 +149,11 @@ devinfo (struct path *curpath)
 	/*
 	 * get path prio
 	 */
-	sprintf (buff, "%s /block/%s", conf->default_getprio, curpath->dev);
+	if(safe_sprintf(buff, "%s /block/%s",
+			conf->default_getprio, curpath->dev)) {
+		fprintf(stderr, "buff too small\n");
+		exit_tool(1);
+	}
 
 	dbg("get prio callout :");
 	dbg("==================");
@@ -161,9 +179,11 @@ devinfo (struct path *curpath)
 			 */
 			dbg("get uid callout :");
 			dbg("=================");
-			sprintf (buff, "%s /block/%s",
-				 hwe->getuid, curpath->dev);
-
+			if(safe_sprintf(buff, "%s /block/%s",
+				 hwe->getuid, curpath->dev)) {
+				fprintf(stderr, "buff too small\n");
+				exit_tool(1);
+			}
 			if (execute_program(buff, curpath->wwid,
 			    WWID_SIZE) == 0) {
 				dbg("devinfo found uid : %s", curpath->wwid);
@@ -196,7 +216,11 @@ devinfo (struct path *curpath)
 	 * incidentaly, dealing with this case will make parallel SCSI
 	 * disks treated as 1-path multipaths, which is good : wider audience !
 	 */
-	sprintf (buff, "%s /block/%s", conf->default_getuid, curpath->dev);
+	if(safe_sprintf(buff, "%s /block/%s",
+			conf->default_getuid, curpath->dev)) {
+		fprintf(stderr, "buff too small\n");
+		exit_tool(1);
+	}
 
 	dbg("default get uid callout :");
 	dbg("=========================");
@@ -255,7 +279,10 @@ get_pathvec_sysfs (vector pathvec)
 			return 1;
 		
 		curpath = zalloc(sizeof (struct path));
-		sprintf(curpath->dev, "%s", buff);
+		if(safe_sprintf(curpath->dev, "%s", buff)) {
+			fprintf(stderr, "curpath->dev too small\n");
+			exit_tool(1);
+		}
 
 		if (devinfo(curpath))
 			return 1;
@@ -264,7 +291,10 @@ get_pathvec_sysfs (vector pathvec)
 		free(curpath);
 	}
 		
-	sprintf(path, "%s/block", sysfs_path);
+	if(safe_sprintf(path, "%s/block", sysfs_path)) {
+		fprintf(stderr, "path too small\n");
+		exit_tool(1);
+	}
 	sdir = sysfs_open_directory(path);
 	sysfs_read_directory(sdir);
 
@@ -281,15 +311,16 @@ get_pathvec_sysfs (vector pathvec)
 			if (!strncmp(linkp->name, "device", 6))
 				break;
 		}
-
 		if (linkp == NULL) {
 			continue;
 		}
-
 		basename(devp->path, buff);
 		curpath = zalloc(sizeof(struct path));
-		sprintf(curpath->dev, "%s", buff);
 
+		if(safe_sprintf(curpath->dev, "%s", buff)) {
+			fprintf(stderr, "curpath->dev too small\n");
+			exit_tool(1);
+		}
 		if (devinfo(curpath)) {
 			free (curpath);
 			continue;
@@ -626,50 +657,44 @@ assemble_map (struct multipath * mp)
 	}
 
 	p = mp->params;
-	p += sprintf(p, " %i", VECTOR_SIZE(mp->pg));
+	freechar = sizeof(mp->params);
+	
+	shift = snprintf(p, freechar, "%i", VECTOR_SIZE(mp->pg));
 
+	if (shift >= freechar) {
+		fprintf(stderr, "mp->params too small\n");
+		exit_tool(1);
+	}
+	p += shift;
+	freechar -= shift;
+	
 	for (i = 0; i < VECTOR_SIZE(mp->pg); i++) {
 		pgpaths = VECTOR_SLOT(mp->pg, i);
-		p += sprintf(p, " %s %i %i",
-			     selector, VECTOR_SIZE(pgpaths), selector_args);
+		shift = snprintf(p, freechar, " %s %i %i",
+			         selector, VECTOR_SIZE(pgpaths), selector_args);
+		if (shift >= freechar) {
+			fprintf(stderr, "mp->params too small\n");
+			exit_tool(1);
+		}
+		p += shift;
+		freechar -= shift;
 
-		for (j = 0; j < VECTOR_SIZE(pgpaths); j++)
-			p += sprintf(p, " %s",
-				     (char *)VECTOR_SLOT(pgpaths, j));
+		for (j = 0; j < VECTOR_SIZE(pgpaths); j++) {
+			shift = snprintf(p, freechar, " %s",
+					 (char *)VECTOR_SLOT(pgpaths, j));
+			if (shift >= freechar) {
+				fprintf(stderr, "mp->params too small\n");
+				exit_tool(1);
+			}
+			p += shift;
+			freechar -= shift;
+		}
 	}
-}
-
-static int
-map_present (char * str)
-{
-        int r = 0;
-	struct dm_task *dmt;
-        struct dm_names *names;
-        unsigned next = 0;
-
-	if (!(dmt = dm_task_create (DM_DEVICE_LIST)))
-		return 0;
-
-	if (!dm_task_run (dmt))
-		goto out;
-
-	if (!(names = dm_task_get_names (dmt)))
-		goto out;
-
-	if (!names->dev) {
-		goto out;
+	if (freechar < 1) {
+		fprintf(stderr, "mp->params too small\n");
+		exit_tool(1);
 	}
-
-	do {
-		if (0 == strcmp (names->name, str))
-			r = 1;
-		next = names->next;
-		names = (void *) names + next;
-	} while (next);
-
-	out:
-	dm_task_destroy (dmt);
-	return r;
+	snprintf(p, 1, "\n");
 }
 
 static int
@@ -856,7 +881,7 @@ signal_daemon (void)
 
 #define VECTOR_ADDSTR(a, b) \
 	str = zalloc (6 * sizeof(char)); \
-	sprintf (str, b); \
+	snprintf (str, 6, b); \
 	vector_alloc_slot(a); \
 	vector_set_slot(a, str);
 
@@ -880,10 +905,10 @@ setup_default_blist (vector blist)
 
 #define VECTOR_ADDHWE(a, b, c, d, e) \
 	hwe = zalloc (sizeof(struct hwentry)); \
-	hwe->vendor = zalloc (9 * sizeof(char)); \
-	sprintf (hwe->vendor, b); \
-	hwe->product = zalloc (17 * sizeof(char)); \
-	sprintf (hwe->product, c); \
+	hwe->vendor = zalloc (SCSI_VENDOR_SIZE * sizeof(char)); \
+	snprintf (hwe->vendor, SCSI_VENDOR_SIZE, b); \
+	hwe->product = zalloc (SCSI_PRODUCT_SIZE * sizeof(char)); \
+	snprintf (hwe->product, SCSI_PRODUCT_SIZE, c); \
 	hwe->iopolicy = d; \
 	hwe->getuid = e; \
 	vector_alloc_slot(a); \
@@ -1124,7 +1149,7 @@ main (int argc, char *argv[])
 	 * signal multipathd that new devmaps may have come up
 	 */
 	if (conf->signal)
-		signal_daemon ();
+		signal_daemon();
 	
 	/*
 	 * free allocs

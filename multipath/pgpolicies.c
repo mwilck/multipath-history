@@ -43,7 +43,10 @@ get_pgpolicy_name (char * buff, int id)
 		s = "undefined";
 		break;
 	}
-	sprintf(buff, "%s", s);
+	if(snprintf(buff, POLICY_NAME_SIZE, "%s", s) >=  POLICY_NAME_SIZE) {
+		fprintf(stderr, "get_pgpolicy_name: buff too small\n");
+		exit(1);
+	}
 }
 
 /*
@@ -81,7 +84,10 @@ group_by_serial (struct multipath * mp, int slot) {
 
 		/* feed the first path */
 		pathstr = zalloc(PATH_STR_SIZE);
-		sprintf(pathstr, "%s", pp->dev_t);
+		if(safe_sprintf(pathstr, "%s", pp->dev_t)) {
+			fprintf(stderr, "group_by_serial: pathstr too small\n");
+			exit(1);
+		}
 		vector_alloc_slot(pgpaths);
 		vector_set_slot(pgpaths, pathstr);
 				
@@ -96,7 +102,11 @@ group_by_serial (struct multipath * mp, int slot) {
 			
 			if (0 == strcmp(pp->serial, pp2->serial)) {
 				pathstr = zalloc(PATH_STR_SIZE);
-				sprintf(pathstr, "%s", pp2->dev_t);
+				if(safe_sprintf(pathstr, "%s", pp2->dev_t)) {
+					fprintf(stderr, "group_by_serial: "
+							"pathstr too small\n");
+					exit(1);
+				}
 				vector_alloc_slot(pgpaths);
 				vector_set_slot(pgpaths, pathstr);
 
@@ -120,7 +130,10 @@ even:
 
 		/* feed the first path */
 		pathstr = zalloc(PATH_STR_SIZE);
-		sprintf(pathstr, "%s", pp->dev_t);
+		if(safe_sprintf(pathstr, "%s", pp->dev_t)) {
+			fprintf(stderr, "group_by_serial: pathstr too small\n");
+			exit(1);
+		}
 		vector_alloc_slot(pgpaths);
 		vector_set_slot(pgpaths, pathstr);
 				
@@ -135,7 +148,11 @@ even:
 			
 			if (0 == strcmp(pp->serial, pp2->serial)) {
 				pathstr = zalloc(PATH_STR_SIZE);
-				sprintf(pathstr, "%s", pp2->dev_t);
+				if(safe_sprintf(pathstr, "%s", pp2->dev_t)) {
+					fprintf(stderr, "group_by_serial: "
+							"pathstr too small\n");
+					exit(1);
+				}
 				vector_alloc_slot(pgpaths);
 				vector_set_slot(pgpaths, pathstr);
 
@@ -164,8 +181,11 @@ one_path_per_group (struct multipath * mp)
 			continue;
 
 		pathstr = zalloc(PATH_STR_SIZE);
-		sprintf(pathstr, "%s", pp->dev_t);
-
+		if(safe_sprintf(pathstr, "%s", pp->dev_t)) {
+			fprintf(stderr, "one_path_per_group: "
+					"pathstr too small\n");
+			exit(1);
+		}
 		if (!pp->tur) {
 			vector_alloc_slot(failedpaths);
 			vector_set_slot(failedpaths, pathstr);
@@ -203,8 +223,10 @@ one_group (struct multipath * mp)
 			continue;
 
 		pathstr = zalloc(PATH_STR_SIZE);
-		sprintf(pathstr, "%s", pp->dev_t);
-
+		if(safe_sprintf(pathstr, "%s", pp->dev_t)) {
+			fprintf(stderr, "one_group: pathstr too small\n");
+			exit(1);
+		}
 		if (!pp->tur) {
 			vector_alloc_slot(pgfailedpaths);
 			vector_set_slot(pgfailedpaths, pathstr);
@@ -243,8 +265,10 @@ group_by_prio (struct multipath * mp)
 			continue;
 
 		pathstr = zalloc(PATH_STR_SIZE);
-		sprintf(pathstr, "%s", pp->dev_t);
-
+		if(safe_sprintf(pathstr, "%s", pp->dev_t)) {
+			fprintf(stderr, "group_by_prio: pathstr too small\n");
+			exit(1);
+		}
 		if (!pp->tur) {
 			vector_alloc_slot(pgfailedpaths);
 			vector_set_slot(pgfailedpaths, pathstr);
