@@ -150,6 +150,7 @@ get_pathvec_sysfs (vector pathvec)
 		}
 		if (devinfo(curpath)) {
 			free (curpath);
+			fprintf(stderr, "pb getting path info, free\n");
 			continue;
 		}
 		if (memcmp(empty_buff, refwwid, WWID_SIZE) != 0 && 
@@ -731,7 +732,7 @@ select_action (struct multipath * mpp, vector curmp)
 			return;
 		}
 		if (VECTOR_SIZE(cmpp->pg) != VECTOR_SIZE(mpp->pg)) {
-			dbg("different number og PG");
+			dbg("different number of PG");
 			mpp->action = ACT_RELOAD;
 			return;
 		}
@@ -1157,7 +1158,7 @@ main (int argc, char *argv[])
 		    0 == strncmp(mpp->wwid, conf->dev, FILE_NAME_SIZE))) {
 			setup_map(mpp);
 
-			if (!mpp->action)
+			if (mpp->action == 0)
 				select_action(mpp, curmp);
 			domap(mpp);
 			goto out;
@@ -1167,7 +1168,7 @@ main (int argc, char *argv[])
 	vector_foreach_slot (mp, mpp, k) {
 		setup_map(mpp);
 
-		if (!mpp->action)
+		if (mpp->action == 0)
 			select_action(mpp, curmp);
 		domap(mpp);
 	}
