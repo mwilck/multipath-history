@@ -8,9 +8,10 @@
 #include <sys/ioctl.h>
 #include <errno.h>
 
-#include "sg_include.h"
 #include "path_state.h"
 #include "checkers.h"
+
+#include "../libmultipath/sg_include.h"
 
 #define INQUIRY_CMD     0x12
 #define INQUIRY_CMDLEN  6

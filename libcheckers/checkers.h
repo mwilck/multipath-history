@@ -5,12 +5,6 @@
 #define DEVNODE_SIZE 256
 #define MAX_CHECKER_MSG_SIZE 256
 
-enum devnode_actions {
-	CREATE_NODE,
-	UNLINK_NODE,
-	OPEN_NODE
-};
-
 enum checkers {
 	CHECKER_RESERVED,
 	TUR,
@@ -20,8 +14,6 @@ enum checkers {
 
 #define MSG(a) if (msg != NULL) \
 			snprintf(msg, MAX_CHECKER_MSG_SIZE, "%s\n", a);
-
-int devnode (int, char *);
 
 int get_checker_id (char *);
 void *get_checker_addr (int);

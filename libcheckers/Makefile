@@ -6,7 +6,7 @@ BUILD = glibc
 
 include ../Makefile.inc
 
-OBJS = readsector0.o tur.o selector.o checkers.o emc_clariion.o
+OBJS = readsector0.o tur.o selector.o emc_clariion.o
 
 ifeq ($(strip $(BUILD)),klibc)
 	CFLAGS = -I$(libdmdir)
