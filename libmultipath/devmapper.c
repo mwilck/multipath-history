@@ -345,3 +345,44 @@ dm_reinstate(char * mapname, char * path)
 	return r;
 }
 
+char *
+dm_mapname(int major, int minor)
+{
+	unsigned next = 0;
+	struct dm_names *names;
+	struct dm_task *dmt;
+	char *mapname = NULL;
+	int len;
+
+	if (!(dmt = dm_task_create(DM_DEVICE_LIST)))
+		return 0;
+                                                                                
+	if (!dm_task_run(dmt))
+		goto out;
+                                                                                
+	if (!(names = dm_task_get_names(dmt)))
+		goto out;
+                                                                                
+	if (!names->dev) {
+		printf("No devices found\n");
+		goto out;
+	}
+
+	do {
+		names = (void *) names + next;
+		if ((int) MAJOR(names->dev) == major &&
+		    (int) MINOR(names->dev) == minor) {
+			printf("%s", names->name);
+			len = strlen(names->name) + 1;
+			mapname = malloc(len);
+			strncpy(mapname, names->name, len);
+			goto out;
+		}
+       		next = names->next;
+	} while (next);
+                                                                                
+	out:
+	dm_task_destroy(dmt);
+	return mapname;
+}
+
