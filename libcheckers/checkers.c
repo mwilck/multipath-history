@@ -21,9 +21,9 @@ makenode (char *devnode, char *devt)
 }
 
 extern int
-checkpath (char * devt, void * checkfn)
+checkpath (char * devt, void * checkfn, char * msg, void * context)
 {
-	int (*checker) (char *);
+	int (*checker) (char *, char *, void *);
 	char devnode[DEVNODE_SIZE];
 	int r;
 
@@ -40,7 +40,7 @@ checkpath (char * devt, void * checkfn)
 	if (makenode(devnode, devt))
 		return -1;
 
-	r = checker(devnode);
+	r = checker(devnode, msg, context);
 	unlink(devnode);
 	return r;
 }

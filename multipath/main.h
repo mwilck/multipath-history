@@ -84,7 +84,7 @@ struct path {
 	int state;
 	unsigned int priority;
 	int claimed;
-	int (*checkfn) (char *);
+	int (*checkfn) (char *, char *, void *);
 };
 
 struct multipath {
