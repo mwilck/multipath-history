@@ -1,16 +1,20 @@
 Dependancies :
 ==============
 
+These libs have been dropped in the multipath tree :
+  
 o libdevmapper : comes with device-mapper-XXXX.tar.gz
   See www.sistina.com
-  This lib has been dropped in the multipath tree
 o libsysfs : comes with sysutils or udev
   See ftp.kernel.org/pub/linux/utils/kernel/hotplug/
-o Linux kernel 2.6.0 with udm5 patchset
-  http://people.sistina.com/~thornber/dm/
-o udev
-  See ftp.kernel.org/pub/linux/utils/kernel/hotplug/
+o klibc
+  See ftp.kernel.org/pub/linux/libs/klibc/
 
+External :
+
+o Linux kernel 2.6.0 with udm5 patchset (or greater)
+  http://people.sistina.com/~thornber/dm/
+  
 How it works :
 ==============
 
@@ -81,6 +85,11 @@ o The kernel does NOT manage properly ghosts paths
 o 2.4.21 version of DM does not like even segment size.
   if you enconter pbs with this, upgrade DM.
 
+o RedHat kernels may have an #error in
+  include/linux/config.h preventing kernel headers
+  inclusion from userspace, which you should erase to
+  compile klibc.
+
 Credits :
 =========
 
@@ -88,3 +97,5 @@ o Heavy cut'n paste from sg_utils. Thanks goes to D.
   Gilbert.
 o Light cut'n paste from dmsetup. Thanks Joe Thornber.
 o Greg KH for the nice sysfs API.
+o The klibc guys (Starving Linux Artists :), espacially
+  for their nice Makefiles and specfile
