@@ -1,3 +1,33 @@
+2004-11-05 multipath-tools-0.3.7
+
+	* [multipathd] fix off by one memory allocation (Hannes,
+	  Suse)
+	* [multipathd] introduce a default callout handler that
+	  just remembers to put the callout in ramfs, even if the
+	  daemon has no direct use of them. multipath need some
+	  that where forgotten, so parse them and use that default
+	  handler.
+	* [libcheckers] emc_clariion checker update (heinz, Suse)
+	* [build] exit build process on failure (heinz, Suse)
+	* [kpartx] exit early if DM prereq not met
+	* [multipath] exit early if DM prereq not met
+	* [libmultipath] new dm_prereq() fn to check out if all DM
+	  prerequisites are met
+	* [libmultipath] move callout.[ch] function in there.
+	  multipath and multipathd impacted
+	* [libmultipath] move dm_* function in there. kpartx,
+	  multipath are impacted
+	* [priority] pp_balance_lun should use DM_DEVICE_TABLE ioctl
+	  instead of DM_DEVICE_STATUS to find out paths from the
+	  primary path groups.
+	* [klibc] drop in "Stable" version 0.190
+	* [build] add manpages for kpartx and multipathd (Patrick
+	  Caulfield)
+	* [build] use system's sysfs for multipathd linking
+	* [build] make glibc the default build
+	* [build] "make BUILD=klibc" is enough, deprecate the 
+	  "make BUILD=klibc klibc" synthax
+
 2004-10-30 multipath-tools-0.3.6
 
 	* Patrick Caulfield took over debian packaging. Showing
