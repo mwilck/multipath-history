@@ -107,7 +107,7 @@ closenode (char * devt, int fd)
 	unsigned int major;
 	unsigned int minor;
 
-	if (fd >= 0)		/* as it should always be */
+	if (fd >= 0)
 		close(fd);
 
 	sscanf(devt, "%u:%u", &major, &minor);
@@ -343,7 +343,7 @@ get_paths (vector pathvec)
 	vector_foreach_slot (paramsvec, str, i) {
 		debug("params %s", str);
 		while (pos != AFTERPG) {
-			pp = malloc(sizeof(struct path));
+			pp = zalloc(sizeof(struct path));
 			str += get_word(str, pp->dev_t);
 
 			if (!is_path(pp->dev_t)) {
@@ -357,7 +357,7 @@ get_paths (vector pathvec)
 			if (pos == BEFOREPG)
 				pos = INPG;
 
-			get_serial(pp->dev_t, pp->serial);
+			get_serial(pp->serial, pp->dev_t);
 			vector_alloc_slot(pathvec);
 			vector_set_slot(pathvec, pp);
 			debug("store %s [%s]",
@@ -378,7 +378,7 @@ find_controler (vector controlers, char * serial)
 		return NULL;
 
 	vector_foreach_slot (controlers, cp, i)
-		if (strncmp(cp->serial, serial, SERIAL_SIZE))
+		if (!strncmp(cp->serial, serial, SERIAL_SIZE))
 				return cp;
 	return NULL;
 }
@@ -419,9 +419,12 @@ get_max_path_count (vector controlers)
 	if (!controlers)
 		return 0;
 
-	vector_foreach_slot (controlers, cp, i)
+	vector_foreach_slot (controlers, cp, i) {
+		debug("controler %s : %i paths", cp->serial, cp->path_count);
 		if(cp->path_count > max)
 			max = cp->path_count;
+	}
+	debug("max_path_count = %i", max);
 	return max;
 }
 
@@ -461,7 +464,7 @@ main (int argc, char **argv)
 	if (!cp)
 		exit_tool(1);
 
-	printf("%i\n", max_path_count - cp->path_count);
+	printf("%i\n", max_path_count - cp->path_count + 1);
 
 	return(0);
 }
