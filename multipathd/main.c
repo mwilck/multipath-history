@@ -15,16 +15,17 @@
 #include "hwtable.h"
 #include "dict.h"
 #include "parser.h"
+#include "vector.h"
 #include "devinfo.h"
 #include "checkers.h"
+#include "memory.h"
 
-#define CHECKINT 5
-#define MAXPATHS 2048
+#define MAXPATHS 1024
+#define MAXMAPS 256
 #define FILENAMESIZE 256
 #define MAPNAMESIZE 64
 #define TARGETTYPESIZE 16
 #define PARAMSSIZE 2048
-#define MAXMAPS 512
 
 #define MULTIPATH "/sbin/multipath"
 #define PIDFILE "/var/run/multipathd.pid"

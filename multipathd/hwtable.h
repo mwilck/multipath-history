@@ -1,5 +1,6 @@
 #ifndef HWTABLE_H
 #define HWTABLE_H
+#define CHECKINT 5
 
 #include "checkers.h"
 #include "vector.h"
@@ -23,5 +24,6 @@ struct hwentry {
 /* External vars */ 
 vector hwtable;
 vector blist;
+int checkint;
 
 #endif
