@@ -1,3 +1,19 @@
+2004-10-16 multipath-tools-0.3.1
+
+	* [kpartx] move back to getopt, originaly removed from the 
+	  original partx because of lack of implementation in klibc
+	* [kpartx] don't map extended partitions
+	* [kpartx] add a -p command flag to allow admin to force a
+	  delimiting string between disk name and part number. When
+	  specified always use it, when unspecified use 'p' as a delim
+	  when last char of disk name is a digit, NUL otherwise.
+	* [kpartx] clean up
+	* bump klibc to 0.182
+	* one step further : use klibc MCONFIG for all klibc specific
+	  FLAGS definitions, ie massive Makefile.inc cleanup
+	* follow the klibc compilation rules by appending its OPTFLAGS
+	  to multipath-tools' CFLAGS. This corrects the segfaults seen
+	  on i386 where klibc is built with regparm=3 and tools are not
 	* [multipathd] fall back to fork when clone not available
 	  like in Debian Woody
 	* [kpartx] move .start and .size from uint to ulong (Ake)
