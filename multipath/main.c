@@ -376,14 +376,13 @@ print_all_mp (vector mp)
 static void
 coalesce_paths (vector mp, vector pathvec)
 {
-	int k, i, already_done;
+	int k, i;
 	char empty_buff[WWID_SIZE];
 	struct multipath * mpp;
 	struct path * pp1;
 	struct path * pp2;
 
-	already_done = 0;
-	memset (empty_buff, 0, WWID_SIZE);
+	memset(empty_buff, 0, WWID_SIZE);
 
 	vector_foreach_slot (pathvec, pp1, k) {
 		/* skip this path for some reason */
@@ -392,15 +391,9 @@ coalesce_paths (vector mp, vector pathvec)
 		if (memcmp(empty_buff, pp1->wwid, WWID_SIZE) == 0)
 			continue;
 
-		/* 2. if mp with this uid already instanciated */
-		vector_foreach_slot (mp, mpp, i)
-			if (0 == strcmp (mpp->wwid, pp1->wwid))
-				already_done = 1;
-
-		if (already_done) {
-			already_done = 0;
+		/* 2. if path already coalesced */
+		if (pp1->mpp)
 			continue;
-		}
 
 		/*
 		 * at this point, we know we really got a new mp
