@@ -1,3 +1,53 @@
+2004-11-26 multipath-tools-0.3.8
+
+	* [priority] teach multipath to read callout keywords
+	  formatted as /sbin/scsi_id -g -u -s /block/%n
+	  Apply one substitutions out of :
+		* %n : blockdev basename (ie sdb)
+		* %d : blockdev major:minor string (ie 8:16)
+	  update sample config files
+	* [priority] fix find_controler(). Now works, verified
+	  on IBM T200 at OSDL (thanks again, Dave). Add to the
+	  main build process
+	* [multipath] add a controler specific "prio_callout"
+	  keyword. Noticed by Ake
+	* [multipath] normalize the debug ouput
+	* [multipath] add select_getuid(). De-spaghetti
+	  devinfo() thanks to that helper.
+	* [libmultipath] add VECTOR_LAST_SLOT macro.
+	  multipath/dict.h now use it heavily.
+	* [multipath] policies selectors speedup and cleanup
+	  (pgpolicy, features, hwhandler, selector)
+	* [multipath] new "flush" command flag
+	* [libmultipath] add dm_type() and dm_flush_maps()
+	* [multipath] move dm_get_map() to libmultipath
+	* [multipath] rename iopolicy to pgpolicy everywhere.
+	  Dual terminology was getting confusing.
+	* [multipath] assemble_map() to always set next_pg to 1
+	  for now.
+	* [multipath] update config file to show new keywords.
+	  Add an IBM array tested at OSDL.
+	* [multipath] fork select_iopolicy() from setup_map()
+	* [multipath] introduce select_features() and 
+	  select_hwhandler(). Should merge select_* one day ...
+	* [multipath] add features and hardware_handler keywords
+	  and use them in the map setup
+	* [build] make clean really clean. Noticed by Dave Olien,
+	  OSDL
+	* [multipath] group_by_serial bugfix
+	* [multipath] dm_addmap() return value fix. Now multipath
+	  really creates the maps
+	* [multipath] try dm_log_init_verbose() instead of dup()
+	  + close() to silence libdevmapper (Ake at umu)
+	* [libcheckers] remove checkpath() wrapper, obsoleted by
+	  the "fd in context" changes
+	* [multipathd] let pathcheckers allocate their context.
+	  No more over or unneeded allocation.  Suggested by Lars,
+	  Suse
+	* [multipathd] store the pathcheckers fd in their context.
+	  No more open / close on each check. Suggested by Lars,
+	  Suse
+
 2004-11-05 multipath-tools-0.3.7
 
 	* [multipathd] fix off by one memory allocation (Hannes,
@@ -7,8 +57,8 @@
 	  daemon has no direct use of them. multipath need some
 	  that where forgotten, so parse them and use that default
 	  handler.
-	* [libcheckers] emc_clariion checker update (heinz, Suse)
-	* [build] exit build process on failure (heinz, Suse)
+	* [libcheckers] emc_clariion checker update (Lars, Suse)
+	* [build] exit build process on failure (Lars, Suse)
 	* [kpartx] exit early if DM prereq not met
 	* [multipath] exit early if DM prereq not met
 	* [libmultipath] new dm_prereq() fn to check out if all DM

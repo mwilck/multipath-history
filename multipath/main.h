@@ -109,8 +109,8 @@ struct multipath {
 /* Build version */
 #define PROG    "multipath"
 
-#define VERSION_CODE 0x000307
-#define DATE_CODE    0x050b04
+#define VERSION_CODE 0x000308
+#define DATE_CODE    0x260b04
 
 #define MULTIPATH_VERSION(version)	\
 	(version >> 16) & 0xFF,		\

@@ -1,2 +1,9 @@
 Things to do
 
+o redo print_all_mp() based on params or pg vec rather than paths vector
+o use it for "-l" flag too
+o factorize to different selectors & review the logic of it
+o params -> pg vector fn
+o pg vec equality test (unordered equality)
+o pg weighting fn
+o activate group dm mesg fn
