@@ -129,7 +129,7 @@ path_checker_handler(vector strvec)
 }
 
 static void
-hw_getuid_callout_handler(vector strvec)
+default_tool_handler(vector strvec)
 {
 	char * callout;
 
@@ -146,6 +146,8 @@ init_keywords(void)
 	keywords = vector_alloc();
 
 	install_keyword_root("defaults", NULL);
+	install_keyword("default_getuid_callout", &default_tool_handler);
+	install_keyword("default_prio_callout", &default_tool_handler);
 	install_keyword("polling_interval", &polling_interval_handler);
 	install_keyword("multipath_tool", &multipath_tool_handler);
 
@@ -158,7 +160,7 @@ init_keywords(void)
 	install_keyword("vendor", &vendor_handler);
 	install_keyword("product", &product_handler);
 	install_keyword("path_checker", &path_checker_handler);
-	install_keyword("getuid_callout", &hw_getuid_callout_handler);
+	install_keyword("getuid_callout", &default_tool_handler);
 	install_sublevel_end();
 
 	return keywords;
