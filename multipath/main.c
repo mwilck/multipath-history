@@ -597,42 +597,44 @@ get_pathvec_sysfs (vector pathvec)
 static void
 print_path (struct path * pp, int style)
 {
-	if (style != SHORT)
+	if (style != SHORT && pp->wwid)
 		printf ("%s ", pp->wwid);
 	else
 		printf (" \\_");
 
-	printf ("(%i %i %i %i) ",
+	printf("(%i %i %i %i) ",
 	       pp->sg_id.host_no,
 	       pp->sg_id.channel,
 	       pp->sg_id.scsi_id,
 	       pp->sg_id.lun);
 
-	printf ("%s ", pp->dev);
+	if (pp->dev)
+		printf("%s ", pp->dev);
 
 	switch (pp->state) {
 	case PATH_UP:
-		printf ("[ready ] ");
+		printf("[ready ]");
 		break;
 	case PATH_DOWN:
-		printf ("[faulty] ");
+		printf("[faulty]");
 		break;
 	case PATH_SHAKY:
-		printf ("[shaky] ");
+		printf("[shaky ]");
 		break;
 	default:
-		dbg("undefined path state");
+		printf("[undef ]");
 		break;
 	}
-	printf ("(%s) ", pp->dev_t);
+	if (pp->dev_t)
+		printf("[%s]", pp->dev_t);
 
 	if (pp->claimed)
-		printf ("[claimed] ");
+		printf("[claimed]");
 
-	if (style != SHORT)
-		printf ("[%.16s]", pp->product_id);
+	if (style != SHORT && pp->product_id)
+		printf("[%.16s]", pp->product_id);
 
-	fprintf (stdout, "\n");
+	fprintf(stdout, "\n");
 }
 
 static void
@@ -663,19 +665,25 @@ print_all_mp (vector mp)
 	struct multipath * mpp;
 	struct path * pp = NULL;
 
-	fprintf (stdout, "#\n# all multipaths :\n#\n");
+	fprintf(stdout, "#\n# all multipaths :\n#\n");
 
 	vector_foreach_slot (mp, mpp, k) {
 		if (mpp->alias)
-			printf ("%s (%s)", mpp->alias, mpp->wwid);
+			printf("%s (%s)", mpp->alias, mpp->wwid);
 		else
-			printf ("%s", mpp->wwid);
+			printf("%s", mpp->wwid);
 
+		if (!mpp->paths) {
+			printf("\n");
+			continue;
+		}
 		pp = VECTOR_SLOT(mpp->paths, 0);
-		printf (" [%.16s]\n", pp->product_id);
+
+		if (pp->product_id)
+			printf(" [%.16s]\n", pp->product_id);
 
 		vector_foreach_slot (mpp->paths, pp, i)
-			print_path (pp, SHORT);
+			print_path(pp, SHORT);
 	}
 }
 
