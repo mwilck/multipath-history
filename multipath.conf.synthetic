@@ -5,7 +5,7 @@ defaults {
 	default_selector	round-robin
 	default_selector_args	0
 	default_path_grouping_policy	multibus
-	default_getuid_callout	"/sbin/scsi_id -g -u -s"
+	default_getuid_callout	"/sbin/scsi_id -g -u -s /block/%n"
 	default_prio_callout	"/bin/false"
 	default_features	"0"
 }
@@ -41,7 +41,7 @@ devices {
 		vendor			"COMPAQ  "
 		product			"HSV110 (C)COMPAQ"
 		path_grouping_policy	multibus
-		getuid_callout          "/sbin/scsi_id -g -u -s"
+		getuid_callout          "/sbin/scsi_id -g -u -s /block/%n"
 		path_checker		readsector0
 		path_selector		round-robin
 		features		"1 queue_if_no_path"

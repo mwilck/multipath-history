@@ -61,7 +61,7 @@ defaults {
 	#           path identifier. Absolute path required
 	# default : /sbin/scsi_id -g -u -s
 	#
-	default_getuid_callout	"/sbin/scsi_id -g -u -s"
+	default_getuid_callout	"/sbin/scsi_id -g -u -s /block/%n"
 
 	#
 	# name    : default_prio_callout
@@ -203,7 +203,17 @@ devices {
 		#           path identifier. Absolute path required
 		# default : /sbin/scsi_id -g -u -s
 		#
-		getuid_callout          "/sbin/scsi_id -g -u -s"
+		getuid_callout          "/sbin/scsi_id -g -u -s /block/%n"
+
+		#
+		# name    : prio_callout
+		# scope   : multipath
+		# desc    : the program and args to callout to obtain a path 
+		#           weight. Weights are summed for each path group to
+		#	    determine the next PG to use case of failure.
+		# default : no callout, all paths equals
+		#
+		prio_callout          "/sbin/pp_balance_units %d"
 
 		#
 		# name    : path_checker
