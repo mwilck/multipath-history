@@ -675,6 +675,7 @@ main(int argc, char *argv[])
 	} else {
 		get_all_paths_sysfs(&conf, all_paths);
 	}
+
 	nmp = coalesce_paths(&conf, mp, all_paths);
 
 	if (conf.verbose) {

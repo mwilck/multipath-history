@@ -161,16 +161,17 @@ int
 get_evpd_wwid(char * devname, char * wwid)
 {
         int fd;
-        char buff[64];
+        char buff[MX_ALLOC_LEN + 1];
                                                                                                                  
         if ((fd = open(devname, O_RDONLY)) < 0)
                         return 0;
-                                                                                                                 
-        if (0 == do_inq(fd, 0, 1, 0x83, buff, sizeof (buff), 1)) {
+
+        if (0 == do_inq(fd, 0, 1, 0x83, buff, MX_ALLOC_LEN, 1)) {
                 sprint_wwid(wwid, &buff[8]);
                 close(fd);
                 return 1; /* success */
         }
+
         close(fd);
         return 0; /* not good */
 }

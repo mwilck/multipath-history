@@ -1,4 +1,6 @@
 2004-02-21 multipath-018
+	* Avoid Kernel Bug when passing too small a buffer in do_inq()
+	* Sync with 2.6.3-udm4 target synthax (no more PG prio)
 	* From the Debian SID inclusion review (Philipp Matthias Hahn)
 		* use DESTDIR install prefix in the Makefile
 		* add man pages for devmap_name & multipath
