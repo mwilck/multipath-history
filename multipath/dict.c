@@ -35,9 +35,9 @@ def_iopolicy_handler(vector strvec)
 	int i = 0;
 
 	buff = set_value(strvec);
-	while (iopolicy_list[i].name) {
-		if (0 == strcmp(iopolicy_list[i].name, buff)) {
-			conf->default_iopolicy = iopolicy_list[i].iopolicy;
+	while (iopolicies[i]) {
+		if (0 == strcmp(iopolicies[i], buff)) {
+			conf->default_iopolicy = i;
 			break;
 		}
 		i++;
@@ -49,6 +49,12 @@ static void
 def_getuid_callout_handler(vector strvec)
 {
 	conf->default_getuid = set_value(strvec);
+}
+
+static void
+def_prio_callout_handler(vector strvec)
+{
+	conf->default_getprio = set_value(strvec);
 }
 
 static void
@@ -108,9 +114,9 @@ hw_iopolicy_handler(vector strvec)
 		VECTOR_SLOT(conf->hwtable, VECTOR_SIZE(conf->hwtable) - 1);
 
 	buff = set_value(strvec);
-	while (iopolicy_list[i].name) {
-		if (0 == strcmp(iopolicy_list[i].name, buff)) {
-			hwe->iopolicy = iopolicy_list[i].iopolicy;
+	while (iopolicies[i]) {
+		if (0 == strcmp(iopolicies[i], buff)) {
+			hwe->iopolicy = i;
 			break;
 		}
 		i++;
@@ -176,9 +182,9 @@ mp_iopolicy_handler(vector strvec)
 	struct mpentry * mpe = VECTOR_SLOT(conf->mptable, VECTOR_SIZE(conf->mptable) - 1);
 
 	buff = set_value(strvec);
-	while (iopolicy_list[i].name) {
-		if (0 == strcmp(iopolicy_list[i].name, buff)) {
-			mpe->iopolicy = iopolicy_list[i].iopolicy;
+	while (iopolicies[i]) {
+		if (0 == strcmp(iopolicies[i], buff)) {
+			mpe->iopolicy = i;
 			break;
 		}
 		i++;
@@ -215,6 +221,7 @@ init_keywords(void)
 	install_keyword("default_selector_args", &def_selector_args_handler);
 	install_keyword("default_path_grouping_policy", &def_iopolicy_handler);
 	install_keyword("default_getuid_callout", &def_getuid_callout_handler);
+	install_keyword("default_prio_callout", &def_prio_callout_handler);
 	
 	install_keyword_root("devnode_blacklist", &blacklist_handler);
 	install_keyword("devnode", &devnode_handler);

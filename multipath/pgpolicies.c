@@ -5,75 +5,6 @@
 #include "memory.h"
 #include "debug.h"
 
-#define PATH_STR_SIZE	16
-
-/*
- * Transforms the path group vector into a proper device map string
- */
-void
-assemble_map (struct multipath * mp)
-{
-	int i, j;
-	char * p;
-	vector pgpaths;
-	char * selector;
-	int selector_args;
-	struct mpentry * mpe;
-	struct hwentry * hwe;
-	struct path * pp;
-
-	pp = VECTOR_SLOT(mp->paths, 0);
-
-	/*
-	 * select the right path selector :
-	 * 1) set internal default
-	 * 2) override by controler wide settings
-	 * 3) override by LUN specific settings
-	 */
-
-	/* 1) set internal default */
-	selector = conf->default_selector;
-	selector_args = conf->default_selector_args;
-
-	/* 2) override by controler wide settings */
-	for (i = 0; i < VECTOR_SIZE(conf->hwtable); i++) {
-		hwe = VECTOR_SLOT(conf->hwtable, i);
-
-		if (strcmp(hwe->vendor, pp->vendor_id) == 0 &&
-		    strcmp(hwe->product, pp->product_id) == 0) {
-			selector = (hwe->selector) ?
-				   hwe->selector : conf->default_selector;
-			selector_args = (hwe->selector_args) ?
-				   hwe->selector_args : conf->default_selector_args;
-		}
-	}
-
-	/* 3) override by LUN specific settings */
-	for (i = 0; i < VECTOR_SIZE(conf->mptable); i++) {
-		mpe = VECTOR_SLOT(conf->mptable, i);
-
-		if (strcmp(mpe->wwid, mp->wwid) == 0) {
-			selector = (mpe->selector) ?
-				   mpe->selector : conf->default_selector;
-			selector_args = (mpe->selector_args) ?
-				   mpe->selector_args : conf->default_selector_args;
-		}
-	}
-
-	p = mp->params;
-	p += sprintf(p, " %i", VECTOR_SIZE(mp->pg));
-
-	for (i = 0; i < VECTOR_SIZE(mp->pg); i++) {
-		pgpaths = VECTOR_SLOT(mp->pg, i);
-		p += sprintf(p, " %s %i %i",
-			     selector, VECTOR_SIZE(pgpaths), selector_args);
-
-		for (j = 0; j < VECTOR_SIZE(pgpaths); j++)
-			p += sprintf(p, " %s",
-				     (char *)VECTOR_SLOT(pgpaths, j));
-	}
-}
-
 /*
  * One path group per unique serial number present in the path vector
  * Simple rotation logic for the head pg's serial
@@ -183,8 +114,10 @@ one_path_per_group (struct multipath * mp)
 	char * pathstr;
 	struct path * pp;
 	vector pgpaths;
+	vector failedpaths;
 
 	mp->pg = vector_alloc();
+	failedpaths = vector_alloc();
 	
 	for (i = 0; i < VECTOR_SIZE(mp->paths); i++) {
 		pp = VECTOR_SLOT(mp->paths, i);
@@ -192,23 +125,23 @@ one_path_per_group (struct multipath * mp)
 		if (0 != pp->sg_id.scsi_type)
 			continue;
 
+		pathstr = zalloc(PATH_STR_SIZE);
+		strncpy(pathstr, pp->dev_t, strlen(pp->dev_t) - 1);
+
 		if (!pp->tur) {
-			pathstr = zalloc(PATH_STR_SIZE);
-			strncpy(pathstr, pp->dev_t, strlen(pp->dev_t) - 1);
-			pgpaths = vector_alloc();
-			vector_alloc_slot(pgpaths);
-			vector_set_slot(pgpaths, pathstr);
-			vector_alloc_slot(mp->pg);
-			vector_set_slot(mp->pg, pgpaths);
+			vector_alloc_slot(failedpaths);
+			vector_set_slot(failedpaths, pathstr);
 		} else {
-			pathstr = zalloc(PATH_STR_SIZE);
-			strncpy(pathstr, pp->dev_t, strlen(pp->dev_t) - 1);
 			pgpaths = vector_alloc();
 			vector_alloc_slot(pgpaths);
 			vector_set_slot(pgpaths, pathstr);
 			vector_alloc_slot(mp->pg);
 			vector_set_slot(mp->pg, pgpaths);
 		}
+	}
+	if (VECTOR_SIZE(failedpaths) > 0) {
+		vector_alloc_slot(mp->pg);
+		vector_set_slot(mp->pg, failedpaths);
 	}
 }
 
@@ -231,14 +164,13 @@ one_group (struct multipath * mp)
 		if (0 != pp->sg_id.scsi_type)
 			continue;
 
+		pathstr = zalloc(PATH_STR_SIZE);
+		strncpy(pathstr, pp->dev_t, strlen(pp->dev_t) - 1);
+
 		if (!pp->tur) {
-			pathstr = zalloc(PATH_STR_SIZE);
-			strncpy(pathstr, pp->dev_t, strlen(pp->dev_t) - 1);
 			vector_alloc_slot(pgfailedpaths);
 			vector_set_slot(pgfailedpaths, pathstr);
 		} else {
-			pathstr = zalloc(PATH_STR_SIZE);
-			strncpy(pathstr, pp->dev_t, strlen(pp->dev_t) - 1);
 			vector_alloc_slot(pgvalidpaths);
 			vector_set_slot(pgvalidpaths, pathstr);
 		}
@@ -246,6 +178,48 @@ one_group (struct multipath * mp)
 	if (VECTOR_SIZE(pgvalidpaths) > 0) {
 		vector_alloc_slot(mp->pg);
 		vector_set_slot(mp->pg, pgvalidpaths);
+	}
+	if (VECTOR_SIZE(pgfailedpaths) > 0) {
+		vector_alloc_slot(mp->pg);
+		vector_set_slot(mp->pg, pgfailedpaths);
+	}
+}
+
+extern void
+group_by_prio (struct multipath * mp)
+{
+	int i;
+	unsigned int prio = -1;
+	char * pathstr;
+	struct path * pp;
+	vector pgpaths = NULL;
+	vector pgfailedpaths;
+
+	mp->pg = vector_alloc();
+	pgfailedpaths = vector_alloc();
+
+	for (i = 0; i < VECTOR_SIZE(mp->paths); i++) {
+		pp = VECTOR_SLOT(mp->paths, i);
+
+		if (0 != pp->sg_id.scsi_type)
+			continue;
+
+		pathstr = zalloc(PATH_STR_SIZE);
+		strncpy(pathstr, pp->dev_t, strlen(pp->dev_t) - 1);
+
+		if (!pp->tur) {
+			vector_alloc_slot(pgfailedpaths);
+			vector_set_slot(pgfailedpaths, pathstr);
+		} else {
+			if (pp->priority != prio || pgpaths == NULL) {
+				pgpaths = vector_alloc();
+				vector_alloc_slot(mp->pg);
+				vector_set_slot(mp->pg, pgpaths);
+				prio = pp->priority;
+			}
+			vector_alloc_slot(pgpaths);
+			vector_set_slot(pgpaths, pathstr);
+		}
 	}
 	if (VECTOR_SIZE(pgfailedpaths) > 0) {
 		vector_alloc_slot(mp->pg);

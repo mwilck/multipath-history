@@ -134,12 +134,29 @@ devinfo (struct path *curpath)
 	int i;
 	struct hwentry * hwe;
 	char buff[100];
+	char prio[16];
 
 	sysfs_devinfo(curpath);
 	get_serial(curpath->serial, curpath->dev_t);
 	curpath->tur = do_tur(curpath->dev_t);
 	curpath->claimed = get_claimed(curpath->dev_t);
 	
+	/*
+	 * get path prio
+	 */
+	sprintf (buff, "%s /block/%s", conf->default_getprio, curpath->dev);
+
+	dbg("callout :");
+	dbg("=========");
+
+	if (execute_program(buff, prio, 16) == 0)
+		curpath->priority = atoi(prio);
+	else {
+		dbg("error calling out %s", buff);
+		curpath->priority = -1;
+	}
+	dbg("devinfo found prio : %u", curpath->priority);
+
 	/*
 	 * get path uid
 	 */
@@ -152,6 +169,9 @@ devinfo (struct path *curpath)
 			/*
 			 * callout program
 			 */
+			dbg("callout :");
+			dbg("=========");
+
 			if (execute_program(buff, curpath->wwid,
 			    WWID_SIZE) == 0) {
 				dbg("devinfo found uid : %s", curpath->wwid);
@@ -177,6 +197,9 @@ devinfo (struct path *curpath)
 	}
 	dbg("devinfo out : no match ... apply defaults");
 	sprintf (buff, "%s /block/%s", conf->default_getuid, curpath->dev);
+
+	dbg("callout :");
+	dbg("=========");
 
 	if (execute_program(buff, curpath->wwid, WWID_SIZE) == 0) {
 		dbg("devinfo found uid : %s", curpath->wwid);
@@ -295,20 +318,18 @@ get_pathvec_sysfs (vector pathvec)
 	return 0;
 }
 
-static void
+static vector
 sort_pathvec_by_prio (vector pathvec)
 {
 	vector sorted_pathvec;
 	struct path * pp;
 	int i;
-	int highest_prio;
-	int lowest_prio;
-	int prio;
+	unsigned int highest_prio;
+	unsigned int lowest_prio;
+	unsigned int prio;
 
 	if (VECTOR_SIZE(pathvec) < 2)
-		return;
-
-	sorted_pathvec = vector_alloc();
+		return pathvec;
 
 	/*
 	 * find out highest & lowest prio
@@ -327,24 +348,29 @@ sort_pathvec_by_prio (vector pathvec)
 			lowest_prio = pp->priority;
 	}
 
+	if (lowest_prio == highest_prio)
+		return pathvec;
+
 	/* 
 	 * sort
 	 */
-	for (prio = highest_prio; prio >= lowest_prio; prio--) {
+	sorted_pathvec = vector_alloc();
+	dbg("sorted_pathvec :");
+
+	for (prio = lowest_prio; prio <= highest_prio; prio++) {
 		for (i = 0; i < VECTOR_SIZE(pathvec); i++) {
 			pp = VECTOR_SLOT(pathvec, i);
 
 			if (pp->priority == prio) {
 				vector_alloc_slot(sorted_pathvec);
 				vector_set_slot(sorted_pathvec, pp);
+				dbg("%s (%u)", pp->dev, pp->priority);
 			}
 		}
 	}
 
-	/*
-	 * permute to sorted_pathvec
-	 */
-	pathvec = sorted_pathvec;
+	return sorted_pathvec;
+
 }
 
 /*
@@ -521,6 +547,73 @@ dm_addmap (int task, const char *name, const char *params, long size) {
 	return 1;
 }
 
+/*
+ * Transforms the path group vector into a proper device map string
+ */
+void
+assemble_map (struct multipath * mp)
+{
+	int i, j;
+	char * p;
+	vector pgpaths;
+	char * selector;
+	int selector_args;
+	struct mpentry * mpe;
+	struct hwentry * hwe;
+	struct path * pp;
+
+	pp = VECTOR_SLOT(mp->paths, 0);
+
+	/*
+	 * select the right path selector :
+	 * 1) set internal default
+	 * 2) override by controler wide settings
+	 * 3) override by LUN specific settings
+	 */
+
+	/* 1) set internal default */
+	selector = conf->default_selector;
+	selector_args = conf->default_selector_args;
+
+	/* 2) override by controler wide settings */
+	for (i = 0; i < VECTOR_SIZE(conf->hwtable); i++) {
+		hwe = VECTOR_SLOT(conf->hwtable, i);
+
+		if (strcmp(hwe->vendor, pp->vendor_id) == 0 &&
+		    strcmp(hwe->product, pp->product_id) == 0) {
+			selector = (hwe->selector) ?
+				   hwe->selector : conf->default_selector;
+			selector_args = (hwe->selector_args) ?
+				   hwe->selector_args : conf->default_selector_args;
+		}
+	}
+
+	/* 3) override by LUN specific settings */
+	for (i = 0; i < VECTOR_SIZE(conf->mptable); i++) {
+		mpe = VECTOR_SLOT(conf->mptable, i);
+
+		if (strcmp(mpe->wwid, mp->wwid) == 0) {
+			selector = (mpe->selector) ?
+				   mpe->selector : conf->default_selector;
+			selector_args = (mpe->selector_args) ?
+				   mpe->selector_args : conf->default_selector_args;
+		}
+	}
+
+	p = mp->params;
+	p += sprintf(p, " %i", VECTOR_SIZE(mp->pg));
+
+	for (i = 0; i < VECTOR_SIZE(mp->pg); i++) {
+		pgpaths = VECTOR_SLOT(mp->pg, i);
+		p += sprintf(p, " %s %i %i",
+			     selector, VECTOR_SIZE(pgpaths), selector_args);
+
+		for (j = 0; j < VECTOR_SIZE(pgpaths); j++)
+			p += sprintf(p, " %s",
+				     (char *)VECTOR_SLOT(pgpaths, j));
+	}
+}
+
 static int
 setup_map (vector pathvec, vector mp, int slot,  int op)
 {
@@ -559,15 +652,17 @@ setup_map (vector pathvec, vector mp, int slot,  int op)
 	 *  4) override by LUN specific setting
 	 *  5) cmd line flag has the last word
 	 */
+	dbg("iopolicy selector :");
+	dbg("===================");
 
 	/* 1) set internal default */
 	iopolicy = FAILOVER;
-	dbg("internal default) iopolicy = %i", iopolicy);
+	dbg("internal default)\tiopolicy = %s", iopolicies[iopolicy]);
 
 	/* 2) override by config file default */
 	if (conf->default_iopolicy >= 0) {
 		iopolicy = conf->default_iopolicy;
-		dbg("config file default) iopolicy = %i", iopolicy);
+		dbg("config file default)\tiopolicy = %s", iopolicies[iopolicy]);
 	}
 	
 	/* 3) override by controler wide setting */
@@ -577,7 +672,7 @@ setup_map (vector pathvec, vector mp, int slot,  int op)
 		if (MATCH (pp->vendor_id, hwe->vendor) &&
 		    MATCH (pp->product_id, hwe->product)) {
 			iopolicy = hwe->iopolicy;
-			dbg("controler override) iopolicy = %i", iopolicy);
+			dbg("controler override)\tiopolicy = %s", iopolicies[iopolicy]);
 		}
 	}
 
@@ -587,14 +682,14 @@ setup_map (vector pathvec, vector mp, int slot,  int op)
 
 		if (strcmp(mpe->wwid, mpp->wwid) == 0) {
 			iopolicy = mpe->iopolicy;
-			dbg("lun override) iopolicy = %i", iopolicy);
+			dbg("lun override)\t\tiopolicy = %s", iopolicies[iopolicy]);
 		}
 	}
 
 	/* 5) cmd line flag has the last word */
 	if (conf->iopolicy_flag >= 0) {
 		iopolicy = conf->iopolicy_flag;
-		dbg("cmd flag override) iopolicy = %i", iopolicy);
+		dbg("cmd flag override)\tiopolicy = %s", iopolicies[iopolicy]);
 	}
 
 	/*
@@ -604,7 +699,7 @@ setup_map (vector pathvec, vector mp, int slot,  int op)
 	 */
 
 	/* 1) sort by priority */
-	sort_pathvec_by_prio(mpp->paths);
+	mpp->paths = sort_pathvec_by_prio(mpp->paths);
 
 	/* 2) apply selected grouping policy */
 	if (iopolicy == MULTIBUS)
@@ -615,6 +710,9 @@ setup_map (vector pathvec, vector mp, int slot,  int op)
 
 	if (iopolicy == GROUP_BY_SERIAL)
 		group_by_serial (mpp, slot);
+
+	if (iopolicy == GROUP_BY_PRIO)
+		group_by_prio (mpp);
 
 	/*
 	 * device mapper creation or updating
@@ -627,17 +725,25 @@ setup_map (vector pathvec, vector mp, int slot,  int op)
 	close(2);
 
 	if (op == DM_DEVICE_RELOAD)
-		if (!dm_simplecmd(DM_DEVICE_SUSPEND, mpp->wwid))
+		if (!dm_simplecmd(DM_DEVICE_SUSPEND, mpp->wwid)) {
+			dup2(fd, 2);
+			close(fd);
 			return 0;
+		}
 
 	if (dm_addmap(op, mpp->wwid, mpp->params, mpp->size)) {
 		dm_simplecmd(DM_DEVICE_REMOVE, mpp->wwid);
+		dup2(fd, 2);
+		close(fd);
 		return 0;
 	}
 
 	if (op == DM_DEVICE_RELOAD)
-		if (!dm_simplecmd(DM_DEVICE_RESUME, mpp->wwid))
+		if (!dm_simplecmd(DM_DEVICE_RESUME, mpp->wwid)) {
 			return 0;
+			close(fd);
+			return 0;
+		}
 
 	dup2(fd, 2);
 	close(fd);
@@ -796,7 +902,7 @@ usage (char * progname)
 	fprintf (stderr, "Usage: %s\t[-v|-q] [-d] [-D major minor] [-S]\n",
 		progname);
 	fprintf (stderr,
-		"\t\t\t[-p failover|multibus|group_by_serial]\n" \
+		"\t\t\t[-p failover|multibus|group_by_serial|group_by_prio]\n" \
 		"\t\t\t[device]\n" \
 		"\n" \
 		"\t-v\t\tverbose, print all paths and multipaths\n" \
@@ -810,7 +916,7 @@ usage (char * progname)
 		"\t   failover\t\t- 1 path per priority group\n" \
 		"\t   multibus\t\t- all paths in 1 priority group\n" \
 		"\t   group_by_serial\t- 1 priority group per serial\n" \
-		"\t   group_by_tur\t\t- 1 priority group per TUR state\n" \
+		"\t   group_by_prio\t\t- 1 priority group per priority lvl\n" \
 		"\n" \
 		"\tdevice\t\tlimit scope to the device's multipath\n" \
 		"\t\t\t(hotplug-style $DEVPATH reference)\n" \
@@ -893,6 +999,8 @@ main (int argc, char *argv[])
 					conf->iopolicy_flag = MULTIBUS;
 				else if (strcmp(optarg, "group_by_serial") == 0)
 					conf->iopolicy_flag = GROUP_BY_SERIAL;
+				else if (strcmp(optarg, "group_by_prio") == 0)
+					conf->iopolicy_flag = GROUP_BY_PRIO;
 				else
 				{
 					if (optarg)
@@ -947,7 +1055,6 @@ main (int argc, char *argv[])
 		sprintf (conf->udev_dir, "/udev");
 	}
 
-	dbg("conf->udev_dir = %s", conf->udev_dir);
 	/* allocate the two core vectors to store paths and multipaths*/
 	mp = vector_alloc();
 	pathvec = vector_alloc();

@@ -23,24 +23,13 @@
 #include "vector.h"
 #include "dev_t.h"
 
-/* exerpt from "sg_err.h" */
-#define SCSI_CHECK_CONDITION 	0x2
-#define SCSI_COMMAND_TERMINATED 0x22
-#define SG_ERR_DRIVER_SENSE     0x08
-
-/* exerpt from "scsi.h" */
-#define SCSI_IOCTL_GET_IDLUN            0x5382
-#define SCSI_IOCTL_GET_BUS_NUMBER       0x5386
-
 /* global defs */
 #define WWID_SIZE	64
 #define SERIAL_SIZE	15
-#define MAX_MP_PATHS	32
+#define PATH_STR_SIZE   16
 #define PARAMS_SIZE	256
 #define FILE_NAME_SIZE	256
 #define DEF_TIMEOUT	60000
-#define EBUFF_SZ	256
-#define TUR_CMD_LEN	6
 #define DM_TARGET	"multipath"
 #define PIDFILE		"/var/run/multipathd.pid"
 #define RUN		"/var/run/multipath.run"
@@ -83,7 +72,7 @@ struct path {
 	char rev[5];
 	char serial[SERIAL_SIZE];
 	int tur;
-	int priority;
+	unsigned int priority;
 	int claimed;
 };
 
