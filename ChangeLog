@@ -1,4 +1,6 @@
+2004-03-05 multipath-tools-0.1.0
 	* add the group_by_tur policy
+	* add the multipathd daemon for pathchecking & DM hot-reconfig
 	* multipath doesn't run twice
 	* massive cleanups
 	* Avoid Kernel Bug when passing too small a buffer in do_inq()
