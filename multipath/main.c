@@ -1081,12 +1081,6 @@ main (int argc, char *argv[])
 		exit(1);
 	}
 
-	if (conf->list) {
-		dm_get_maps(curmp, DM_TARGET);
-		print_all_mp(curmp);
-		goto out;
-	}
-
 	/*
 	 * read the config file
 	 */
@@ -1128,9 +1122,23 @@ main (int argc, char *argv[])
 	if (get_pathvec_sysfs(pathvec))
 		exit(1);
 
+	dm_get_maps(curmp, DM_TARGET);
+
 	if (VECTOR_SIZE(pathvec) == 0 && conf->verbosity > 0) {
 		fprintf(stdout, "no path found\n");
 		exit(0);
+	}
+
+	vector_foreach_slot (curmp, mpp, k) {
+		dbg("params = %s", mpp->params);
+		dbg("status = %s", mpp->status);
+		disassemble_map(pathvec, mpp->params, mpp);
+		disassemble_status(mpp->status, mpp);
+		reinstate_paths(mpp);
+	}
+	if (conf->list) {
+		print_all_mp(curmp);
+		goto out;
 	}
 
 	coalesce_paths(mp, pathvec);
@@ -1160,6 +1168,12 @@ main (int argc, char *argv[])
 	vector_foreach_slot (mp, mpp, k)
 		setup_map(pathvec, mpp);
 
+#if DEBUG
+	fprintf(stdout, "#\n# all paths :\n#\n");
+	print_all_paths(pathvec);
+	fprintf(stdout, "#\n# device maps :\n#\n");
+	print_all_maps(mp);
+#endif
 out:
 	/*
 	 * signal multipathd that new devmaps may have come up
