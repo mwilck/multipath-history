@@ -27,9 +27,4 @@ void one_group(struct multipath *);
 void group_by_serial(struct multipath *);
 void group_by_prio(struct multipath *);
 
-/*
- * path group reordering policies
- */
-void sort_pg_by_summed_prio(struct multipath *);
-
 #endif

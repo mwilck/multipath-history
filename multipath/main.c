@@ -661,9 +661,20 @@ setup_map (vector pathvec, struct multipath * mpp)
 	}
 
 	/*
-	 * 4)
+	 * ponders each path group and determine highest prio pg
 	 */
-	sort_pg_by_summed_prio(mpp);
+	mpp->nextpg = 1;
+	vector_foreach_slot (mpp->pg, pgp, i) {
+		vector_foreach_slot (pgp->paths, pp, j) {
+			pgp->id ^= (int)pp;
+			if (pp->state != PATH_DOWN)
+				pgp->priority += pp->priority;
+		}
+		if (pgp->priority > highest) {
+			highest = pgp->priority;
+			mpp->nextpg = i + 1;
+		}
+	}
 
 	/*
 	 * transform the mp->pg vector of vectors of paths
