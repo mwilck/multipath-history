@@ -40,8 +40,8 @@ enum actions {
  */
 #define PROG    "multipath"
 
-#define VERSION_CODE 0x000401
-#define DATE_CODE    0x150c04
+#define VERSION_CODE 0x000402
+#define DATE_CODE    0x170105
 
 #define MULTIPATH_VERSION(version)	\
 	(version >> 16) & 0xFF,		\
