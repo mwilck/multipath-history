@@ -976,7 +976,7 @@ static void
 usage (char * progname)
 {
 	fprintf (stderr, VERSION_STRING);
-	fprintf (stderr, "Usage: %s\t[-v level] [-d] [-D major:minor] [-S]\n",
+	fprintf (stderr, "Usage: %s\t[-v level] [-d] [-S]\n",
 		progname);
 	fprintf (stderr,
 		"\t\t\t[-p failover|multibus|group_by_serial|group_by_prio]\n" \
@@ -987,8 +987,6 @@ usage (char * progname)
 		"\t   1\t\t\tprint created devmap names only\n" \
 		"\t   2\t\t\tprint all paths and multipaths\n" \
 		"\t-d\t\tdry run, do not create or update devmaps\n" \
-		"\t-D maj:min\tlimit scope to the device's multipath\n" \
-		"\t\t\t(major:minor device reference)\n"
 		"\t-S\t\tinhibit signal sending to multipathd\n"
 		"\t-F\t\tflush all multipath device maps\n" \
 		"\t-p policy\tforce all maps to specified policy :\n" \
@@ -999,7 +997,7 @@ usage (char * progname)
 		"\n" \
 		"\tdevice\t\tlimit scope to the device's multipath\n" \
 		"\t\t\t(udev-style $DEVNAME reference, eg /dev/sdb\n" \
-		"\t\t\tor a device map name)\n" \
+		"\t\t\tor major:minor or a device map name)\n" \
 		);
 
 	exit(1);
