@@ -50,7 +50,7 @@ glibc: $(EXEC)
 klibc:
 	$(MAKE) BUILD=glibc glibc
 
-$(EXEC): $(OBJS)
+$(EXEC): clean $(OBJS)
 	$(CC) $(OBJS) -o $(EXEC) $(LDFLAGS)
 	strip $(EXEC)
 	$(GZIP) $(EXEC).8 > $(EXEC).8.gz
@@ -81,5 +81,6 @@ uninstall:
 	rm -f $(DESTDIR)$(mandir)/$(EXEC).8.gz
 
 clean:
+	$(MAKE) -C $(multipathdir) clean
 	rm -f core *.o $(EXEC) *.gz
 
