@@ -1,5 +1,17 @@
 2005-03-19 multipath-tools-0.4.4
 
+	* [multipathd] don't loose events in event waiter thread
+	* [libmultipath] add return values to vector manipulation
+	  fonctions. Mem alloc return code audit done in the
+	  following files :
+		* libmultipath/dmparser.c
+		* libmultipath/vector.c
+		* libmultipath/parser.c
+		* libmultipath/blacklist.c
+		* libmultipath/dict.c
+		* libmultipath/pgpolicies.c
+		* libmultipath/discovery.c
+		* multipath/main.c
 	* [libmultipath] Use "config->udev_dir + path->dev" as
 	  a path devnode to open instead of mknod'ing for each
 	  one. Fix some DoS issues regarding usage of /tmp in
