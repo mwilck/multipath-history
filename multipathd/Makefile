@@ -42,6 +42,7 @@ klibc: glibc
 $(EXEC): $(OBJS)
 	$(CC) $(OBJS) -o $(EXEC) $(LDFLAGS)
 	strip $(EXEC)
+	$(GZIP) $(EXEC).8 > $(EXEC).8.gz
 
 $(CHECKERSLIB)-glibc.a:
 	$(MAKE) -C $(checkersdir) BUILD=glibc glibc
@@ -54,10 +55,13 @@ install:
 	install -m 755 $(EXEC) $(DESTDIR)$(bindir)
 	install -d $(DESTDIR)$(rcdir)
 	install -m 755 multipathd.init $(DESTDIR)$(rcdir)/$(EXEC)
+	install -d $(DESTDIR)$(mandir)
+	install -m 644 $(EXEC).8.gz $(DESTDIR)$(mandir)
 
 uninstall:
 	rm -f $(DESTDIR)$(bindir)/$(EXEC)
 	rm -f $(DESTDIR)$(rcdir)/$(EXEC)
+	rm -f $(DESTDIR)$(mandir)/$(EXEC).8.gz
 
 clean:
 	rm -f core *.o $(EXEC) *.gz
