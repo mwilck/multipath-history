@@ -146,8 +146,9 @@ get_pathvec_sysfs (vector pathvec)
 			exit(1);
 		}
 		if (devinfo(curpath)) {
+			fprintf(stderr, "pb getting path info, free %s\n",
+					curpath->dev);
 			free (curpath);
-			fprintf(stderr, "pb getting path info, free\n");
 			continue;
 		}
 		if (memcmp(empty_buff, refwwid, WWID_SIZE) != 0 && 
