@@ -6,11 +6,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <vector.h>
-#include <memory.h>
-#include <structs.h>
 
-#include "devinfo.h"
+#include "vector.h"
+#include "memory.h"
+#include "structs.h"
+#include "util.h"
 
 #define WORD_SIZE 64
 
@@ -20,15 +20,14 @@
 #define dbg(format, arg...) do {} while(0)
 #endif
 
-static struct path *
+extern struct path *
 find_path (vector pathvec, char * dev_t)
 {
-	int i, len;
+	int i;
 	struct path * pp;
 
 	vector_foreach_slot (pathvec, pp, i)
-		if (((len = strlen(dev_t)) == strlen(pp->dev_t)) &&
-		    !strncmp(pp->dev_t, dev_t, len))
+		if (!strcmp_chomp(pp->dev_t, dev_t))
 			return pp;
 
 	dbg("path %s not found in pathvec\n", dev_t);
@@ -198,13 +197,14 @@ disassemble_map (vector pathvec, char * params, struct multipath * mpp)
 		free(word);
 
 		for (j = 0; j < num_paths; j++) {
+			pp = NULL;
 			p += get_word(p, &word);
-			pp = find_path(pathvec, word);
+			if (pathvec)
+				pp = find_path(pathvec, word);
+
 			if (!pp) {
-				pp = zalloc(sizeof(struct path));
+				pp = alloc_path();
 				strncpy(pp->dev_t, word, BLK_DEV_SIZE);
-				devt2devname(pp->dev, pp->dev_t);
-				devinfo(pp);
 			}
 			free(word);
 
