@@ -28,6 +28,7 @@ path_discovery (vector pathvec, struct config * conf)
 	struct sysfs_directory * devp;
 	char path[FILE_NAME_SIZE];
 	struct path * curpath;
+	int r = 1;
 
 	if(safe_sprintf(path, "%s/block", sysfs_path)) {
 		fprintf(stderr, "path too small\n");
