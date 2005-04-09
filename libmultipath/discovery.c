@@ -426,7 +426,7 @@ apply_format (char * string, int maxsize, struct path * pp)
 }
 
 extern int
-devinfo (struct path *pp, vector hwtable)
+devinfo (struct path *pp, vector hwtable, int mask)
 {
 	char * buff;
 	char prio[16];
@@ -436,7 +436,7 @@ devinfo (struct path *pp, vector hwtable)
 	/*
 	 * fetch info available in sysfs
 	 */
-	if (sysfs_devinfo(pp))
+	if (mask & DI_SYSFS && sysfs_devinfo(pp))
 		return 1;
 
 	/*
@@ -448,11 +448,15 @@ devinfo (struct path *pp, vector hwtable)
 	if (pp->fd <= 0)
 		return 1;
 
-	get_serial(pp->serial, pp->fd);
-	condlog(3, "serial = %s", pp->serial);
+	if (mask & DI_SERIAL) {
+		get_serial(pp->serial, pp->fd);
+		condlog(3, "serial = %s", pp->serial);
+	}
 #if 0
-	pp->claimed = get_claimed(pp->fd);
-	condlog(3, "claimed = %i", pp->claimed);
+	if (mask & DI_CLAIMED) {
+		pp->claimed = get_claimed(pp->fd);
+		condlog(3, "claimed = %i", pp->claimed);
+	}
 #endif
 
 	/* get and store hwe pointer */
@@ -462,30 +466,35 @@ devinfo (struct path *pp, vector hwtable)
 	 * get path state, no message collection, no context
 	 */
 	select_checkfn(pp);
-	pp->state = pp->checkfn(pp->fd, NULL, NULL);
-	condlog(3, "state = %i", pp->state);
+
+	if (mask & DI_CHECKER) {
+		pp->state = pp->checkfn(pp->fd, NULL, NULL);
+		condlog(3, "state = %i", pp->state);
+	}
 	
 	/*
 	 * get path prio
 	 */
-	select_getprio(pp);
-	buff = apply_format(pp->getprio, CALLOUT_MAX_SIZE, pp);
+	if (mask & DI_PRIO) {
+		select_getprio(pp);
+		buff = apply_format(pp->getprio, CALLOUT_MAX_SIZE, pp);
 
-	if (!buff)
-		pp->priority = 1;
-	else if (execute_program(buff, prio, 16)) {
-		condlog(3, "error calling out %s", buff);
-		pp->priority = 1;
-		free(buff);
-	} else
-		pp->priority = atoi(prio);
+		if (!buff)
+			pp->priority = 1;
+		else if (execute_program(buff, prio, 16)) {
+			condlog(3, "error calling out %s", buff);
+			pp->priority = 1;
+			free(buff);
+		} else
+			pp->priority = atoi(prio);
 
-	condlog(3, "prio = %u", pp->priority);
+		condlog(3, "prio = %u", pp->priority);
+	}
 
 	/*
 	 * get path uid
 	 */
-	if (strlen(pp->wwid) == 0) {
+	if (mask & DI_WWID && !strlen(pp->wwid)) {
 		select_getuid(pp);
 		buff = apply_format(pp->getuid, CALLOUT_MAX_SIZE, pp);
 
@@ -496,7 +505,8 @@ devinfo (struct path *pp, vector hwtable)
 			condlog(3, "uid = %s (callout)", pp->wwid);
 			free(buff);
 		}
-	} else
+	}
+	else if (strlen(pp->wwid))
 		condlog(3, "uid = %s (cache)", pp->wwid);
 
 	return 0;
