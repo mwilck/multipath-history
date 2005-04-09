@@ -56,21 +56,25 @@ path_discovery (vector pathvec, struct config * conf)
 			curpath = alloc_path();
 
 			if (!curpath)
-				return 1;
+				goto out;
 
 			if (store_path(pathvec, curpath)) {
 				free_path(curpath);
-				return 1;
+				goto out;
 			}
 			if(safe_sprintf(curpath->dev, "%s", devp->name)) {
 				fprintf(stderr, "curpath->dev too small\n");
 				exit(1);
 			}
-			devinfo(curpath, conf->hwtable);
+			devinfo(curpath, conf->hwtable, DI_ALL);
+		} else {
+			devinfo(curpath, conf->hwtable, DI_CHECKER);
 		}
 	}
+	r = 0;
+out:
 	sysfs_close_directory(sdir);
-	return 0;
+	return r;
 }
 
 #define declare_sysfs_get_str(fname, fmt) \
