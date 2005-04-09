@@ -1,3 +1,6 @@
+#ifndef DISCOVERY_H
+#define DISCOVERY_H
+
 #define SYSFS_PATH_SIZE 255
 #define INQUIRY_CMDLEN  6
 #define INQUIRY_CMD     0x12
@@ -30,8 +33,23 @@ void basename (char *, char *);
 int get_serial (char * buff, int fd);
 int do_tur (char *);
 int devt2devname (char *, char *);
-int devinfo (struct path *, vector hwtable);
+int devinfo (struct path *, vector hwtable, int mask);
 
 #if 0
 int get_claimed(int fd);
 #endif
+
+/*
+ * discovery bitmask
+ */
+#define DI_SYSFS	1
+#define DI_SERIAL	2
+#define DI_CLAIMED	4
+#define DI_CHECKER	8
+#define DI_PRIO		16
+#define DI_WWID		32
+
+#define DI_ALL		(DI_SYSFS  | DI_SERIAL | DI_CLAIMED | DI_CHECKER | \
+			 DI_PRIO   | DI_WWID)
+
+#endif /* DISCOVERY_H */
