@@ -489,7 +489,7 @@ waiterloop (void *ap)
 		pthread_cond_wait(event, event_lock);
 		pthread_mutex_unlock (event_lock);
 	}
-	return (NULL);
+	return NULL;
 }
 
 static void *
@@ -562,7 +562,7 @@ checkerloop (void *ap)
 		pthread_mutex_unlock(allpaths->lock);
 		sleep(conf->checkint);
 	}
-	return (NULL);
+	return NULL;
 }
 
 static struct paths *

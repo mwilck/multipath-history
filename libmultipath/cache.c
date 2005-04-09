@@ -45,6 +45,7 @@ cache_load (vector pathvec)
 		vector_alloc_slot(pathvec);
 		vector_set_slot(pathvec, pp);
 		memcpy(pp, &record, record_len);
+		pp->fd = 0;
 	}
 	close(fd);
 	return 0;
