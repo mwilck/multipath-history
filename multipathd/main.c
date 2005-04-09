@@ -576,7 +576,13 @@ checkerloop (void *ap)
 
 		vector_foreach_slot (allpaths->pathvec, pp, i) {
 			if (!pp->checkfn) {
-				log_safe(LOG_ERR, "checkfn is void");
+				devinfo(pp, conf->hwtable, DI_SYSFS);
+				select_checkfn(pp);
+			}
+
+			if (!pp->checkfn) {
+				log_safe(LOG_ERR, "%s: checkfn is void",
+					 pp->dev);
 				continue;
 			}
 			newstate = pp->checkfn(pp->fd, checker_msg,
