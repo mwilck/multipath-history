@@ -8,15 +8,20 @@
 #include "blacklist.h"
 
 static int
-store_ble (vector blist, char * str, int len)
+store_ble (vector blist, char * str)
 {
 	struct blentry * ble;
+	int len;
 	
+	if (!str)
+		return 0;
+
 	ble = zalloc(sizeof(struct blentry));
 
 	if (!ble)
 		return 1;
 
+	len = strlen(str) + 1;
 	ble->str = zalloc(len * sizeof(char));
 
 	if (!ble->str) 
@@ -51,9 +56,9 @@ setup_default_blist (vector blist)
 {
 	int r = 0;
 
-	r += store_ble(blist, "(ram|raw|loop|fd|md|dm-|sr|scd|st)[0-9]*", 40);
-	r += store_ble(blist, "hd[a-z][[0-9]*]", 15);
-	r += store_ble(blist, "cciss!c[0-9]d[0-9]*[p[0-9]*]", 28);
+	r += store_ble(blist, "(ram|raw|loop|fd|md|dm-|sr|scd|st)[0-9]*");
+	r += store_ble(blist, "hd[a-z]");
+	r += store_ble(blist, "cciss!c[0-9]d[0-9]*");
 
 	return r;
 }
@@ -76,15 +81,11 @@ blacklist (vector blist, char * dev)
 int
 store_regex (vector blist, char * regex)
 {
-	int len;
-
 	if (!blist)
 		return 1;
 
 	if (!regex)
 		return 1;
 
-	len = strlen(regex);
-
-	return store_ble(blist, regex, len);
+	return store_ble(blist, regex);
 }	
