@@ -124,6 +124,10 @@ disassemble_map (vector pathvec, char * params, struct multipath * mpp)
 	 * hwhandler
 	 */
 	p += get_word(p, &mpp->hwhandler);
+
+	if (!mpp->hwhandler)
+		return 1;
+
 	num_hwhandler = atoi(mpp->hwhandler);
 
 	for (i = 0; i < num_hwhandler; i++) {
@@ -160,7 +164,7 @@ disassemble_map (vector pathvec, char * params, struct multipath * mpp)
 	p += get_word(p, &word);
 
 	if (!word)
-		return 1;
+		goto out;
 
 	mpp->nextpg = atoi(word);
 	free(word);
@@ -212,7 +216,7 @@ disassemble_map (vector pathvec, char * params, struct multipath * mpp)
 		p += get_word(p, &word);
 
 		if (!word)
-			return 1;
+			goto out;
 
 		num_paths = atoi(word);
 		free(word);
@@ -220,7 +224,7 @@ disassemble_map (vector pathvec, char * params, struct multipath * mpp)
 		p += get_word(p, &word);
 
 		if (!word)
-			return 1;
+			goto out;
 
 		num_paths_args = atoi(word);
 		free(word);
@@ -230,7 +234,7 @@ disassemble_map (vector pathvec, char * params, struct multipath * mpp)
 			p += get_word(p, &word);
 
 			if (!word)
-				return 1;
+				goto out;
 
 			if (pathvec)
 				pp = find_path_by_devt(pathvec, word);
@@ -265,7 +269,7 @@ out:
 	return 1;
 }
 
-extern void
+extern int
 disassemble_status (char * params, struct multipath * mpp)
 {
 	char * word;
@@ -285,12 +289,20 @@ disassemble_status (char * params, struct multipath * mpp)
 	 * features
 	 */
 	p += get_word(p, &word);
+
+	if (!word)
+		return 1;
+
 	num_feature_args = atoi(word);
 	free(word);
 
 	for (i = 0; i < num_feature_args; i++) {
 		if (i == 1) {
 			p += get_word(p, &word);
+
+			if (!word)
+				return 1;
+
 			mpp->queuedio = atoi(word);
 			free(word);
 			continue;
@@ -302,6 +314,10 @@ disassemble_status (char * params, struct multipath * mpp)
 	 * hwhandler
 	 */
 	p += get_word(p, &word);
+
+	if (!word)
+		return 1;
+
 	num_hwhandler_args = atoi(word);
 	free(word);
 
@@ -312,6 +328,10 @@ disassemble_status (char * params, struct multipath * mpp)
 	 * nb of path groups
 	 */
 	p += get_word(p, &word);
+
+	if (!word)
+		return 1;
+
 	num_pg = atoi(word);
 	free(word);
 
@@ -321,7 +341,7 @@ disassemble_status (char * params, struct multipath * mpp)
 	p += get_word(p, NULL);
 
 	if (VECTOR_SIZE(mpp->pg) < num_pg)
-		return;
+		return 1;
 
 	for (i = 0; i < num_pg; i++) {
 		pgp = VECTOR_SLOT(mpp->pg, i);
@@ -329,6 +349,10 @@ disassemble_status (char * params, struct multipath * mpp)
 		 * PG status
 		 */
 		p += get_word(p, &word);
+
+		if (!word)
+			return 1;
+
 		switch (*word) {
 		case 'D':
 			pgp->status = PGSTATE_DISABLED;
@@ -351,15 +375,23 @@ disassemble_status (char * params, struct multipath * mpp)
 		p += get_word(p, NULL);
 
 		p += get_word(p, &word);
+
+		if (!word)
+			return 1;
+
 		num_paths = atoi(word);
 		free(word);
 
 		p += get_word(p, &word);
+
+		if (!word)
+			return 1;
+
 		num_pg_args = atoi(word);
 		free(word);
 
 		if (VECTOR_SIZE(pgp->paths) < num_paths)
-			return;
+			return 1;
 
 		for (j = 0; j < num_paths; j++) {
 			pp = VECTOR_SLOT(pgp->paths, j);
@@ -372,6 +404,10 @@ disassemble_status (char * params, struct multipath * mpp)
 			 * path status
 			 */
 			p += get_word(p, &word);
+
+			if (!word)
+				return 1;
+
 			switch (*word) {
 			case 'F':
 				pp->dmstate = PSTATE_FAILED;
@@ -387,6 +423,10 @@ disassemble_status (char * params, struct multipath * mpp)
 			 * fail count
 			 */
 			p += get_word(p, &word);
+
+			if (!word)
+				return 1;
+
 			pp->failcount = atoi(word);
 			free(word);
 		}
@@ -396,4 +436,5 @@ disassemble_status (char * params, struct multipath * mpp)
 		for (j = 0; j < num_pg_args; j++)
 			p += get_word(p, NULL);
 	}
+	return 0;
 }

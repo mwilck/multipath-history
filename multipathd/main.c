@@ -216,27 +216,33 @@ mark_failed_path (struct paths *allpaths, char *mapname)
 		return 1;
 
 	if (dm_get_map(mapname, &mpp->size, &params))
-		return 1;
+		goto out;
 
 	if (dm_get_status(mapname, &status))
-		return 1;
+		goto out1;
 	
 	pthread_mutex_lock(allpaths->lock);
 	r = disassemble_map(allpaths->pathvec, params, mpp);
 	pthread_mutex_unlock(allpaths->lock);
 	
 	if (r)
-		return 1;
+		goto out2;
 
-	disassemble_status(status, mpp);
+	r = disassemble_status(status, mpp);
 
+	if (r)
+		goto out2;
+
+	r = 0; /* can't fail from here on */
 	pthread_mutex_lock(allpaths->lock);
+
 	vector_foreach_slot (mpp->pg, pgp, i) {
 		vector_foreach_slot (pgp->paths, pp, j) {
 			if (pp->dmstate != PSTATE_FAILED)
 				continue;
 
 			app = find_path_by_devt(allpaths->pathvec, pp->dev_t);
+
 			if (app && app->state != PATH_DOWN) {
 				log_safe(LOG_NOTICE, "mark %s as failed",
 					pp->dev_t);
@@ -764,7 +770,6 @@ child (void * param)
 	log_safe(LOG_NOTICE, "--------start up--------");
 
 	if (pidfile_create(DEFAULT_PIDFILE, getpid())) {
-		printf("TOTO\n");
 		log_thread_stop();
 		exit(1);
 	}
