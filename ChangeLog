@@ -1,6 +1,11 @@
 2005-03-19 multipath-tools-0.4.4
 
-	* [multipathd] don't loose events in event waiter thread
+	* [libmultipath] flatten/optimize dm_map_present() and
+	  dm_mapname(). Inspired by Alasdair Kergon, RedHat.
+	* [kpartx] add hotplug mode. To enable name the binary
+	  "kpartx.dev". Kiyoshi Ueda, NEC
+	* [multipathd] don't loose events in event waiter thread.
+	  Suggested and prototyped by Edward Goggin, EMC
 	* [libmultipath] add return values to vector manipulation
 	  fonctions. Mem alloc return code audit done in the
 	  following files :
