@@ -97,33 +97,26 @@ dm_map_present (char * str)
 {
 	int r = 0;
 	struct dm_task *dmt;
-	struct dm_names *names;
-	unsigned next = 0;
+	struct dm_info info;
 
-	if (!(dmt = dm_task_create (DM_DEVICE_LIST)))
+	if (!(dmt = dm_task_create(DM_DEVICE_INFO)))
 		return 0;
+
+	if (!dm_task_set_name(dmt, str))
+		goto out;
 
 	dm_task_no_open_count(dmt);
 
-	if (!dm_task_run (dmt))
+	if (!dm_task_run(dmt))
 		goto out;
 
-	if (!(names = dm_task_get_names (dmt)))
+	if (!dm_task_get_info(dmt, &info))
 		goto out;
 
-	if (!names->dev)
-		goto out;
-
-	do {
-		if (0 == strcmp (names->name, str))
-			r = 1;
-
-		next = names->next;
-		names = (void *) names + next;
-	} while (next);
-
-	out:
-	dm_task_destroy (dmt);
+	if (info.exists)
+		r = 1;
+out:
+	dm_task_destroy(dmt);
 	return r;
 }
 
@@ -133,13 +126,10 @@ dm_get_map(char * name, unsigned long * size, char ** outparams)
 	struct dm_task *dmt;
 	void *next = NULL;
 	uint64_t start, length;
-	char *target_type = NULL;
+	char *target_type;
 	char *params;
-	int cmd;
 
-	cmd = DM_DEVICE_TABLE;
-
-	if (!(dmt = dm_task_create(cmd)))
+	if (!(dmt = dm_task_create(DM_DEVICE_TABLE)))
 		return 1;
 
 	if (!dm_task_set_name(dmt, name))
@@ -175,13 +165,10 @@ dm_get_status(char * name, char ** outstatus)
 	struct dm_task *dmt;
 	void *next = NULL;
 	uint64_t start, length;
-	char *target_type = NULL;
+	char *target_type;
 	char *status;
-	int cmd;
 
-	cmd = DM_DEVICE_STATUS;
-
-	if (!(dmt = dm_task_create(cmd)))
+	if (!(dmt = dm_task_create(DM_DEVICE_STATUS)))
 		return 1;
 
 	if (!dm_task_set_name(dmt, name))
@@ -217,11 +204,8 @@ dm_type(char * name, char * type)
 	uint64_t start, length;
 	char *target_type = NULL;
 	char *params;
-	int cmd;
 
-	cmd = DM_DEVICE_TABLE;
-
-	if (!(dmt = dm_task_create(cmd)))
+	if (!(dmt = dm_task_create(DM_DEVICE_TABLE)))
 		return 0;
 
 	if (!dm_task_set_name(dmt, name))
@@ -236,12 +220,10 @@ dm_type(char * name, char * type)
 	next = dm_get_next_target(dmt, next, &start, &length,
 				  &target_type, &params);
 
-	if (0 == strcmp(target_type, type)) {
+	if (0 == strcmp(target_type, type))
 		r = 1;
-		goto out;
-	}
 
-	out:
+out:
 	dm_task_destroy(dmt);
 	return r;
 }
@@ -388,49 +370,6 @@ dm_reinstate(char * mapname, char * path)
 	dm_task_destroy(dmt);
 
 	return r;
-}
-
-char *
-dm_mapname(int major, int minor)
-{
-	unsigned next = 0;
-	struct dm_names *names;
-	struct dm_task *dmt;
-	char *mapname = NULL;
-	int len;
-
-	if (!(dmt = dm_task_create(DM_DEVICE_LIST)))
-		return 0;
-                                                                                
-	dm_task_no_open_count(dmt);
-
-	if (!dm_task_run(dmt))
-		goto out;
-                                                                                
-	if (!(names = dm_task_get_names(dmt)))
-		goto out;
-                                                                                
-	if (!names->dev) {
-		printf("No devices found\n");
-		goto out;
-	}
-
-	do {
-		names = (void *) names + next;
-		if ((int) MAJOR(names->dev) == major &&
-		    (int) MINOR(names->dev) == minor) {
-			printf("%s", names->name);
-			len = strlen(names->name) + 1;
-			mapname = malloc(len);
-			strncpy(mapname, names->name, len);
-			goto out;
-		}
-       		next = names->next;
-	} while (next);
-                                                                                
-	out:
-	dm_task_destroy(dmt);
-	return mapname;
 }
 
 int

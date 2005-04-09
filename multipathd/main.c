@@ -204,7 +204,11 @@ mark_failed_path (struct paths *allpaths, char *mapname)
 	struct path *pp;
 	struct path *app;
 	char *params, *status;
-	int i, j, r;
+	int i, j;
+	int r = 1;
+
+	if (!dm_map_present(mapname))
+		return 0;
 
 	mpp = alloc_multipath();
 

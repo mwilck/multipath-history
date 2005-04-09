@@ -8,7 +8,6 @@ int dm_type(char *, char *);
 int dm_flush_maps (char *);
 int dm_fail_path(char * mapname, char * path);
 int dm_reinstate(char * mapname, char * path);
-char * dm_mapname(int major, int minor);
 int dm_switchgroup(char * mapname, int index);
 int dm_get_maps (vector mp, char * type);
 int dm_geteventnr (char *name);
