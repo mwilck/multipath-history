@@ -45,6 +45,7 @@
 #include <dict.h>
 #include <discovery.h>
 #include <debug.h>
+#include <propsel.h>
 
 #include "main.h"
 #include "copy.h"
@@ -80,6 +81,7 @@ struct paths {
 struct event_thread {
 	pthread_t *thread;
 	pthread_mutex_t *waiter_lock;
+	int lease;
 	int event_nr;
 	char mapname[WWID_SIZE];
 	struct paths *allpaths;
@@ -134,56 +136,61 @@ get_devmaps (void)
 		return NULL;
 
 	if (!(dmt = dm_task_create(DM_DEVICE_LIST)))
-		return NULL;
+		goto out;
 
 	dm_task_no_open_count(dmt);
 
-	if (!dm_task_run(dmt)) {
-		devmaps = NULL;
-		goto out;
-	}
+	if (!dm_task_run(dmt))
+		goto out1;
 
-	if (!(names = dm_task_get_names(dmt))) {
-		devmaps = NULL;
-		goto out;
-	}
+	if (!(names = dm_task_get_names(dmt)))
+		goto out1;
 
 	if (!names->dev) {
 		log_safe(LOG_WARNING, "no devmap found");
-		goto out;
+		goto out1;
 	}
-
 	do {
+		names = (void *) names + next;
+		nexttgt = NULL;
+
 		/*
 		 * keep only multipath maps
 		 */
-		names = (void *) names + next;
-		nexttgt = NULL;
 		log_safe(LOG_DEBUG, "devmap %s", names->name);
 		
-		if (dm_type(names->name, "multipath")) {
-			devmap = MALLOC(WWID_SIZE);
-
-			if (!devmap)
-				goto out1;
-
-			strcpy(devmap, names->name);
-			
-			if (!vector_alloc_slot(devmaps)) {
-				free(devmap);
-				goto out1;
-			}
-			vector_set_slot(devmaps, devmap);
-		} else
+		if (!dm_type(names->name, "multipath")) {
 			log_safe(LOG_DEBUG,
 			       "   skip non multipath target");
-out1:
+			goto out2;
+		}
+
+		/*
+		 * new map
+		 */
+		devmap = MALLOC(WWID_SIZE);
+
+		if (!devmap)
+			goto out2;
+
+		strcpy(devmap, names->name);
+			
+		if (!vector_alloc_slot(devmaps)) {
+			free(devmap);
+			goto out2;
+		}
+		vector_set_slot(devmaps, devmap);
+out2:
 		next = names->next;
 	} while (next);
 
-out:
 	dm_task_destroy(dmt);
 	return devmaps;
+out1:
+	dm_task_destroy(dmt);
+out:
+	strvec_free(devmaps);
+	return NULL;
 }
 
 static int
@@ -250,34 +257,23 @@ mark_failed_path (struct paths *allpaths, char *mapname)
 			}
 		}
 	}
+out2:
 	pthread_mutex_unlock(allpaths->lock);
-	free(params);
 	free(status);
+out1:
+	free(params);
+out:
 	free_multipath(mpp, KEEP_PATHS);
 
-	return 0;
+	return r;
 }
 
 static void *
-waitevent (void * et)
+waiteventloop (struct event_thread * waiter, char * cmd)
 {
-	struct event_thread *waiter;
 	char buff[1];
-	char cmd[CMDSIZE];
 	struct dm_task *dmt;
 	int event_nr;
-
-	mlockall(MCL_CURRENT | MCL_FUTURE);
-	waiter = (struct event_thread *)et;
-
-	if (safe_snprintf(cmd, CMDSIZE, "%s %s",
-			  conf->multipath, waiter->mapname)) {
-		log_safe(LOG_ERR, "command too long, abord reconfigure");
-		return NULL;
-	}
-	pthread_mutex_lock(waiter->waiter_lock);
-
-	log_safe(LOG_DEBUG, "event number %i on %s", event_nr, waiter->mapname);
 
 	if (!waiter->event_nr)
 		waiter->event_nr = dm_geteventnr(waiter->mapname);
@@ -294,13 +290,15 @@ waitevent (void * et)
 	dm_task_no_open_count(dmt);
 
 	dm_task_run(dmt);
-out:
-	dm_task_destroy(dmt);
 
+	/*
+	 * upon event ...
+	 */
 	while (1) {
 		log_safe(LOG_DEBUG, "%s", cmd);
 		log_safe(LOG_NOTICE, "devmap event (%i) on %s",
 				waiter->event_nr, waiter->mapname);
+
 		mark_failed_path(waiter->allpaths, waiter->mapname);
 		execute_program(cmd, buff, 1);
 
@@ -312,6 +310,9 @@ out:
 		waiter->event_nr = event_nr;
 	}
 
+out:
+	dm_task_destroy(dmt);
+
 	/*
 	 * tell waiterloop we have an event
 	 */
@@ -319,6 +320,30 @@ out:
 	pthread_cond_signal(event);
 	pthread_mutex_unlock(event_lock);
 	
+	return NULL;
+}
+
+static void *
+waitevent (void * et)
+{
+	struct event_thread *waiter;
+	char cmd[CMDSIZE];
+
+	mlockall(MCL_CURRENT | MCL_FUTURE);
+
+	waiter = (struct event_thread *)et;
+	pthread_mutex_lock(waiter->waiter_lock);
+	pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
+
+	if (safe_snprintf(cmd, CMDSIZE, "%s %s",
+			  conf->multipath, waiter->mapname)) {
+		log_safe(LOG_ERR, "command too long, abord reconfigure");
+		goto out;
+	}
+	while (1)
+		waiteventloop(waiter, cmd);
+
+out:
 	/*
 	 * release waiter_lock so that waiterloop knows we are gone
 	 */
@@ -395,10 +420,10 @@ waiterloop (void *ap)
 	waiters = vector_alloc();
 
 	if (!waiters)
-		return;
+		return NULL;
 
 	if (pthread_attr_init(&attr))
-		return;
+		return NULL;
 
 	pthread_attr_setstacksize(&attr, 32 * 1024);
 
@@ -407,12 +432,18 @@ waiterloop (void *ap)
 
 	while (1) {
 		/*
+		 * revoke the leases
+		 */
+		vector_foreach_slot (waiters, wp, i)
+			wp->lease = 0;
+
+		/*
 		 * update devmap list
 		 */
 		log_safe(LOG_INFO, "refresh devmaps list");
 
 		if (devmaps)
-			strvec_free(devmaps);
+			free_strvec(devmaps);
 
 		while ((devmaps = get_devmaps()) == NULL) {
 			/*
@@ -443,7 +474,7 @@ waiterloop (void *ap)
 			 * a running waiter thread
 			 */
 			vector_foreach_slot (waiters, wp, j)
-				if (!strcmp (wp->mapname, devmap))
+				if (!strcmp(wp->mapname, devmap))
 					break;
 					
 			/*
@@ -455,38 +486,61 @@ waiterloop (void *ap)
 				if (!wp)
 					continue;
 
-				strncpy (wp->mapname, devmap, WWID_SIZE);
+				strncpy(wp->mapname, devmap, WWID_SIZE);
 				wp->allpaths = allpaths;
 
 				if (!vector_alloc_slot(waiters)) {
 					free_waiter(wp);
 					continue;
 				}
-				vector_set_slot (waiters, wp);
+				vector_set_slot(waiters, wp);
 			}
 			
 			/*
 			 * event_thread struct found
 			 */
-			if (j < VECTOR_SIZE(waiters)) {
+			else if (j < VECTOR_SIZE(waiters)) {
 				r = pthread_mutex_trylock(wp->waiter_lock);
 
 				/*
 				 * thread already running : next devmap
 				 */
-				if (r)
+				if (r) {
+					log_safe(LOG_DEBUG,
+						 "event checker running : %s",
+						 wp->mapname);
+
+					/*
+					 * renew the lease
+					 */
+					wp->lease = 1;
 					continue;
-				
+				}
 				pthread_mutex_unlock(wp->waiter_lock);
 			}
 			
-			log_safe(LOG_NOTICE, "event checker startup : %s",
-					wp->mapname);
 			if (pthread_create(wp->thread, &attr, waitevent, wp)) {
+				log_safe(LOG_ERR,
+					 "cannot create event checker : %s",
+					 wp->mapname);
 				free_waiter(wp);
+				vector_del_slot(waiters, j);
 				continue;
 			}
-			pthread_detach(*wp->thread);
+			wp->lease = 1;
+			log_safe(LOG_NOTICE, "event checker started : %s",
+					wp->mapname);
+		}
+		vector_foreach_slot (waiters, wp, i) {
+			if (wp->lease == 0) {
+				log_safe(LOG_NOTICE, "reap event checker : %s",
+					wp->mapname);
+
+				pthread_cancel(*wp->thread);
+				free_waiter(wp);
+				vector_del_slot(waiters, i);
+				i--;
+			}
 		}
 		/*
 		 * wait event condition
