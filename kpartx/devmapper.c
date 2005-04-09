@@ -48,18 +48,18 @@ dm_simplecmd (int task, const char *name) {
 	int r = 0;
 	struct dm_task *dmt;
 
-	if (!(dmt = dm_task_create (task)))
+	if (!(dmt = dm_task_create(task)))
 		return 0;
 
-	if (!dm_task_set_name (dmt, name))
+	if (!dm_task_set_name(dmt, name))
 		goto out;
 
 	dm_task_no_open_count(dmt);
 
-	r = dm_task_run (dmt);
+	r = dm_task_run(dmt);
 
 	out:
-	dm_task_destroy (dmt);
+	dm_task_destroy(dmt);
 	return r;
 }
 
@@ -92,32 +92,49 @@ dm_map_present (char * str)
 {
 	int r = 0;
 	struct dm_task *dmt;
-	struct dm_names *names;
-	unsigned next = 0;
+	struct dm_info info;
 
-	if (!(dmt = dm_task_create (DM_DEVICE_LIST)))
+	if (!(dmt = dm_task_create(DM_DEVICE_INFO)))
 		return 0;
+
+	if (!dm_task_set_name(dmt, str))
+		goto out;
 
 	dm_task_no_open_count(dmt);
 
-	if (!dm_task_run (dmt))
+	if (!dm_task_run(dmt))
 		goto out;
 
-	if (!(names = dm_task_get_names (dmt)))
+	if (!dm_task_get_info(dmt, &info))
 		goto out;
 
-	if (!names->dev)
-		goto out;
-
-	do {
-		if (0 == strcmp (names->name, str))
-			r = 1;
-
-		next = names->next;
-		names = (void *) names + next;
-	} while (next);
-
-	out:
-	dm_task_destroy (dmt);
+	if (info.exists)
+		r = 1;
+out:
+	dm_task_destroy(dmt);
 	return r;
 }
+
+
+const char *
+dm_mapname(int major, int minor)
+{
+	struct dm_task *dmt;
+	const char *mapname;
+
+	if (!(dmt = dm_task_create(DM_DEVICE_INFO)))
+		return NULL;
+
+	dm_task_no_open_count(dmt);
+	dm_task_set_major(dmt, major);
+	dm_task_set_minor(dmt, minor);
+
+	if (!dm_task_run(dmt))
+		goto out;
+
+	mapname = dm_task_get_name(dmt);
+out:
+	dm_task_destroy(dmt);
+	return mapname;
+}
+

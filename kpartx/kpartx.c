@@ -10,7 +10,6 @@
  * cva, 2002-10-26
  */
 
-#include "kpartx.h"
 #include <stdio.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -21,12 +20,12 @@
 #include <sys/types.h>
 #include <ctype.h>
 #include <libdevmapper.h>
-#include <devmapper.h>
+#include <linux/kdev_t.h>
 
+#include "devmapper.h"
 #include "crc32.h"
-
-/* loop devices */
 #include "lopart.h"
+#include "kpartx.h"
 
 #define SIZE(a) (sizeof(a)/sizeof((a)[0]))
 
@@ -124,20 +123,66 @@ find_devname_offset (char * device)
 
 	return (int)(q - device) + 1;
 }
-			
+
+static char *
+get_hotplug_device(void)
+{
+	unsigned int major, minor, off, len;
+	const char *mapname;
+	char *devname = NULL;
+	char *device = NULL;
+	char *var = NULL;
+	struct stat buf;
+
+	var = getenv("ACTION");
+
+	if (!var || strcmp(var, "add"))
+		return NULL;
+
+	/* Get dm mapname for hotpluged device. */
+	if (!(devname = getenv("DEVNAME")))
+		return NULL;
+
+	if (stat(devname, &buf))
+		return NULL;
+
+	major = (unsigned int)MAJOR(buf.st_rdev);
+	minor = (unsigned int)MINOR(buf.st_rdev);
+
+	if (!(mapname = dm_mapname(major, minor))) /* Not dm device. */
+		return NULL;
+
+	off = find_devname_offset(devname);
+	len = strlen(mapname);
+
+	/* Dirname + mapname + \0 */
+	if (!(device = (char *)malloc(sizeof(char) * (off + len + 1))))
+		return NULL;
+
+	/* Create new device name. */
+	snprintf(device, off + 1, "%s", devname);
+	snprintf(device + off, len + 1, "%s", mapname);
+
+	if (strlen(device) != (off + len))
+		return NULL;
+
+	return device;
+}
+
 int
 main(int argc, char **argv){
         int fd, i, j, k, n, op, off, arg;
 	struct slice all;
 	struct pt *ptp;
 	enum action what = LIST;
-	char *p, *type, *diskdevice, *device;
+	char *p, *type, *diskdevice, *device, *progname;
 	int lower, upper;
 	int verbose = 0;
 	char partname[PARTNAME_SIZE], params[PARTNAME_SIZE + 16];
 	char * loopdev = NULL;
 	char * delim = NULL;
 	int loopro = 0;
+	int hotplug = 0;
 	struct stat buf;
 
 	initpts();
@@ -148,7 +193,24 @@ main(int argc, char **argv){
 	memset(&all, 0, sizeof(all));
 	memset(&partname, 0, sizeof(partname));
 	
-	if (argc < 2) {
+	/* Check whether hotplug mode. */
+	progname = strrchr(argv[0], '/');
+
+	if (!progname)
+		progname = argv[0];
+	else
+		progname++;
+
+	if (!strcmp(progname, "kpartx.dev")) { /* Hotplug mode */
+		hotplug = 1;
+
+		/* Setup for original kpartx variables */
+		if (!(device = get_hotplug_device()))
+			exit(1);
+
+		diskdevice = device;
+		what = ADD;
+	} else if (argc < 2) {
 		usage();
 		exit(1);
 	}
@@ -193,7 +255,9 @@ main(int argc, char **argv){
 		exit(1);
 	}
 
-	if (optind == argc-2) {
+	if (hotplug) {
+		/* already got [disk]device */
+	} else if (optind == argc-2) {
 		device = argv[optind];
 		diskdevice = argv[optind+1];
 	} else if (optind == argc-1) {
@@ -203,8 +267,8 @@ main(int argc, char **argv){
 		exit(1);
 	}
 
-	if (stat (device, &buf)) {
-		printf("failed to stat() device\n");
+	if (stat(device, &buf)) {
+		printf("failed to stat() %s\n", device);
 		exit (1);
 	}
 
