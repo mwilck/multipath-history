@@ -46,12 +46,6 @@ $(CHECKERSLIB)-glibc.a:
 $(MULTIPATHLIB)-glibc.a:
 	$(MAKE) -C $(multipathdir) DAEMON=1 BUILD=glibc glibc
 
-$(DMLIB)-glibc.a:
-	$(MAKE) -C $(libdmdir) BUILD=glibc glibc
-
-$(SYSFSLIB)-glibc.a:
-	$(MAKE) -C $(sysfsdir) BUILD=glibc glibc
-
 install:
 	install -d $(DESTDIR)$(bindir)
 	install -m 755 $(EXEC) $(DESTDIR)$(bindir)
