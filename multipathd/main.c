@@ -210,7 +210,6 @@ mark_failed_path (struct paths *allpaths, char *mapname)
 	struct pathgroup  *pgp;
 	struct path *pp;
 	struct path *app;
-	char *params, *status;
 	int i, j;
 	int r = 1;
 
@@ -222,11 +221,11 @@ mark_failed_path (struct paths *allpaths, char *mapname)
 	if (!mpp)
 		return 1;
 
-	if (dm_get_map(mapname, &mpp->size, &params))
+	if (dm_get_map(mapname, &mpp->size, (char *)mpp->params))
 		goto out;
 
-	if (dm_get_status(mapname, &status))
-		goto out1;
+	if (dm_get_status(mapname, mpp->status))
+		goto out;
 	
 	pthread_mutex_lock(allpaths->lock);
 	r = disassemble_map(allpaths->pathvec, mpp->params, mpp);
