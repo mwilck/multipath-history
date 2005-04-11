@@ -60,7 +60,6 @@ struct config {
 
 	vector mptable;
 	vector hwtable;
-	vector aliases;
 	vector blist;
 	vector binvec;
 };
@@ -70,6 +69,12 @@ struct config * conf;
 struct hwentry * find_hwe (vector hwtable, char * vendor, char * product);
 struct mpentry * find_mpe (char * wwid);
 char * get_mpe_wwid (char * alias);
+
+void free_hwe (struct hwentry * hwe);
+void free_hwtable (vector hwtable);
+void free_mpe (struct mpentry * mpe);
+void free_mptable (vector mptable);
+
 struct config * alloc_config (void);
 void free_config (struct config * conf);
 

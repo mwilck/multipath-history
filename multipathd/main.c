@@ -229,16 +229,16 @@ mark_failed_path (struct paths *allpaths, char *mapname)
 		goto out1;
 	
 	pthread_mutex_lock(allpaths->lock);
-	r = disassemble_map(allpaths->pathvec, params, mpp);
+	r = disassemble_map(allpaths->pathvec, mpp->params, mpp);
 	pthread_mutex_unlock(allpaths->lock);
 	
 	if (r)
-		goto out2;
+		goto out1;
 
-	r = disassemble_status(status, mpp);
+	r = disassemble_status(mpp->status, mpp);
 
 	if (r)
-		goto out2;
+		goto out1;
 
 	r = 0; /* can't fail from here on */
 	pthread_mutex_lock(allpaths->lock);
@@ -257,11 +257,8 @@ mark_failed_path (struct paths *allpaths, char *mapname)
 			}
 		}
 	}
-out2:
-	pthread_mutex_unlock(allpaths->lock);
-	free(status);
 out1:
-	free(params);
+	pthread_mutex_unlock(allpaths->lock);
 out:
 	free_multipath(mpp, KEEP_PATHS);
 

@@ -4,6 +4,7 @@
 #include "memory.h"
 #include "util.h"
 #include "vector.h"
+#include "blacklist.h"
 #include "config.h"
 
 struct hwentry *
@@ -53,30 +54,128 @@ get_mpe_wwid (char * alias)
 	return NULL;
 }
 
+void
+free_hwe (struct hwentry * hwe)
+{
+	if (!hwe)
+		return;
+
+	if (hwe->vendor)
+		FREE(hwe->vendor);
+
+	if (hwe->product)
+		FREE(hwe->product);
+
+	if (hwe->selector)
+		FREE(hwe->selector);
+
+	if (hwe->getuid)
+		FREE(hwe->getuid);
+
+	if (hwe->getprio)
+		FREE(hwe->getprio);
+
+	if (hwe->features)
+		FREE(hwe->features);
+
+	if (hwe->hwhandler)
+		FREE(hwe->hwhandler);
+
+	FREE(hwe);
+}
+
+void
+free_hwtable (vector hwtable)
+{
+	int i;
+	struct hwentry * hwe;
+
+	if (!hwtable)
+		return;
+
+	vector_foreach_slot (hwtable, hwe, i)
+		free_hwe(hwe);
+
+	vector_free(hwtable);
+}
+
+void
+free_mpe (struct mpentry * mpe)
+{
+	if (!mpe)
+		return;
+
+	if (mpe->wwid)
+		FREE(mpe->wwid);
+
+	if (mpe->selector)
+		FREE(mpe->selector);
+
+	if (mpe->getuid)
+		FREE(mpe->getuid);
+
+	if (mpe->alias)
+		FREE(mpe->alias);
+
+	FREE(mpe);
+}
+
+void
+free_mptable (vector mptable)
+{
+	int i;
+	struct mpentry * mpe;
+
+	if (!mptable)
+		return;
+
+	vector_foreach_slot (mptable, mpe, i)
+		free_mpe(mpe);
+
+	vector_free(mptable);
+}
+
 struct config *
 alloc_config (void)
 {
-	return zalloc(sizeof(struct config));
+	return (struct config *)MALLOC(sizeof(struct config));
 }
 
 void
 free_config (struct config * conf)
 {
-	free(conf->dev);
-	free(conf->multipath);
-	free(conf->udev_dir);
-	free(conf->default_selector);
-	free(conf->default_getuid);
-	free(conf->default_getprio);
-	free(conf->default_features);
-	free(conf->default_hwhandler);
+	if (!conf)
+		return;
 
-	vector_free(conf->mptable);
-	vector_free(conf->hwtable);
-	vector_free(conf->aliases);
-	vector_free(conf->blist);
-	vector_free(conf->binvec);
+	if (conf->dev)
+		FREE(conf->dev);
 
-	free(conf);
+	if (conf->multipath)
+		FREE(conf->multipath);
+
+	if (conf->udev_dir)
+		FREE(conf->udev_dir);
+
+	if (conf->default_selector)
+		FREE(conf->default_selector);
+
+	if (conf->default_getuid)
+		FREE(conf->default_getuid);
+
+	if (conf->default_getprio)
+		FREE(conf->default_getprio);
+
+	if (conf->default_features)
+		FREE(conf->default_features);
+
+	if (conf->default_hwhandler)
+		FREE(conf->default_hwhandler);
+
+	free_blacklist(conf->blist);
+	free_mptable(conf->mptable);
+	free_hwtable(conf->hwtable);
+	free_strvec(conf->binvec);
+
+	FREE(conf);
 }
 	

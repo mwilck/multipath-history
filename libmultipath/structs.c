@@ -5,21 +5,28 @@
 #include "vector.h"
 #include "util.h"
 #include "structs.h"
+#include "config.h"
 #include "debug.h"
 
 struct path *
 alloc_path (void)
 {
-	return zalloc(sizeof(struct path));
+	return (struct path *)MALLOC(sizeof(struct path));
 }
 
 void
 free_path (struct path * pp)
 {
-	if (pp && pp->fd > 0)
+	if (!pp)
+		return;
+
+	if (pp->checker_context)
+		FREE(pp->checker_context);
+
+	if (pp->fd > 0)
 		close(pp->fd);
 
-	free(pp);
+	FREE(pp);
 }
 
 void
@@ -28,7 +35,10 @@ free_pathvec (vector vec, int free_paths)
 	int i;
 	struct path * pp;
 
-	if (free_paths && vec && VECTOR_SIZE(vec) > 0)
+	if (!vec)
+		return;
+
+	if (free_paths)
 		vector_foreach_slot(vec, pp, i)
 			free_path(pp);
 
@@ -40,7 +50,7 @@ alloc_pathgroup (void)
 {
 	struct pathgroup * pgp;
 
-	pgp = zalloc(sizeof(struct pathgroup));
+	pgp = (struct pathgroup *)MALLOC(sizeof(struct pathgroup));
 
 	if (!pgp)
 		return NULL;
@@ -48,7 +58,7 @@ alloc_pathgroup (void)
 	pgp->paths = vector_alloc();
 
 	if (!pgp->paths)
-		free(pgp);
+		FREE(pgp);
 
 	return pgp;
 }
@@ -56,10 +66,11 @@ alloc_pathgroup (void)
 void
 free_pathgroup (struct pathgroup * pgp, int free_paths)
 {
-	if (pgp && pgp->paths)
-		free_pathvec(pgp->paths, free_paths);
+	if (!pgp)
+		return;
 
-	free(pgp);
+	free_pathvec(pgp->paths, free_paths);
+	FREE(pgp);
 }
 
 void
@@ -67,6 +78,9 @@ free_pgvec (vector pgvec, int free_paths)
 {
 	int i;
 	struct pathgroup * pgp;
+
+	if (!pgvec)
+		return;
 
 	vector_foreach_slot(pgvec, pgp, i)
 		free_pathgroup(pgp, free_paths);
@@ -77,18 +91,50 @@ free_pgvec (vector pgvec, int free_paths)
 struct multipath *
 alloc_multipath (void)
 {
-	return zalloc(sizeof(struct multipath));
+	return (struct multipath *)MALLOC(sizeof(struct multipath));
 }
 
 void
 free_multipath (struct multipath * mpp, int free_paths)
 {
-	if (mpp->paths)
-		free_pathvec(mpp->paths, free_paths);
+	if (!mpp)
+		return;
 
-	if (mpp->pg)
-		free_pgvec(mpp->pg, free_paths);
-	free(mpp);
+	if (!mpp->mpe) {
+		/*
+		 * don't touch config ->mpentry->*
+		 */
+		if (mpp->alias)
+			FREE(mpp->alias);
+
+		if (mpp->selector)
+			FREE(mpp->selector);
+	}
+	if (!mpp->hwe) {
+		/*
+		 * don't touch config ->hwentry->*
+		 */
+		if (mpp->features)
+			FREE(mpp->features);
+
+		if (mpp->hwhandler)
+			FREE(mpp->hwhandler);
+	}
+	free_pathvec(mpp->paths, free_paths);
+	free_pgvec(mpp->pg, free_paths);
+	FREE(mpp);
+}
+
+void
+free_multipathvec (vector mpvec, int free_paths)
+{
+	int i;
+	struct multipath * mpp;
+
+	vector_foreach_slot (mpvec, mpp, i)
+		free_multipath(mpp, free_paths);
+
+	vector_free(mpvec);
 }
 
 int
