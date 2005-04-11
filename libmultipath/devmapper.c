@@ -285,13 +285,12 @@ dm_flush_maps (char * type)
 int
 dm_fail_path(char * mapname, char * path)
 {
-	int r = 0;
-	int sz;
+	int r = 1;
 	struct dm_task *dmt;
-	char *str;
+	char str[32];
 
 	if (!(dmt = dm_task_create(DM_DEVICE_TARGET_MSG)))
-		return 0;
+		return 1;
 
 	if (!dm_task_set_name(dmt, mapname))
 		goto out;
@@ -299,39 +298,32 @@ dm_fail_path(char * mapname, char * path)
 	if (!dm_task_set_sector(dmt, 0))
 		goto out;
 
-	sz = strlen(path) + 11;
-	str = malloc(sz);
-
-	snprintf(str, sz, "fail_path %s\n", path);
+	if (snprintf(str, 32, "fail_path %s\n", path) > 32)
+		goto out;
 
 	if (!dm_task_set_message(dmt, str))
 		goto out;
-
-	free(str);
 
 	dm_task_no_open_count(dmt);
 
 	if (!dm_task_run(dmt))
 		goto out;
 
-	r = 1;
-
-	out:
+	r = 0;
+out:
 	dm_task_destroy(dmt);
-
 	return r;
 }
 
 int
 dm_reinstate(char * mapname, char * path)
 {
-	int r = 0;
-	int sz;
+	int r = 1;
 	struct dm_task *dmt;
-	char *str;
+	char str[32];
 
 	if (!(dmt = dm_task_create(DM_DEVICE_TARGET_MSG)))
-		return 0;
+		return 1;
 
 	if (!dm_task_set_name(dmt, mapname))
 		goto out;
@@ -339,26 +331,20 @@ dm_reinstate(char * mapname, char * path)
 	if (!dm_task_set_sector(dmt, 0))
 		goto out;
 
-	sz = strlen(path) + 16;
-	str = malloc(sz);
-
-	snprintf(str, sz, "reinstate_path %s\n", path);
+	if (snprintf(str, 32, "reinstate_path %s\n", path) > 32)
+		goto out;
 
 	if (!dm_task_set_message(dmt, str))
 		goto out;
-
-	free(str);
 
 	dm_task_no_open_count(dmt);
 
 	if (!dm_task_run(dmt))
 		goto out;
 
-	r = 1;
-
-	out:
+	r = 0;
+out:
 	dm_task_destroy(dmt);
-
 	return r;
 }
 
@@ -401,38 +387,36 @@ int
 dm_get_maps (vector mp, char * type)
 {
 	struct multipath * mpp;
-	int r = 0;
+	int r = 1;
 	struct dm_task *dmt;
 	struct dm_names *names;
 	unsigned next = 0;
-	unsigned long length;
-	char *params;
-	char *status;
 
 	if (!type)
-		return 0;
+		return 1;
 
-	if (!(dmt = dm_task_create (DM_DEVICE_LIST)))
-		return 0;
+	if (!(dmt = dm_task_create(DM_DEVICE_LIST)))
+		return 1;
 
 	dm_task_no_open_count(dmt);
 
-	if (!dm_task_run (dmt))
+	if (!dm_task_run(dmt))
 		goto out;
 
-	if (!(names = dm_task_get_names (dmt)))
+	if (!(names = dm_task_get_names(dmt)))
 		goto out;
 
-	if (!names->dev)
+	if (!names->dev) {
+		r = 0; /* this is perfectly valid */
 		goto out;
+	}
 
 	do {
 		if (dm_type(names->name, type)) {
 			mpp = (struct multipath *)
 				MALLOC(sizeof(struct multipath));
 
-			if (!mpp) {
-				r = 1;
+			if (!mpp)
 				goto out;
 
 			if (dm_get_map(names->name, &mpp->size, mpp->params))
@@ -458,7 +442,11 @@ dm_get_maps (vector mp, char * type)
                 names = (void *) names + next;
 	} while (next);
 
-	out:
+	r = 0;
+	goto out;
+out1:
+	free_multipath(mpp, KEEP_PATHS);
+out:
 	dm_task_destroy (dmt);
 	return r;
 }
