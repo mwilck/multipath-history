@@ -132,7 +132,7 @@ dm_mapname(int major, int minor)
 	if (!dm_task_run(dmt))
 		goto out;
 
-	mapname = dm_task_get_name(dmt);
+	mapname = strdup(dm_task_get_name(dmt));
 out:
 	dm_task_destroy(dmt);
 	return mapname;
