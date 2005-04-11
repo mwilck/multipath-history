@@ -100,26 +100,27 @@ free_multipath (struct multipath * mpp, int free_paths)
 	if (!mpp)
 		return;
 
-	if (!mpp->mpe) {
-		/*
-		 * don't touch config ->mpentry->*
-		 */
-		if (mpp->alias)
-			FREE(mpp->alias);
+	if (mpp->selector &&
+	    mpp->selector != conf->default_selector &&
+	    (!mpp->mpe || (mpp->mpe && mpp->selector != mpp->mpe->selector)) &&
+	    (!mpp->hwe || (mpp->hwe && mpp->selector != mpp->hwe->selector)))
+		FREE(mpp->selector);
 
-		if (mpp->selector)
-			FREE(mpp->selector);
-	}
-	if (!mpp->hwe) {
-		/*
-		 * don't touch config ->hwentry->*
-		 */
-		if (mpp->features)
-			FREE(mpp->features);
+	if (mpp->alias &&
+	    (!mpp->mpe || (mpp->mpe && mpp->alias != mpp->mpe->alias)) &&
+	    (mpp->wwid && mpp->alias != mpp->wwid))
+		FREE(mpp->alias);
 
-		if (mpp->hwhandler)
-			FREE(mpp->hwhandler);
-	}
+	if (mpp->features &&
+	    mpp->features != conf->default_features &&
+	    (!mpp->hwe || (mpp->hwe && mpp->features != mpp->hwe->features)))
+		FREE(mpp->features);
+
+	if (mpp->hwhandler &&
+	    mpp->hwhandler != conf->default_hwhandler &&
+	    (!mpp->hwe || (mpp->hwe && mpp->hwhandler != mpp->hwe->hwhandler)))
+		FREE(mpp->hwhandler);
+
 	free_pathvec(mpp->paths, free_paths);
 	free_pgvec(mpp->pg, free_paths);
 	FREE(mpp);
@@ -130,6 +131,9 @@ free_multipathvec (vector mpvec, int free_paths)
 {
 	int i;
 	struct multipath * mpp;
+
+	if (!mpvec)
+		return;
 
 	vector_foreach_slot (mpvec, mpp, i)
 		free_multipath(mpp, free_paths);
