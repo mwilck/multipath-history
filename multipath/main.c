@@ -889,30 +889,8 @@ main (int argc, char *argv[])
 		condlog(0, "multipath tools need sysfs mounted");
 		exit(1);
 	}
-	conf = alloc_config();
-
-	if (!conf)
+	if (load_config(DEFAULT_CONFIGFILE))
 		exit(1);
-
-	/*
-	 * internal defaults
-	 */
-	conf->list = 0;
-	conf->dry_run = 0;		/* 1 == Do not Create/Update devmaps */
-	conf->verbosity = 2;
-	conf->pgpolicy_flag = 0;	/* do not override defaults */
-	conf->signal = 1;		/* 1 == Send a signal to multipathd */
-	conf->dev = NULL;
-	conf->dev_type = DEV_NONE;
-	conf->default_selector = NULL;
-	conf->default_selector_args = 0;
-	conf->default_pgpolicy = 0;
-	conf->mptable = NULL;
-	conf->hwtable = NULL;
-	conf->blist = NULL;
-	conf->default_features = NULL;
-	conf->default_hwhandler = NULL;
-	conf->minio = 1000;
 
 	while ((arg = getopt(argc, argv, ":qdlFSi:M:v:p:")) != EOF ) {
 		switch(arg) {
@@ -990,57 +968,6 @@ main (int argc, char *argv[])
 		fprintf(stderr, "can not allocate memory\n");
 		exit(1);
 	}
-
-	/*
-	 * read the config file
-	 */
-	if (filepresent(DEFAULT_CONFIGFILE)) {
-		if (init_data(DEFAULT_CONFIGFILE, init_keywords)) {
-			fprintf(stderr, "error parsing config file\n");
-			exit(1);
-		}
-	}
-	
-	/*
-	 * fill the voids left in the config file
-	 */
-	if (conf->hwtable == NULL) {
-		conf->hwtable = vector_alloc();
-		
-		if (!conf->hwtable)
-			exit(1);
-		
-		setup_default_hwtable(conf->hwtable);
-	}
-	if (conf->blist == NULL) {
-		conf->blist = vector_alloc();
-		
-		if (!conf->blist)
-			exit(1);
-		
-		if (setup_default_blist(conf->blist))
-			exit(1);
-	}
-	if (conf->mptable == NULL) {
-		conf->mptable = vector_alloc();
-
-		if (!conf->mptable)
-			exit(1);
-	}
-	if (conf->default_selector == NULL)
-		conf->default_selector = DEFAULT_SELECTOR;
-
-	if (conf->udev_dir == NULL)
-		conf->udev_dir = DEFAULT_UDEVDIR;
-
-	if (conf->default_getuid == NULL)
-		conf->default_getuid = DEFAULT_GETUID;
-
-	if (conf->default_features == NULL)
-		conf->default_features = DEFAULT_FEATURES;
-
-	if (conf->default_hwhandler == NULL)
-		conf->default_hwhandler = DEFAULT_HWHANDLER;
 
 	/*
 	 * if we have a blacklisted device parameter, exit early

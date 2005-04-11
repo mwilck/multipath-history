@@ -75,6 +75,7 @@ void free_hwtable (vector hwtable);
 void free_mpe (struct mpentry * mpe);
 void free_mptable (vector mptable);
 
+int load_config (char * file);
 struct config * alloc_config (void);
 void free_config (struct config * conf);
 

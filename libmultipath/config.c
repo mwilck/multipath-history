@@ -3,8 +3,13 @@
 
 #include "memory.h"
 #include "util.h"
+#include "debug.h"
+#include "parser.h"
+#include "dict.h"
+#include "hwtable.h"
 #include "vector.h"
 #include "blacklist.h"
+#include "defaults.h"
 #include "config.h"
 
 struct hwentry *
@@ -178,4 +183,81 @@ free_config (struct config * conf)
 
 	FREE(conf);
 }
+
+int
+load_config (char * file)
+{
+	conf = alloc_config();
+
+	if (!conf)
+		return 1;
+
+	/*
+	 * internal defaults
+	 */
+	conf->verbosity = 2;
+	conf->signal = 1;		/* 1 == Send a signal to multipathd */
+	conf->dev_type = DEV_NONE;
+	conf->minio = 1000;
+
+	/*
+	 * read the config file
+	 */
+	if (filepresent(file)) {
+		if (init_data(file, init_keywords)) {
+			condlog(0, "error parsing config file");
+			goto out;
+		}
+	}
 	
+	/*
+	 * fill the voids left in the config file
+	 */
+	if (conf->hwtable == NULL) {
+		conf->hwtable = vector_alloc();
+		
+		if (!conf->hwtable)
+			goto out;
+		
+		setup_default_hwtable(conf->hwtable);
+	}
+	if (conf->blist == NULL) {
+		conf->blist = vector_alloc();
+		
+		if (!conf->blist)
+			goto out;
+		
+		if (setup_default_blist(conf->blist))
+			goto out;
+	}
+	if (conf->mptable == NULL) {
+		conf->mptable = vector_alloc();
+
+		if (!conf->mptable)
+			goto out;
+	}
+	if (conf->default_selector == NULL)
+		conf->default_selector = set_default(DEFAULT_SELECTOR);
+
+	if (conf->udev_dir == NULL)
+		conf->udev_dir = set_default(DEFAULT_UDEVDIR);
+
+	if (conf->default_getuid == NULL)
+		conf->default_getuid = set_default(DEFAULT_GETUID);
+
+	if (conf->default_features == NULL)
+		conf->default_features = set_default(DEFAULT_FEATURES);
+
+	if (conf->default_hwhandler == NULL)
+		conf->default_hwhandler = set_default(DEFAULT_HWHANDLER);
+
+	if (!conf->default_selector  || !conf->udev_dir         ||
+	    !conf->default_getuid    || !conf->default_features ||
+	    !conf->default_hwhandler)
+		goto out;
+
+	return 0;
+out:
+	free_config(conf);
+	return 1;
+}
