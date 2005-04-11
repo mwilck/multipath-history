@@ -9,3 +9,4 @@
 #define DEFAULT_RUNFILE		"/var/run/multipath.run"
 #define DEFAULT_CONFIGFILE	"/etc/multipath.conf"
 
+char * set_default (char * str);
