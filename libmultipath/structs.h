@@ -83,7 +83,6 @@ struct path {
 
 struct multipath {
 	char wwid[WWID_SIZE];
-	char * alias;
 	int pgpolicy;
 	int nextpg;
 	int queuedio;
@@ -93,11 +92,12 @@ struct multipath {
 	vector pg;
 	char params[PARAMS_SIZE];
 	char status[PARAMS_SIZE];
+
+	/* configlet pointers */
+	char * alias;
 	char * selector;
 	char * features;
 	char * hwhandler;
-
-	/* configlet pointers */
 	struct mpentry * mpe;
 	struct hwentry * hwe;
 };
@@ -117,6 +117,7 @@ void free_pathvec (vector vec, int free_paths);
 void free_pathgroup (struct pathgroup * pgp, int free_paths);
 void free_pgvec (vector pgvec, int free_paths);
 void free_multipath (struct multipath *, int free_paths);
+void free_multipathvec (vector mpvec, int free_paths);
 
 int store_path (vector pathvec, struct path * pp);
 int store_pathgroup (vector pgvec, struct pathgroup * pgp);

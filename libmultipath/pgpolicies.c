@@ -79,7 +79,7 @@ group_by_node_name (struct multipath * mp) {
 		return 1;
 
 	/* init the bitmap */
-	bitmap = zalloc(VECTOR_SIZE(mp->paths) * sizeof (int));
+	bitmap = (int *)MALLOC(VECTOR_SIZE(mp->paths) * sizeof (int));
 
 	if (!bitmap)
 		goto out;
@@ -122,12 +122,12 @@ group_by_node_name (struct multipath * mp) {
 			}
 		}
 	}
-	free(bitmap);
+	FREE(bitmap);
 	free_pathvec(mp->paths, KEEP_PATHS);
 	mp->paths = NULL;
 	return 0;
 out1:
-	free(bitmap);
+	FREE(bitmap);
 out:
 	free_pgvec(mp->pg, KEEP_PATHS);
 	return 1;
@@ -151,7 +151,7 @@ group_by_serial (struct multipath * mp) {
 		return 1;
 
 	/* init the bitmap */
-	bitmap = zalloc(VECTOR_SIZE(mp->paths) * sizeof (int));
+	bitmap = (int *)MALLOC(VECTOR_SIZE(mp->paths) * sizeof (int));
 
 	if (!bitmap)
 		goto out;
@@ -193,12 +193,12 @@ group_by_serial (struct multipath * mp) {
 			}
 		}
 	}
-	free(bitmap);
+	FREE(bitmap);
 	free_pathvec(mp->paths, KEEP_PATHS);
 	mp->paths = NULL;
 	return 0;
 out1:
-	free(bitmap);
+	FREE(bitmap);
 out:
 	free_pgvec(mp->pg, KEEP_PATHS);
 	return 1;

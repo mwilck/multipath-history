@@ -11,28 +11,21 @@ static int
 store_ble (vector blist, char * str)
 {
 	struct blentry * ble;
-	int len;
 	
 	if (!str)
 		return 0;
 
-	ble = zalloc(sizeof(struct blentry));
+	ble = (struct blentry *)MALLOC(sizeof(struct blentry));
 
 	if (!ble)
-		return 1;
-
-	len = strlen(str) + 1;
-	ble->str = zalloc(len * sizeof(char));
-
-	if (!ble->str) 
 		goto out;
 
-	ble->preg = zalloc(sizeof(regex_t));
+	ble->preg = MALLOC(sizeof(regex_t));
 
 	if (!ble->preg)
 		goto out1;
 
-	snprintf(ble->str, len, str);
+	ble->str = str;
 
 	if (regcomp((regex_t *)ble->preg, ble->str, REG_EXTENDED|REG_NOSUB))
 		goto out2;
@@ -43,11 +36,11 @@ store_ble (vector blist, char * str)
 	vector_set_slot(blist, ble);
 	return 0;
 out2:
-	free(ble->preg);
+	FREE(ble->preg);
 out1:
-	free(ble->str);
+	FREE(ble);
 out:
-	free(ble);
+	FREE(str);
 	return 1;
 }
 
@@ -89,3 +82,24 @@ store_regex (vector blist, char * regex)
 
 	return store_ble(blist, regex);
 }	
+
+void
+free_blacklist (vector blist)
+{
+	struct blentry * ble;
+	int i;
+
+	if (!blist)
+		return;
+
+	vector_foreach_slot (blist, ble, i) {
+		if (ble->str)
+			FREE(ble->str);
+
+		if (ble->preg)
+			FREE(ble->preg);
+
+		FREE(ble);
+	}
+	vector_free(blist);
+}

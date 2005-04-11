@@ -440,7 +440,8 @@ dm_get_maps (vector mp, char * type)
 		if (dm_type(names->name, type)) {
 			dm_get_map(names->name, &length, &params);
 			dm_get_status(names->name, &status);
-			mpp = zalloc(sizeof(struct multipath));
+			mpp = (struct multipath *)
+				MALLOC(sizeof(struct multipath));
 
 			if (!mpp) {
 				r = 1;

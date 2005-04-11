@@ -118,7 +118,7 @@ def_pgpolicy_handler(vector strvec)
 		return 1;
 
 	conf->default_pgpolicy = get_pgpolicy_id(buff);
-	free(buff);
+	FREE(buff);
 
 	return 0;
 }
@@ -167,7 +167,7 @@ def_minio_handler(vector strvec)
 		return 1;
 
 	conf->minio = atoi(buff);
-	free(buff);
+	FREE(buff);
 
 	return 0;
 }
@@ -218,13 +218,13 @@ device_handler(vector strvec)
 {
 	struct hwentry * hwe;
 
-	hwe = zalloc(sizeof(struct hwentry));
+	hwe = (struct hwentry *)MALLOC(sizeof(struct hwentry));
 
 	if (!hwe)
 		return 1;
 
 	if (!vector_alloc_slot(conf->hwtable)) {
-		free(hwe);
+		FREE(hwe);
 		return 1;
 	}
 	vector_set_slot(conf->hwtable, hwe);
@@ -276,7 +276,7 @@ hw_pgpolicy_handler(vector strvec)
 		return 1;
 
 	hwe->pgpolicy = get_pgpolicy_id(buff);
-	free(buff);
+	FREE(buff);
 
 	return 0;
 }
@@ -325,7 +325,7 @@ hw_path_checker_handler(vector strvec)
 		return 1;
 	
 	hwe->checker_index = get_checker_id(buff);
-	free(buff);
+	FREE(buff);
 
 	return 0;
 }
@@ -397,13 +397,13 @@ multipath_handler(vector strvec)
 {
 	struct mpentry * mpe;
 
-	mpe = zalloc(sizeof(struct mpentry));
+	mpe = (struct mpentry *)MALLOC(sizeof(struct mpentry));
 
 	if (!mpe)
 		return 1;
 
 	if (!vector_alloc_slot(conf->mptable)) {
-		free(mpe);
+		FREE(mpe);
 		return 1;
 	}
 	vector_set_slot(conf->mptable, mpe);
@@ -458,7 +458,7 @@ mp_pgpolicy_handler(vector strvec)
 		return 1;
 
 	mpe->pgpolicy = get_pgpolicy_id(buff);
-	free(buff);
+	FREE(buff);
 
 	return 0;
 }

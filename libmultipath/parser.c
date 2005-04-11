@@ -30,13 +30,13 @@ keyword_alloc(vector keywords, char *string, int (*handler) (vector))
 {
 	struct keyword *keyword;
 
-	keyword = (struct keyword *) zalloc(sizeof (struct keyword));
+	keyword = (struct keyword *) MALLOC(sizeof (struct keyword));
 
 	if (!keyword)
 		return 1;
 	
 	if (!vector_alloc_slot(keywords)) {
-		free(keyword);
+		FREE(keyword);
 		return 1;
 	}
 	keyword->string = string;
@@ -100,7 +100,7 @@ free_keywords(vector keywords)
 		keyword = VECTOR_SLOT(keywords, i);
 		if (keyword->sub)
 			free_keywords(keyword->sub);
-		free(keyword);
+		FREE(keyword);
 	}
 	vector_free(keywords);
 }
@@ -144,7 +144,7 @@ alloc_strvec(char *string)
 		start = cp;
 		if (*cp == '"') {
 			cp++;
-			token = zalloc(2);
+			token = MALLOC(2);
 
 			if (!token)
 				goto out;
@@ -161,7 +161,7 @@ alloc_strvec(char *string)
 				!= '\0' && *cp != '"')
 				cp++;
 			strlen = cp - start;
-			token = zalloc(strlen + 1);
+			token = MALLOC(strlen + 1);
 
 			if (!token)
 				goto out;
@@ -208,7 +208,7 @@ read_value_block(void)
 	vector vec = NULL;
 	vector elements = vector_alloc();
 
-	buf = (char *) zalloc(MAXBUF);
+	buf = (char *) MALLOC(MAXBUF);
 
 	if (!buf)
 		return NULL;
@@ -228,20 +228,24 @@ read_value_block(void)
 			if (VECTOR_SIZE(vec))
 				for (i = 0; i < VECTOR_SIZE(vec); i++) {
 					str = VECTOR_SLOT(vec, i);
-					dup = (char *) zalloc(strlen(str) + 1);
+					dup = (char *) MALLOC(strlen(str) + 1);
 					memcpy(dup, str, strlen(str));
-					vector_alloc_slot(elements);
+
+					if (!vector_alloc_slot(elements))
+						goto out1;
+
 					vector_set_slot(elements, dup);
 				}
 			free_strvec(vec);
 		}
 		memset(buf, 0, MAXBUF);
 	}
-
-	free(buf);
+	FREE(buf);
 	return elements;
+out1:
+	FREE(dup);
 out:
-	free(buf);
+	FREE(buf);
 	return NULL;
 }
 
@@ -252,7 +256,7 @@ alloc_value_block(vector strvec, void (*alloc_func) (vector))
 	char *str = NULL;
 	vector vec = NULL;
 
-	buf = (char *) zalloc(MAXBUF);
+	buf = (char *) MALLOC(MAXBUF);
 
 	if (!buf)
 		return 1;
@@ -273,7 +277,7 @@ alloc_value_block(vector strvec, void (*alloc_func) (vector))
 		}
 		memset(buf, 0, MAXBUF);
 	}
-	free(buf);
+	FREE(buf);
 	return 0;
 }
 
@@ -293,11 +297,11 @@ set_value(vector strvec)
 			len += strlen(str);
 			if (!alloc)
 				alloc =
-				    (char *) zalloc(sizeof (char *) *
+				    (char *) MALLOC(sizeof (char *) *
 						    (len + 1));
 			else {
 				alloc =
-				    realloc(alloc, sizeof (char *) * (len + 1));
+				    REALLOC(alloc, sizeof (char *) * (len + 1));
 				tmp = VECTOR_SLOT(strvec, i-1);
 				if (*str != '"' && *tmp != '"')
 					strncat(alloc, " ", 1);
@@ -307,7 +311,7 @@ set_value(vector strvec)
 				strncat(alloc, str, strlen(str));
 		}
 	} else {
-		alloc = zalloc(sizeof (char *) * (size + 1));
+		alloc = MALLOC(sizeof (char *) * (size + 1));
 		memcpy(alloc, str, size);
 	}
 	return alloc;
@@ -325,7 +329,7 @@ process_stream(vector keywords)
 	char *buf;
 	vector strvec;
 
-	buf = zalloc(MAXBUF);
+	buf = MALLOC(MAXBUF);
 
 	if (!buf)
 		return 1;
@@ -363,7 +367,7 @@ process_stream(vector keywords)
 		free_strvec(strvec);
 	}
 
-	free(buf);
+	FREE(buf);
 	return r;
 }
 

@@ -76,7 +76,7 @@ get_refwwid (vector pathvec)
 				return NULL;
 		}
 
-		refwwid = zalloc(WWID_SIZE);
+		refwwid = MALLOC(WWID_SIZE);
 
 		if (!refwwid)
 			return NULL;
@@ -109,7 +109,7 @@ get_refwwid (vector pathvec)
 				return NULL;
 		}
 
-		refwwid = zalloc(WWID_SIZE);
+		refwwid = MALLOC(WWID_SIZE);
 
 		if (!refwwid)
 			return NULL;
@@ -130,7 +130,7 @@ get_refwwid (vector pathvec)
 		/*
 		 * or directly a wwid
 		 */
-		refwwid = zalloc(WWID_SIZE);
+		refwwid = MALLOC(WWID_SIZE);
 
 		if (!refwwid)
 			return NULL;
@@ -757,7 +757,7 @@ signal_daemon (void)
 	pid_t pid;
 	char *buf;
 
-	buf = malloc(8);
+	buf = MALLOC(8);
 
 	if (!buf)
 		return;
@@ -766,7 +766,7 @@ signal_daemon (void)
 
 	if (!file) {
 		condlog(1, "cannot signal daemon, pidfile not found");
-		free(buf);
+		FREE(buf);
 		return;
 	}
 
@@ -774,7 +774,7 @@ signal_daemon (void)
 	fclose(file);
 
 	pid = (pid_t)atol(buf);
-	free(buf);
+	FREE(buf);
 
 	kill(pid, SIGHUP);
 }
@@ -838,14 +838,15 @@ get_current_mp (vector curmp, vector pathvec, char * refwwid)
 	struct multipath * mpp;
 	char * wwid;
 
-	dm_get_maps(curmp, DEFAULT_TARGET);
+	if (dm_get_maps(curmp, DEFAULT_TARGET))
+		return 1;
 
 	vector_foreach_slot (curmp, mpp, i) {
 		wwid = get_mpe_wwid(mpp->alias);
 
 		if (wwid) {
 			strncpy(mpp->wwid, wwid, WWID_SIZE);
-			free(wwid);
+			FREE(wwid);
 		} else
 			strncpy(mpp->wwid, mpp->alias, WWID_SIZE);
 
@@ -956,7 +957,7 @@ main (int argc, char *argv[])
 		}
 	}        
 	if (optind<argc) {
-		conf->dev = zalloc(FILE_NAME_SIZE);
+		conf->dev = MALLOC(FILE_NAME_SIZE);
 
 		if (!conf->dev)
 			exit(1);
@@ -1077,5 +1078,14 @@ out:
 	if (conf->signal)
 		signal_daemon();
 	
+	if (refwwid)
+		FREE(refwwid);
+
+	free_multipathvec(curmp, FREE_PATHS);
+	free_pathvec(pathvec, FREE_PATHS);
+	free_config(conf);
+#ifdef _DEBUG_
+	dbg_free_final(NULL);
+#endif
 	exit(0);
 }
