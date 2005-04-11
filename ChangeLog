@@ -1,5 +1,12 @@
 2005-03-19 multipath-tools-0.4.4
 
+	* [libmultipath] don't allocate memory in :
+		* devmapper.c:dm_get_map()
+		* devmapper.c:dm_get_status()
+	* [libmultipath] devinfo() a la carte fetching
+	* [libmultipath] merge keepalived memory audit framework
+	  (Thanks again, M. Cassen). Already found and fixed a
+	  couple of leaks.
 	* [libmultipath] flatten/optimize dm_map_present() and
 	  dm_mapname(). Inspired by Alasdair Kergon, RedHat.
 	* [kpartx] add hotplug mode. To enable name the binary
@@ -7,16 +14,7 @@
 	* [multipathd] don't loose events in event waiter thread.
 	  Suggested and prototyped by Edward Goggin, EMC
 	* [libmultipath] add return values to vector manipulation
-	  fonctions. Mem alloc return code audit done in the
-	  following files :
-		* libmultipath/dmparser.c
-		* libmultipath/vector.c
-		* libmultipath/parser.c
-		* libmultipath/blacklist.c
-		* libmultipath/dict.c
-		* libmultipath/pgpolicies.c
-		* libmultipath/discovery.c
-		* multipath/main.c
+	  fonctions. Mem alloc return code audit.
 	* [libmultipath] Use "config->udev_dir + path->dev" as
 	  a path devnode to open instead of mknod'ing for each
 	  one. Fix some DoS issues regarding usage of /tmp in
@@ -25,7 +23,7 @@
 	  installing one on "make install"
 	* [libmultipath] fold safe_sprintf.h into util.h
 	* [libmultipath] move blacklist to a real regex matcher
-	  Example config files updated : watch out yours !!
+	  Example config files updated : check yours !!
 	* [multipath] fix path group compare logic to not stop
 	  comparing at first path in each PG.
 	* [multipathd] check if pidfile is a dead remnent of a
