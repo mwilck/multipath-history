@@ -233,8 +233,6 @@ dm_get_opencount (char * mapname)
 	if (!dm_task_set_name(dmt, mapname))
 		goto out;
 
-	dm_task_no_open_count(dmt);
-
 	if (!dm_task_run(dmt))
 		goto out;
 
