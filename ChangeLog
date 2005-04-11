@@ -1,5 +1,7 @@
 2005-03-19 multipath-tools-0.4.4
 
+	* [libmultipath] add config.c:load_config(), which sucks
+	  a big chunk of code out of multipath/main.c.
 	* [libmultipath] don't allocate memory in :
 		* devmapper.c:dm_get_map()
 		* devmapper.c:dm_get_status()
@@ -9,6 +11,8 @@
 	  couple of leaks.
 	* [libmultipath] flatten/optimize dm_map_present() and
 	  dm_mapname(). Inspired by Alasdair Kergon, RedHat.
+	* [kpartx] dm_map_name() free before use bugfix. Kiyoshi
+	  Ueda, NEC
 	* [kpartx] add hotplug mode. To enable name the binary
 	  "kpartx.dev". Kiyoshi Ueda, NEC
 	* [multipathd] don't loose events in event waiter thread.
