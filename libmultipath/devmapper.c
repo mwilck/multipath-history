@@ -121,13 +121,14 @@ out:
 }
 
 extern int
-dm_get_map(char * name, unsigned long * size, char ** outparams)
+dm_get_map(char * name, unsigned long * size, char * outparams)
 {
+	int r = 1;
 	struct dm_task *dmt;
 	void *next = NULL;
 	uint64_t start, length;
-	char *target_type;
-	char *params;
+	char *target_type = NULL;
+	char *params = NULL;
 
 	if (!(dmt = dm_task_create(DM_DEVICE_TABLE)))
 		return 1;
@@ -147,21 +148,17 @@ dm_get_map(char * name, unsigned long * size, char ** outparams)
 	if (size)
 		*size = length;
 
-	*outparams = malloc(strlen(params) + 1);
-
-	if (!*outparams)
-		goto out;
-
-	sprintf(*outparams, params);
-	return 0;
+	if (snprintf(outparams, PARAMS_SIZE, "%s", params) <= PARAMS_SIZE)
+		r = 0;
 out:
 	dm_task_destroy(dmt);
-	return 1;
+	return r;
 }
 
 extern int
-dm_get_status(char * name, char ** outstatus)
+dm_get_status(char * name, char * outstatus)
 {
+	int r = 1;
 	struct dm_task *dmt;
 	void *next = NULL;
 	uint64_t start, length;
@@ -183,16 +180,11 @@ dm_get_status(char * name, char ** outstatus)
 	next = dm_get_next_target(dmt, next, &start, &length,
 				  &target_type, &status);
 
-	*outstatus = malloc(strlen(status) + 1);
-
-	if (!*outstatus)
-		goto out;
-
-	sprintf(*outstatus, status);
-	return 0;
+	if (snprintf(outstatus, PARAMS_SIZE, "%s", status) <= PARAMS_SIZE)
+		r = 0;
 out:
 	dm_task_destroy(dmt);
-	return 1;
+	return r;
 }
 
 extern int
@@ -438,22 +430,29 @@ dm_get_maps (vector mp, char * type)
 
 	do {
 		if (dm_type(names->name, type)) {
-			dm_get_map(names->name, &length, &params);
-			dm_get_status(names->name, &status);
 			mpp = (struct multipath *)
 				MALLOC(sizeof(struct multipath));
 
 			if (!mpp) {
 				r = 1;
 				goto out;
-			}
-			mpp->size = length;
-			mpp->alias = zalloc(strlen(names->name) + 1);
-			strncat(mpp->alias, names->name, strlen(names->name));
-			strncat(mpp->params, params, PARAMS_SIZE);
-			strncat(mpp->status, status, PARAMS_SIZE);
 
-			vector_alloc_slot(mp);
+			if (dm_get_map(names->name, &mpp->size, mpp->params))
+				goto out1;
+
+			if (dm_get_status(names->name, mpp->status))
+				goto out1;
+
+			mpp->alias = MALLOC(strlen(names->name) + 1);
+
+			if (!mpp->alias)
+				goto out1;
+
+			strncat(mpp->alias, names->name, strlen(names->name));
+
+			if (!vector_alloc_slot(mp))
+				goto out1;
+			
 			vector_set_slot(mp, mpp);
 			mpp = NULL;
 		}
