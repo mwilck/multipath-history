@@ -119,7 +119,7 @@ int log_enqueue (int prio, const char * fmt, va_list ap)
 		logdbg(stderr, "enqueue: log area overrun, drop msg\n");
 
 		if (!la->empty)
-			la->tail -= fwd;
+			la->tail = lastmsg;
 
 		return 1;
 	}
