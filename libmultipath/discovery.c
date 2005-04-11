@@ -341,8 +341,8 @@ sysfs_devinfo(struct path * curpath)
 	return 0;
 }
 
-static char *
-apply_format (char * string, int maxsize, struct path * pp)
+static int
+apply_format (char * string, char * cmd, struct path * pp)
 {
 	char * pos;
 	char * dst;
@@ -351,29 +351,30 @@ apply_format (char * string, int maxsize, struct path * pp)
 	int myfree;
 
 	if (!string)
-		return NULL;
+		return 1;
 
-	dst = zalloc(maxsize);
+	if (!cmd)
+		return 1;
+
+	dst = cmd;
 
 	if (!dst)
-		return NULL;
+		return 1;
 
 	p = dst;
 	pos = strchr(string, '%');
-	myfree = maxsize;
+	myfree = CALLOUT_MAX_SIZE;
 
 	if (!pos) {
 		strcpy(dst, string);
-		return dst;
+		return 0;
 	}
 
 	len = (int) (pos - string) + 1;
 	myfree -= len;
 
-	if (myfree < 2) {
-		free(dst);
-		return NULL;
-	}
+	if (myfree < 2)
+		return 1;
 
 	snprintf(p, len, "%s", string);
 	p += len - 1;
@@ -384,10 +385,8 @@ apply_format (char * string, int maxsize, struct path * pp)
 		len = strlen(pp->dev) + 1;
 		myfree -= len;
 
-		if (myfree < 2) {
-			free(dst);
-			return NULL;
-		}
+		if (myfree < 2)
+			return 1;
 
 		snprintf(p, len, "%s", pp->dev);
 		p += len - 1;
@@ -396,10 +395,8 @@ apply_format (char * string, int maxsize, struct path * pp)
 		len = strlen(pp->dev_t) + 1;
 		myfree -= len;
 
-		if (myfree < 2) {
-			free(dst);
-			return NULL;
-		}
+		if (myfree < 2)
+			return 1;
 
 		snprintf(p, len, "%s", pp->dev_t);
 		p += len - 1;
@@ -410,25 +407,23 @@ apply_format (char * string, int maxsize, struct path * pp)
 	pos++;
 
 	if (!*pos)
-		return dst;
+		return 0;
 
 	len = strlen(pos) + 1;
 	myfree -= len;
 
-	if (myfree < 2) {
-		free(dst);
-		return NULL;
-	}
+	if (myfree < 2)
+		return 1;
 
 	snprintf(p, len, "%s", pos);
 	condlog(3, "reformated callout = %s", dst);
-	return dst;
+	return 0;
 }
 
 extern int
 devinfo (struct path *pp, vector hwtable, int mask)
 {
-	char * buff;
+	char buff[CALLOUT_MAX_SIZE];
 	char prio[16];
 
 	condlog(3, "===== path %s =====", pp->dev);
@@ -477,14 +472,12 @@ devinfo (struct path *pp, vector hwtable, int mask)
 	 */
 	if (mask & DI_PRIO) {
 		select_getprio(pp);
-		buff = apply_format(pp->getprio, CALLOUT_MAX_SIZE, pp);
 
-		if (!buff)
+		if (apply_format(pp->getprio, &buff[0], pp)) {
 			pp->priority = 1;
-		else if (execute_program(buff, prio, 16)) {
+		} else if (execute_program(buff, prio, 16)) {
 			condlog(3, "error calling out %s", buff);
 			pp->priority = 1;
-			free(buff);
 		} else
 			pp->priority = atoi(prio);
 
@@ -496,15 +489,14 @@ devinfo (struct path *pp, vector hwtable, int mask)
 	 */
 	if (mask & DI_WWID && !strlen(pp->wwid)) {
 		select_getuid(pp);
-		buff = apply_format(pp->getuid, CALLOUT_MAX_SIZE, pp);
 
-		if (buff) {
-			if (!execute_program(buff, pp->wwid, WWID_SIZE) == 0)
-				memset(pp->wwid, 0, WWID_SIZE);
-
-			condlog(3, "uid = %s (callout)", pp->wwid);
-			free(buff);
+		if (apply_format(pp->getuid, &buff[0], pp)) {
+			memset(pp->wwid, 0, WWID_SIZE);
+		} else if (execute_program(buff, pp->wwid, WWID_SIZE)) {
+			condlog(3, "error calling out %s", buff);
+			memset(pp->wwid, 0, WWID_SIZE);
 		}
+		condlog(3, "uid = %s (callout)", pp->wwid);
 	}
 	else if (strlen(pp->wwid))
 		condlog(3, "uid = %s (cache)", pp->wwid);
