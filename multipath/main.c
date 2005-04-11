@@ -873,8 +873,8 @@ get_current_mp (vector curmp, vector pathvec, char * refwwid)
 int
 main (int argc, char *argv[])
 {
-	vector curmp;
-	vector pathvec;
+	vector curmp = NULL;
+	vector pathvec = NULL;
 	int i;
 	int arg;
 	extern char *optarg;
@@ -916,11 +916,11 @@ main (int argc, char *argv[])
 			conf->dry_run = 1;
 			conf->signal = 0;
 			break;
-#if _DEBUG_
 		case 'M':
+#if _DEBUG_
 			debug = atoi(optarg);
-			break;
 #endif
+			break;
 		case 'S':
 			conf->signal = 0;
 			break;
@@ -941,11 +941,11 @@ main (int argc, char *argv[])
 			usage(argv[0]);
 		}
 	}        
-	if (optind<argc) {
+	if (optind < argc) {
 		conf->dev = MALLOC(FILE_NAME_SIZE);
 
 		if (!conf->dev)
-			exit(1);
+			goto out;
 
 		strncpy(conf->dev, argv[optind], FILE_NAME_SIZE);
 
@@ -965,15 +965,15 @@ main (int argc, char *argv[])
 	pathvec = vector_alloc();
 
 	if (!curmp || !pathvec) {
-		fprintf(stderr, "can not allocate memory\n");
-		exit(1);
+		condlog(0, "can not allocate memory");
+		goto out;
 	}
 
 	/*
 	 * if we have a blacklisted device parameter, exit early
 	 */
 	if (conf->dev && blacklist(conf->blist, conf->dev))
-		exit(0);
+		goto out;
 	
 	if (!cache_cold(CACHE_EXPIRE)) {
 		condlog(3, "load path identifiers cache");
@@ -984,7 +984,7 @@ main (int argc, char *argv[])
 	 * get a path list
 	 */
 	if (path_discovery(pathvec, conf) || VECTOR_SIZE(pathvec) == 0)
-		exit(1);
+		goto out;
 
 	if (conf->verbosity > 2) {
 		fprintf(stdout, "#\n# all paths :\n#\n");
@@ -994,7 +994,7 @@ main (int argc, char *argv[])
 	refwwid = get_refwwid(pathvec);
 
 	if (get_current_mp(curmp, pathvec, refwwid))
-		exit(1);
+		goto out;
 
 	cache_dump(pathvec);
 	filter_pathvec(pathvec, refwwid);
@@ -1003,10 +1003,9 @@ main (int argc, char *argv[])
 		goto out;
 
 	/*
-	 * group the paths as multipaths
+	 * core logic entry point
 	 */
-	if (coalesce_paths(curmp, pathvec))
-		exit (1);
+	coalesce_paths(curmp, pathvec);
 
 out:
 	/*
@@ -1018,7 +1017,7 @@ out:
 	if (refwwid)
 		FREE(refwwid);
 
-	free_multipathvec(curmp, FREE_PATHS);
+	free_multipathvec(curmp, KEEP_PATHS);
 	free_pathvec(pathvec, FREE_PATHS);
 	free_config(conf);
 #ifdef _DEBUG_
