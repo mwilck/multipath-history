@@ -770,6 +770,10 @@ sighup (int sig)
 {
 	log_safe(LOG_NOTICE, "SIGHUP received from multipath or operator");
 
+#ifdef _DEBUG_
+	        dbg_free_final(NULL);
+#endif
+
 	/*
 	 * signal updatepaths() that we come from SIGHUP
 	 */

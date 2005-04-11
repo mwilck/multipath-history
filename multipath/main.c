@@ -914,7 +914,7 @@ main (int argc, char *argv[])
 	conf->default_hwhandler = NULL;
 	conf->minio = 1000;
 
-	while ((arg = getopt(argc, argv, ":qdlFSi:v:p:")) != EOF ) {
+	while ((arg = getopt(argc, argv, ":qdlFSi:M:v:p:")) != EOF ) {
 		switch(arg) {
 		case 1: printf("optarg : %s\n",optarg);
 			break;
@@ -938,6 +938,11 @@ main (int argc, char *argv[])
 			conf->dry_run = 1;
 			conf->signal = 0;
 			break;
+#if _DEBUG_
+		case 'M':
+			debug = atoi(optarg);
+			break;
+#endif
 		case 'S':
 			conf->signal = 0;
 			break;
