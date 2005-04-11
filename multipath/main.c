@@ -879,14 +879,14 @@ main (int argc, char *argv[])
 	int arg;
 	extern char *optarg;
 	extern int optind;
-	char * refwwid;
+	char * refwwid = NULL;
 
 	if (dm_prereq(DEFAULT_TARGET, 1, 0, 3)) {
-		fprintf(stderr, "device mapper prerequisites not met.\n");
+		condlog(0, "device mapper prerequisites not met");
 		exit(1);
 	}
 	if (sysfs_get_mnt_path(sysfs_path, FILE_NAME_SIZE)) {
-		fprintf(stderr, "multipath tools need sysfs\n");
+		condlog(0, "multipath tools need sysfs mounted");
 		exit(1);
 	}
 	conf = alloc_config();
@@ -1060,7 +1060,10 @@ main (int argc, char *argv[])
 	}
 
 	refwwid = get_refwwid(pathvec);
-	get_current_mp(curmp, pathvec, refwwid);
+
+	if (get_current_mp(curmp, pathvec, refwwid))
+		exit(1);
+
 	cache_dump(pathvec);
 	filter_pathvec(pathvec, refwwid);
 
