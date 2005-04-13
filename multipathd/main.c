@@ -63,6 +63,18 @@
 		memset(a, 0, MAX_CHECKER_MSG_SIZE); \
 	}
 
+#ifdef LCKDBG
+#define lock(a) \
+	fprintf(stderr, "%s:%s(%i) lock %p\n", __FILE__, __FUNCTION__, __LINE__, a); \
+	pthread_mutex_lock(a)
+#define unlock(a) \
+	fprintf(stderr, "%s:%s(%i) unlock %p\n", __FILE__, __FUNCTION__, __LINE__, a); \
+	pthread_mutex_unlock(a)
+#else
+#define lock(a) pthread_mutex_lock(a)
+#define unlock(a) pthread_mutex_unlock(a)
+#endif
+
 /*
  * global vars
  */
