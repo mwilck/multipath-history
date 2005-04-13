@@ -92,8 +92,8 @@ int execute_program(char *path, char *value, int len)
 			i--;
 		value[i] = '\0';
 
-		close(fds[0]);
 		wait(&status);
+		close(fds[0]);
 
 		if (!WIFEXITED(status) || (WEXITSTATUS(status) != 0))
 			retval = -1;
