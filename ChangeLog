@@ -1,5 +1,9 @@
 2005-03-19 multipath-tools-0.4.4
 
+	* [multipathd] multipathd could loose events coming from
+	  sighup or DM waitev. Add a pending_event counter to
+	  track that.
+	* [path_prio] add pp_alua from Stefan Bader, IBM.
 	* [libmultipath] add config.c:load_config(), which sucks
 	  a big chunk of code out of multipath/main.c.
 	* [libmultipath] don't allocate memory in :
