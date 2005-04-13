@@ -280,7 +280,7 @@ out:
 static void *
 waiteventloop (struct event_thread * waiter, char * cmd)
 {
-	char buff[1];
+	//char buff[1];
 	struct dm_task *dmt;
 	int event_nr;
 
@@ -309,7 +309,7 @@ waiteventloop (struct event_thread * waiter, char * cmd)
 				waiter->event_nr, waiter->mapname);
 
 		mark_failed_path(waiter->allpaths, waiter->mapname);
-		execute_program(cmd, buff, 1);
+		//execute_program(cmd, buff, 1);
 
 		event_nr = dm_geteventnr(waiter->mapname);
 
