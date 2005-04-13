@@ -68,7 +68,7 @@ path_discovery (vector pathvec, struct config * conf)
 			}
 			devinfo(curpath, conf->hwtable, DI_ALL);
 		} else {
-			devinfo(curpath, conf->hwtable, DI_CHECKER);
+			devinfo(curpath, conf->hwtable, DI_CHECKER | DI_WWID);
 		}
 	}
 	r = 0;
