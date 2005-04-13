@@ -78,6 +78,7 @@
 /*
  * global vars
  */
+int pending_event = 0;
 int from_sighup;
 pthread_mutex_t *event_lock;
 pthread_cond_t *event;
@@ -208,9 +209,9 @@ out:
 static int
 updatepaths (struct paths *allpaths, char *sysfs_path)
 {
-	pthread_mutex_lock(allpaths->lock);
+	lock(allpaths->lock);
 	path_discovery(allpaths->pathvec, conf);
-	pthread_mutex_unlock(allpaths->lock);
+	unlock(allpaths->lock);
 
 	return 0;
 }
@@ -239,9 +240,9 @@ mark_failed_path (struct paths *allpaths, char *mapname)
 	if (dm_get_status(mapname, mpp->status))
 		goto out;
 	
-	pthread_mutex_lock(allpaths->lock);
+	lock(allpaths->lock);
 	r = disassemble_map(allpaths->pathvec, mpp->params, mpp);
-	pthread_mutex_unlock(allpaths->lock);
+	unlock(allpaths->lock);
 	
 	if (r)
 		goto out1;
@@ -252,7 +253,7 @@ mark_failed_path (struct paths *allpaths, char *mapname)
 		goto out1;
 
 	r = 0; /* can't fail from here on */
-	pthread_mutex_lock(allpaths->lock);
+	lock(allpaths->lock);
 
 	vector_foreach_slot (mpp->pg, pgp, i) {
 		vector_foreach_slot (pgp->paths, pp, j) {
@@ -269,7 +270,7 @@ mark_failed_path (struct paths *allpaths, char *mapname)
 		}
 	}
 out1:
-	pthread_mutex_unlock(allpaths->lock);
+	unlock(allpaths->lock);
 out:
 	free_multipath(mpp, KEEP_PATHS);
 
@@ -324,9 +325,10 @@ out:
 	/*
 	 * tell waiterloop we have an event
 	 */
-	pthread_mutex_lock(event_lock);
+	lock(event_lock);
+	pending_event++;
 	pthread_cond_signal(event);
-	pthread_mutex_unlock(event_lock);
+	unlock(event_lock);
 	
 	return NULL;
 }
@@ -340,7 +342,7 @@ waitevent (void * et)
 	mlockall(MCL_CURRENT | MCL_FUTURE);
 
 	waiter = (struct event_thread *)et;
-	pthread_mutex_lock(waiter->waiter_lock);
+	lock(waiter->waiter_lock);
 	pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
 
 	if (safe_snprintf(cmd, CMDSIZE, "%s %s",
@@ -355,7 +357,7 @@ out:
 	/*
 	 * release waiter_lock so that waiterloop knows we are gone
 	 */
-	pthread_mutex_unlock(waiter->waiter_lock);
+	unlock(waiter->waiter_lock);
 	pthread_exit(waiter->thread);
 
 	return NULL;
@@ -553,9 +555,16 @@ waiterloop (void *ap)
 		/*
 		 * wait event condition
 		 */
-		pthread_mutex_lock (event_lock);
-		pthread_cond_wait(event, event_lock);
-		pthread_mutex_unlock (event_lock);
+		lock(event_lock);
+
+		if (pending_event > 0)
+			pending_event--;
+
+		log_safe(LOG_INFO, "%i pending event(s)", pending_event);
+		if(pending_event == 0)
+			pthread_cond_wait(event, event_lock);
+
+		unlock(event_lock);
 	}
 	return NULL;
 }
@@ -579,7 +588,7 @@ checkerloop (void *ap)
 	log_safe(LOG_NOTICE, "path checkers start up");
 
 	while (1) {
-		pthread_mutex_lock(allpaths->lock);
+		lock(allpaths->lock);
 		log_safe(LOG_DEBUG, "checking paths");
 
 		vector_foreach_slot (allpaths->pathvec, pp, i) {
@@ -627,13 +636,14 @@ checkerloop (void *ap)
 				/*
 				 * tell waiterloop we have an event
 				 */
-				pthread_mutex_lock (event_lock);
+				lock (event_lock);
+				pending_event++;
 				pthread_cond_signal(event);
-				pthread_mutex_unlock (event_lock);
+				unlock (event_lock);
 			}
 			pp->state = newstate;
 		}
-		pthread_mutex_unlock(allpaths->lock);
+		unlock(allpaths->lock);
 		sleep(conf->checkint);
 	}
 	return NULL;
@@ -794,9 +804,10 @@ sighup (int sig)
 	/*
 	 * ask for allpaths refresh
 	 */
-	pthread_mutex_lock (event_lock);
+	lock(event_lock);
+	pending_event++;
 	pthread_cond_signal(event);
-	pthread_mutex_unlock (event_lock);
+	unlock(event_lock);
 }
 
 static void
