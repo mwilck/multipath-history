@@ -839,6 +839,20 @@ setscheduler (void)
 	return;
 }
 
+static void
+set_oom_adj (int val)
+{
+	FILE *fp;
+
+	fp = fopen("/proc/self/oom_adj", "w");
+
+	if (!fp)
+		return;
+
+	fprintf(fp, "%i", val);
+	fclose(fp);
+}
+	
 static int
 child (void * param)
 {
@@ -857,6 +871,7 @@ child (void * param)
 	}
 	signal_init();
 	setscheduler();
+	set_oom_adj(-17);
 	allpaths = initpaths();
 	
 	conf->checkint = CHECKINT;
