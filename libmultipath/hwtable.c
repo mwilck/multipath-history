@@ -40,7 +40,7 @@ setup_default_hwtable (vector hw)
 	ADDHWE(hw, "SUN", "T4", MULTIBUS, DEFAULT_GETUID);
 
 	ADDHWE_EXT(hw, "DGC", "*", GROUP_BY_PRIO, DEFAULT_GETUID,
-		   DEFAULT_GETUID " -p 0xc0", "1 emc", "0", "emc_clariion");
+		   "/sbin/pp_emc /dev/%n", "1 emc", "0", "emc_clariion");
 	ADDHWE_EXT(hw, "IBM", "3542", GROUP_BY_SERIAL, DEFAULT_GETUID,
 		   NULL, "0", "0", "tur");
 }
