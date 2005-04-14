@@ -929,7 +929,18 @@ main (int argc, char *argv[])
 	extern int optind;
 	int arg;
 	int err;
-	void * child_stack = (void *)malloc(CHILD_STACK_SIZE);
+	void * child_stack;
+	
+	if (getuid() != 0) {
+		fprintf(stderr, "need to be root, exit");
+		exit(1);
+	}
+
+	/* make sure we don't lock any path */
+	chdir("/");
+	umask(umask(077) | 022);
+
+	child_stack = (void *)malloc(CHILD_STACK_SIZE);
 
 	if (!child_stack)
 		exit(1);
