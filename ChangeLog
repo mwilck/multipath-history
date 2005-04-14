@@ -1,8 +1,14 @@
 2005-03-19 multipath-tools-0.4.4
 
+	* [multipathd] set oom_adj to -17 when kernel permits.
+	  Immune to OOM killer ? agk says : watch out for mem
+	  leaks :/
+	* [multipathd] safety nets from udevd : exit early if
+	  not root, chdir to / to avoid pining a mount.
 	* [multipathd] multipathd could loose events coming from
 	  sighup or DM waitev. Add a pending_event counter to
 	  track that.
+	* [path_prio] add pp_emc from Lars M Bree, Suse.
 	* [path_prio] add pp_alua from Stefan Bader, IBM.
 	* [libmultipath] add config.c:load_config(), which sucks
 	  a big chunk of code out of multipath/main.c.
