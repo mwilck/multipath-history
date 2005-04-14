@@ -245,12 +245,12 @@ mark_failed_path (struct paths *allpaths, char *mapname)
 	unlock(allpaths->lock);
 	
 	if (r)
-		goto out1;
+		goto out;
 
 	r = disassemble_status(mpp->status, mpp);
 
 	if (r)
-		goto out1;
+		goto out;
 
 	r = 0; /* can't fail from here on */
 	lock(allpaths->lock);
@@ -269,7 +269,6 @@ mark_failed_path (struct paths *allpaths, char *mapname)
 			}
 		}
 	}
-out1:
 	unlock(allpaths->lock);
 out:
 	free_multipath(mpp, KEEP_PATHS);
