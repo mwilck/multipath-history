@@ -299,6 +299,8 @@ waiteventloop (struct event_thread * waiter, char * cmd)
 
 	dm_task_run(dmt);
 
+	waiter->event_nr++;
+
 	/*
 	 * upon event ...
 	 */
