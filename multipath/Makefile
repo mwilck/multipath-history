@@ -7,8 +7,8 @@ include ../Makefile.inc
 
 OBJS = main.o $(MULTIPATHLIB)-$(BUILD).a $(CHECKERSLIB)-$(BUILD).a
 
-CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes
-CFLAGS += -I$(multipathdir) -I$(checkersdir)
+CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes \
+	 -I$(multipathdir) -I$(checkersdir)
 
 ifeq ($(strip $(BUILD)),klibc)
 	OBJS += $(libdm) $(libsysfs)
