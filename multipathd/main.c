@@ -900,6 +900,21 @@ child (void * param)
 		conf->blist = vector_alloc();
 		setup_default_blist(conf->blist);
 	}
+	if (conf->default_selector == NULL)
+		conf->default_selector = set_default(DEFAULT_SELECTOR);
+
+	if (conf->udev_dir == NULL)
+		conf->udev_dir = set_default(DEFAULT_UDEVDIR);
+
+	if (conf->default_getuid == NULL)
+		conf->default_getuid = set_default(DEFAULT_GETUID);
+
+	if (conf->default_features == NULL)
+		conf->default_features = set_default(DEFAULT_FEATURES);
+
+	if (conf->default_hwhandler == NULL)
+		conf->default_hwhandler = set_default(DEFAULT_HWHANDLER);
+
 
 #ifdef CLONE_NEWNS
 	if (prepare_namespace() < 0) {
