@@ -983,7 +983,7 @@ main (int argc, char *argv[])
 	/*
 	 * get a path list
 	 */
-	if (path_discovery(pathvec, conf) || VECTOR_SIZE(pathvec) == 0)
+	if (path_discovery(pathvec, conf, DI_CHECKER) || VECTOR_SIZE(pathvec) == 0)
 		goto out;
 
 	if (conf->verbosity > 2) {
