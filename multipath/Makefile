@@ -26,7 +26,7 @@ prepare:
 
 glibc: prepare $(OBJS)
 	$(CC) $(OBJS) -o $(EXEC) $(LDFLAGS)
-#	$(STRIP) $(EXEC)
+	$(STRIP) $(EXEC)
 	$(GZIP) $(EXEC).8 > $(EXEC).8.gz
 	
 klibc: prepare $(OBJS)
