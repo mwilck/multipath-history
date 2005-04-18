@@ -190,13 +190,17 @@ static int
 ble_handler(vector strvec)
 {
 	char * buff;
+	int ret;
 
 	buff = set_value(strvec);
 
 	if (!buff)
 		return 1;
 
-	return store_regex(conf->blist, buff);
+	ret = store_regex(conf->blist, buff);
+	FREE(buff);
+
+	return ret;
 }
 
 /*
