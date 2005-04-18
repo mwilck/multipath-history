@@ -12,6 +12,8 @@
 #include "defaults.h"
 #include "config.h"
 
+#include "../libcheckers/checkers.h"
+
 struct hwentry *
 find_hwe (vector hwtable, char * vendor, char * product)
 {
@@ -138,6 +140,129 @@ free_mptable (vector mptable)
 		free_mpe(mpe);
 
 	vector_free(mptable);
+}
+
+static struct hwentry *
+alloc_hwe (void)
+{
+	return (struct hwentry *)MALLOC(sizeof(struct hwentry));
+}
+
+static char *
+set_param_str(char * str)
+{
+	char * dst;
+	int len;
+
+	if (!str)
+		return NULL;
+
+	len = strlen(str);
+
+	if (!len)
+		return NULL;
+
+	dst = (char *)MALLOC(len + 1);
+
+	if (!dst)
+		return NULL;
+
+	strcpy(dst, str);
+	return dst;
+}
+
+int
+store_hwe (vector hwtable, char * vendor, char * product, int pgp,
+	   char * getuid)
+{
+	struct hwentry * hwe;
+
+	hwe = alloc_hwe();
+
+	if (!hwe)
+		return 1;
+
+	hwe->vendor = set_param_str(vendor);
+
+	if (!hwe->vendor)
+		goto out;
+	
+	hwe->product = set_param_str(product);
+
+	if (!hwe->product)
+		goto out;
+	
+	hwe->getuid = set_param_str(getuid);
+
+	if (!hwe->getuid)
+		goto out;
+	
+	if (!vector_alloc_slot(hwtable))
+		goto out;
+
+	vector_set_slot(hwtable, hwe);
+	return 0;
+out:
+	free_hwe(hwe);
+	return 1;
+}
+
+int
+store_hwe_ext (vector hwtable, char * vendor, char * product, int pgp,
+	   char * getuid, char * getprio, char * hwhandler,
+	   char * features, char * checker)
+{
+	struct hwentry * hwe;
+
+	hwe = alloc_hwe();
+
+	if (!hwe)
+		return 1;
+
+	if (pgp)
+		hwe->pgpolicy = pgp;
+
+	if (checker)
+		hwe->checker_index = get_checker_id(checker);
+
+	hwe->vendor = set_param_str(vendor);
+
+	if (!hwe->vendor)
+		goto out;
+	
+	hwe->product = set_param_str(product);
+
+	if (!hwe->product)
+		goto out;
+	
+	hwe->getuid = set_param_str(getuid);
+
+	if (!hwe->getuid)
+		goto out;
+	
+	hwe->getprio = set_param_str(getprio);
+
+	if (!hwe->getprio)
+		goto out;
+	
+	hwe->features = set_param_str(features);
+
+	if (!hwe->features)
+		goto out;
+	
+	hwe->hwhandler = set_param_str(hwhandler);
+
+	if (!hwe->hwhandler)
+		goto out;
+
+	if (!vector_alloc_slot(hwtable))
+		goto out;
+
+	vector_set_slot(hwtable, hwe);
+	return 0;
+out:
+	free_hwe(hwe);
+	return 1;
 }
 
 struct config *
