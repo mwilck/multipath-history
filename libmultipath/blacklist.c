@@ -25,22 +25,28 @@ store_ble (vector blist, char * str)
 	if (!ble->preg)
 		goto out1;
 
-	ble->str = str;
+	ble->str = (char *)MALLOC(strlen(str) + 1);
+
+	if (!ble->str)
+		goto out2;
+
+	strcpy(ble->str, str);
 
 	if (regcomp((regex_t *)ble->preg, ble->str, REG_EXTENDED|REG_NOSUB))
-		goto out2;
+		goto out3;
 
 	if (!vector_alloc_slot(blist))
-		goto out2;
+		goto out3;
 
 	vector_set_slot(blist, ble);
 	return 0;
+out3:
+	FREE(ble->str);
 out2:
 	FREE(ble->preg);
 out1:
 	FREE(ble);
 out:
-	FREE(str);
 	return 1;
 }
 
