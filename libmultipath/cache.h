@@ -1,5 +1,5 @@
-#define CACHE_FILE	"/dev/.multipath.cache"
-#define CACHE_TMPFILE	"/dev/.multipath.cache.swp"
+#define CACHE_FILE	"/var/cache/multipath/.multipath.cache"
+#define CACHE_TMPFILE	"/var/cache/multipath/.multipath.cache.tmp"
 #define CACHE_EXPIRE	5
 #define MAX_WAIT	5
 
