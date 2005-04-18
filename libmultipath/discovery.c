@@ -22,7 +22,7 @@
 	sysfs_read_attribute_value(a, b, sizeof(b))
 
 int
-path_discovery (vector pathvec, struct config * conf)
+path_discovery (vector pathvec, struct config * conf, int flag)
 {
 	struct sysfs_directory * sdir;
 	struct sysfs_directory * devp;
@@ -68,7 +68,11 @@ path_discovery (vector pathvec, struct config * conf)
 			}
 			devinfo(curpath, conf->hwtable, DI_ALL);
 		} else {
-			devinfo(curpath, conf->hwtable, DI_CHECKER | DI_WWID);
+			/*
+			 * path already known,
+			 * refresh only what the caller wants
+			 */
+			devinfo(curpath, conf->hwtable, flag);
 		}
 	}
 	r = 0;

@@ -27,7 +27,7 @@ int sysfs_get_rev (char * sysfs_path, char * dev, char * buff, int len);
 int sysfs_get_dev (char * sysfs_path, char * dev, char * buff, int len);
 
 unsigned long sysfs_get_size (char * sysfs_path, char * dev);
-int path_discovery (vector pathvec, struct config * conf);
+int path_discovery (vector pathvec, struct config * conf, int flag);
 
 void basename (char *, char *);
 int get_serial (char * buff, int fd);

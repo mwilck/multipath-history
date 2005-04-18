@@ -210,7 +210,7 @@ static int
 updatepaths (struct paths *allpaths, char *sysfs_path)
 {
 	lock(allpaths->lock);
-	path_discovery(allpaths->pathvec, conf);
+	path_discovery(allpaths->pathvec, conf, 0);
 	unlock(allpaths->lock);
 
 	return 0;
