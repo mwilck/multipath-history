@@ -1,5 +1,7 @@
 2005-03-19 multipath-tools-0.4.4
 
+	* [all] pre-release bugfixing effort from Alasdair, Hannes, 
+	  Lars, Benjamin Marzinski
 	* [multipathd] set oom_adj to -17 when kernel permits.
 	  Immune to OOM killer ? agk says : watch out for mem
 	  leaks :/
