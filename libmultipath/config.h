@@ -75,6 +75,12 @@ void free_hwtable (vector hwtable);
 void free_mpe (struct mpentry * mpe);
 void free_mptable (vector mptable);
 
+int store_hwe (vector hwtable, char * vendor, char * product, int pgp,
+		char * getuid);
+int store_hwe_ext (vector hwtable, char * vendor, char * product, int pgp,
+		char * getuid, char * getprio, char * hwhandler,
+		char * features, char * checker);
+
 int load_config (char * file);
 struct config * alloc_config (void);
 void free_config (struct config * conf);
