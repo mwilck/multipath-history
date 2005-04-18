@@ -344,7 +344,8 @@ load_config (char * file)
 		if (!conf->hwtable)
 			goto out;
 		
-		setup_default_hwtable(conf->hwtable);
+		if (setup_default_hwtable(conf->hwtable))
+			goto out;
 	}
 	if (conf->blist == NULL) {
 		conf->blist = vector_alloc();
