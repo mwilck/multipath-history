@@ -7,13 +7,16 @@
 void condlog (int prio, char * fmt, ...)
 {
 	va_list ap;
+	int thres;
 
 	if (!conf)
-		return;
+		thres = 0;
+	else
+		thres = conf->verbosity;
 
 	va_start(ap, fmt);
 
-	if (prio <= conf->verbosity) {
+	if (prio <= thres) {
 		vfprintf(stdout, fmt, ap);
 		fprintf(stdout, "\n");
 	}
