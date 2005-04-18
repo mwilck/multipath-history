@@ -86,7 +86,7 @@ cache_dump (vector pathvec)
 	off_t record_len;
 	struct path * pp;
 
-	fd = open(CACHE_TMPFILE, O_RDWR|O_CREAT);
+	fd = open(CACHE_TMPFILE, O_RDWR|O_CREAT, 0600);
 
 	if (fd < 0)
 		return 1;
