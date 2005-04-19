@@ -1,7 +1,7 @@
 #ifndef LOG_H
 #define LOG_H
 
-#define DEFAULT_AREA_SIZE 2048
+#define DEFAULT_AREA_SIZE 4096
 #define MAX_MSG_SIZE 128
 
 #ifndef LOGLEVEL
