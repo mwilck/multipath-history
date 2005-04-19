@@ -481,10 +481,11 @@ devinfo (struct path *pp, vector hwtable, int mask)
 		select_getprio(pp);
 
 		if (apply_format(pp->getprio, &buff[0], pp)) {
-			pp->priority = 1;
+			condlog(0, "error formatting prio callout command");
+			pp->priority = -1;
 		} else if (execute_program(buff, prio, 16)) {
-			condlog(3, "error calling out %s", buff);
-			pp->priority = 1;
+			condlog(0, "error calling out %s", buff);
+			pp->priority = -1;
 		} else
 			pp->priority = atoi(prio);
 
@@ -498,9 +499,10 @@ devinfo (struct path *pp, vector hwtable, int mask)
 		select_getuid(pp);
 
 		if (apply_format(pp->getuid, &buff[0], pp)) {
+			condlog(0, "error formatting uid callout command");
 			memset(pp->wwid, 0, WWID_SIZE);
 		} else if (execute_program(buff, pp->wwid, WWID_SIZE)) {
-			condlog(3, "error calling out %s", buff);
+			condlog(0, "error calling out %s", buff);
 			memset(pp->wwid, 0, WWID_SIZE);
 		}
 		condlog(3, "uid = %s (callout)", pp->wwid);

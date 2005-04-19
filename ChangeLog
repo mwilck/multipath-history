@@ -1,5 +1,8 @@
 2005-03-19 multipath-tools-0.4.4
 
+	* [libmultipath] propagate an error on getprio callout
+	  failures, so that multipath can mark the map as immutable.
+	  Reported by Lars Marowsky-Brée, Suse.
 	* [libmultipath] move push_callout() from dict.c to config.c
 	  Use it in store_hwe() to get in multipathd's ramfs the
 	  callout defined in hwtable.c when no config file is used.

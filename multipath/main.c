@@ -710,6 +710,9 @@ coalesce_paths (vector curmp, vector pathvec)
 		mpp->size = pp1->size;
 		mpp->paths = vector_alloc();
 
+		if (pp1->priority < 0)
+			mpp->action = ACT_NOTHING;
+
 		if (!mpp->paths)
 			return 1;
 		
@@ -732,6 +735,9 @@ coalesce_paths (vector curmp, vector pathvec)
 				     mpp->wwid);
 				mpp->action = ACT_NOTHING;
 			}
+			if (pp2->priority < 0)
+				mpp->action = ACT_NOTHING;
+
 			if (store_path(mpp->paths, pp2))
 				return 1;
 		}
