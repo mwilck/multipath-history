@@ -848,7 +848,7 @@ get_current_mp (vector curmp, vector pathvec, char * refwwid)
 
 		if (wwid) {
 			strncpy(mpp->wwid, wwid, WWID_SIZE);
-			FREE(wwid);
+			wwid = NULL;
 		} else
 			strncpy(mpp->wwid, mpp->alias, WWID_SIZE);
 
