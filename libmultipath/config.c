@@ -192,7 +192,13 @@ store_hwe (vector hwtable, char * vendor, char * product, int pgp,
 	if (!hwe->product)
 		goto out;
 	
-	hwe->getuid = set_param_str(getuid);
+	if (pgp)
+		hwe->pgpolicy = pgp;
+
+	if (getuid)
+		hwe->getuid = set_param_str(getuid);
+	else
+		hwe->getuid = set_default(DEFAULT_GETUID);
 
 	if (!hwe->getuid)
 		goto out;
@@ -219,12 +225,6 @@ store_hwe_ext (vector hwtable, char * vendor, char * product, int pgp,
 	if (!hwe)
 		return 1;
 
-	if (pgp)
-		hwe->pgpolicy = pgp;
-
-	if (checker)
-		hwe->checker_index = get_checker_id(checker);
-
 	hwe->vendor = set_param_str(vendor);
 
 	if (!hwe->vendor)
@@ -235,25 +235,42 @@ store_hwe_ext (vector hwtable, char * vendor, char * product, int pgp,
 	if (!hwe->product)
 		goto out;
 	
-	hwe->getuid = set_param_str(getuid);
+	if (pgp)
+		hwe->pgpolicy = pgp;
+
+	if (getuid)
+		hwe->getuid = set_param_str(getuid);
+	else
+		hwe->getuid = set_default(DEFAULT_GETUID);
 
 	if (!hwe->getuid)
 		goto out;
 	
-	hwe->getprio = set_param_str(getprio);
+	if (getprio)
+		hwe->getprio = set_param_str(getprio);
+	else
+		hwe->getprio = NULL;
 
-	if (!hwe->getprio)
-		goto out;
-	
-	hwe->features = set_param_str(features);
-
-	if (!hwe->features)
-		goto out;
-	
-	hwe->hwhandler = set_param_str(hwhandler);
+	if (hwhandler)	
+		hwe->hwhandler = set_param_str(hwhandler);
+	else
+		hwe->hwhandler = set_default(DEFAULT_HWHANDLER);
 
 	if (!hwe->hwhandler)
 		goto out;
+
+	if (features)
+		hwe->features = set_param_str(features);
+	else
+		hwe->features = set_default(DEFAULT_FEATURES);
+
+	if (!hwe->features)
+		goto out;
+
+	if (checker)
+		hwe->checker_index = get_checker_id(checker);
+	else
+		hwe->checker_index = get_checker_id(DEFAULT_CHECKER);
 
 	if (!vector_alloc_slot(hwtable))
 		goto out;
