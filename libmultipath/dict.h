@@ -6,6 +6,5 @@
 #endif
 
 vector init_keywords(void);
-void push_callout(char * callout);
 
 #endif /* _DICT_H */
