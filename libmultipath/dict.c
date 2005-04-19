@@ -11,56 +11,6 @@
 #include "../libcheckers/checkers.h"
 
 /*
- * helper function to draw a list of callout binaries found in the config file
- */
-extern int
-push_callout(char * callout)
-{
-	int i;
-	char * bin;
-	char * p;
-
-	/*
-	 * purge command line arguments
-	 */
-	p = callout;
-
-	while (*p != ' ' && *p != '\0')
-		p++;
-
-	if (!conf->binvec)
-		conf->binvec = vector_alloc();
-
-
-	if (!conf->binvec)
-		return 1;
-
-	/*
-	 * if this callout is already stored in binvec, don't store it twice
-	 */
-	vector_foreach_slot (conf->binvec, bin, i)
-		if (memcmp(bin, callout, p - callout) == 0)
-			return 0;
-
-	/*
-	 * else, store it
-	 */
-	bin = MALLOC((p - callout) + 1);
-
-	if (!bin)
-		return 1;
-
-	strncpy(bin, callout, p - callout);
-
-	if (!vector_alloc_slot(conf->binvec))
-		return 1;
-
-	vector_set_slot(conf->binvec, bin);
-
-	return 0;
-}
-
-/*
  * default block handlers
  */
 static int
