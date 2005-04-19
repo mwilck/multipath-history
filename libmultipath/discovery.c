@@ -136,6 +136,9 @@ opennode (char * dev, int mode)
 		return -1;
 	}
 	fd = open(devpath, mode);
+
+	if (fd <= 0)
+		condlog(0, "open(%s) failed", devpath);
 	
 	return fd;
 }
