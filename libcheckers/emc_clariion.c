@@ -25,8 +25,8 @@ struct emc_clariion_checker_context {
 
 int emc_clariion(int fd, char *msg, void **context)
 {
-	unsigned char sense_buffer[256];
-	unsigned char sb[128];
+	unsigned char sense_buffer[256] = { 0, };
+	unsigned char sb[128] = { 0, };
 	unsigned char inqCmdBlk[INQUIRY_CMDLEN] = {INQUIRY_CMD, 1, 0xC0, 0,
 						sizeof(sb), 0};
 	struct sg_io_hdr io_hdr;
