@@ -1,12 +1,16 @@
 /*
  * (C) Copyright IBM Corp. 2004, 2005   All Rights Reserved.
  *
- * US Government Users Restricted Rights -
- * Use, duplication or disclosure restricted by
- * GSA ADP Schedule Contract with IBM Corp.
+ * spc3.h
  *
- * Author(s):
- *	Stefan Bader <shbader@de.ibm.com>
+ * Tool to make use of a SCSI-feature called Asymmetric Logical Unit Access.
+ * It determines the ALUA state of a device and prints a priority value to
+ * stdout.
+ *
+ * Author(s): Jan Kunigk
+ *            S. Bader <shbader@de.ibm.com>
+ * 
+ * This file is released under the GPL.
  */
 #ifndef __SPC3_H__
 #define __SPC3_H__
