@@ -1,5 +1,9 @@
 2005-03-19 multipath-tools-0.4.4
 
+	* [path_prio] clarify pp_alua licensing. Stefan Bader, IBM.
+	* [devmap_name] add a target_type filter (suggested by Hannes)
+	  and set DM task device by major:minor rather than parsing
+	  the full map list.
 	* [libmultipath] propagate an error on getprio callout
 	  failures, so that multipath can mark the map as immutable.
 	  Reported by Lars Marowsky-Brée, Suse.
