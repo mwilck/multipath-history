@@ -22,12 +22,36 @@
 	sysfs_read_attribute_value(a, b, sizeof(b))
 
 int
+store_pathinfo (vector pathvec, vector hwtable, char * devname)
+{
+	struct path * pp;
+
+	pp = alloc_path();
+
+	if (!pp)
+		return 1;
+
+	if(safe_sprintf(pp->dev, "%s", devname)) {
+		fprintf(stderr, "pp->dev too small\n");
+		goto out;
+	}
+	if (store_path(pathvec, pp))
+		goto out;
+
+	pathinfo(pp, hwtable, DI_ALL);
+
+	return 0;
+out:
+	free_path(pp);
+	return 1;
+}
+int
 path_discovery (vector pathvec, struct config * conf, int flag)
 {
 	struct sysfs_directory * sdir;
 	struct sysfs_directory * devp;
 	char path[FILE_NAME_SIZE];
-	struct path * curpath;
+	struct path * pp;
 	int r = 1;
 
 	if(safe_sprintf(path, "%s/block", sysfs_path)) {
@@ -50,29 +74,20 @@ path_discovery (vector pathvec, struct config * conf, int flag)
 		if (!filepresent(path))
 			continue;
 
-		curpath = find_path_by_dev(pathvec, devp->name);
+		pp = find_path_by_dev(pathvec, devp->name);
 
-		if (!curpath) {
-			curpath = alloc_path();
-
-			if (!curpath)
+		if (!pp) {
+			/*
+			 * new path : alloc, store and fetch info
+			 */
+			if (store_pathinfo(pathvec, conf->hwtable, devp->name))
 				goto out;
-
-			if (store_path(pathvec, curpath)) {
-				free_path(curpath);
-				goto out;
-			}
-			if(safe_sprintf(curpath->dev, "%s", devp->name)) {
-				fprintf(stderr, "curpath->dev too small\n");
-				exit(1);
-			}
-			devinfo(curpath, conf->hwtable, DI_ALL);
 		} else {
 			/*
-			 * path already known,
+			 * path already known :
 			 * refresh only what the caller wants
 			 */
-			devinfo(curpath, conf->hwtable, flag);
+			pathinfo(pp, conf->hwtable, flag);
 		}
 	}
 	r = 0;
@@ -275,7 +290,7 @@ get_serial (char * str, int fd)
 }
 
 extern int
-sysfs_devinfo(struct path * curpath)
+sysfs_pathinfo(struct path * curpath)
 {
 	char attr_path[FILE_NAME_SIZE];
 	char attr_buff[FILE_NAME_SIZE];
@@ -428,7 +443,7 @@ apply_format (char * string, char * cmd, struct path * pp)
 }
 
 extern int
-devinfo (struct path *pp, vector hwtable, int mask)
+pathinfo (struct path *pp, vector hwtable, int mask)
 {
 	char buff[CALLOUT_MAX_SIZE];
 	char prio[16];
@@ -438,7 +453,7 @@ devinfo (struct path *pp, vector hwtable, int mask)
 	/*
 	 * fetch info available in sysfs
 	 */
-	if (mask & DI_SYSFS && sysfs_devinfo(pp))
+	if (mask & DI_SYSFS && sysfs_pathinfo(pp))
 		return 1;
 
 	/*
