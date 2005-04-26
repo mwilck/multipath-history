@@ -72,7 +72,7 @@ get_refwwid (vector pathvec)
 				return NULL;
 			}
 			strncpy(pp->dev, buff, FILE_NAME_SIZE);
-			if (devinfo(pp, conf->hwtable, DI_SYSFS | DI_WWID))
+			if (pathinfo(pp, conf->hwtable, DI_SYSFS | DI_WWID))
 				return NULL;
 		}
 
@@ -105,7 +105,7 @@ get_refwwid (vector pathvec)
 				fprintf(stderr, "pp->dev too small\n");
 				exit(1);
 			}
-			if (devinfo(pp, conf->hwtable, DI_SYSFS | DI_WWID))
+			if (pathinfo(pp, conf->hwtable, DI_SYSFS | DI_WWID))
 				return NULL;
 		}
 
@@ -830,7 +830,7 @@ update_pathvec (vector pathvec)
 	vector_foreach_slot (pathvec, pp, i) {
 		if (pp->dev && pp->dev_t && strlen(pp->dev) == 0) {
 			devt2devname(pp->dev, pp->dev_t);
-			devinfo(pp, conf->hwtable,
+			pathinfo(pp, conf->hwtable,
 				DI_SYSFS | DI_CHECKER | DI_SERIAL | DI_PRIO);
 		}
 		if (pp->checkfn && pp->state == PATH_UNCHECKED)

@@ -594,7 +594,7 @@ checkerloop (void *ap)
 
 		vector_foreach_slot (allpaths->pathvec, pp, i) {
 			if (!pp->checkfn) {
-				devinfo(pp, conf->hwtable, DI_SYSFS);
+				pathinfo(pp, conf->hwtable, DI_SYSFS);
 				select_checkfn(pp);
 			}
 
