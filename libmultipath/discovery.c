@@ -495,7 +495,9 @@ pathinfo (struct path *pp, vector hwtable, int mask)
 	if (mask & DI_PRIO) {
 		select_getprio(pp);
 
-		if (apply_format(pp->getprio, &buff[0], pp)) {
+		if (!pp->getprio) {
+			pp->priority = 1;
+		} else if (apply_format(pp->getprio, &buff[0], pp)) {
 			condlog(0, "error formatting prio callout command");
 			pp->priority = -1;
 		} else if (execute_program(buff, prio, 16)) {
