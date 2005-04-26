@@ -46,6 +46,7 @@
 #include <discovery.h>
 #include <debug.h>
 #include <propsel.h>
+#include <uevent.h>
 
 #include "main.h"
 #include "copy.h"
@@ -99,9 +100,53 @@ struct event_thread {
 	struct paths *allpaths;
 };
 
-/*
- * helpers functions
- */
+int 
+uev_trigger (struct uevent * uev, void * trigger_data)
+{
+	int r = 0;
+	int i;
+	char devname[32];
+	struct path * pp;
+	struct paths * allpaths;
+
+	allpaths = (struct paths *)trigger_data;
+
+	if (strncmp(uev->devpath, "/block", 6))
+		goto out;
+
+	basename(uev->devpath, devname);
+	lock(allpaths->lock);
+	pp = find_path_by_dev(allpaths->pathvec, devname);
+
+	r = 1;
+
+	if (pp && !strncmp(uev->action, "remove", 6)) {
+		condlog(2, "remove %s path checker", devname);
+		i = find_slot(allpaths->pathvec, (void *)pp);
+		vector_del_slot(allpaths->pathvec, i);
+		free_path(pp);
+vector_foreach_slot(allpaths->pathvec, pp, i) printf("%s\n", pp->dev);
+	}
+	if (!pp && !strncmp(uev->action, "add", 3)) {
+		condlog(2, "add %s path checker", devname);
+		store_pathinfo(allpaths->pathvec, conf->hwtable, devname);
+	}
+	unlock(allpaths->lock);
+
+	r = 0;
+out:
+	FREE(uev);
+	return r;
+}
+
+static void *
+ueventloop (void * ap)
+{
+	uevent_listen(&uev_trigger, ap);
+
+	return NULL;
+}
+
 static void
 strvec_free (vector vec)
 {
@@ -206,7 +251,7 @@ out:
 }
 
 static int
-updatepaths (struct paths *allpaths, char *sysfs_path)
+path_discovery_locked (struct paths *allpaths, char *sysfs_path)
 {
 	lock(allpaths->lock);
 	path_discovery(allpaths->pathvec, conf, 0);
@@ -435,6 +480,16 @@ waiterloop (void *ap)
 
 	pthread_attr_setstacksize(&attr, 32 * 1024);
 
+	/*
+	 * update paths list
+	 */
+	log_safe(LOG_INFO, "fetch paths list");
+
+	while(path_discovery_locked(allpaths, sysfs_path)) {
+		log_safe(LOG_ERR, "can't update path list ... retry");
+		sleep(5);
+	}
+
 	log_safe(LOG_NOTICE, "initial reconfigure multipath maps");
 	execute_program(conf->multipath, buff, 1);
 
@@ -458,16 +513,6 @@ waiterloop (void *ap)
 			 * we're not allowed to fail here
 			 */
 			log_safe(LOG_ERR, "can't get devmaps ... retry");
-			sleep(5);
-		}
-
-		/*
-		 * update paths list
-		 */
-		log_safe(LOG_INFO, "refresh paths list");
-
-		while(updatepaths(allpaths, sysfs_path)) {
-			log_safe(LOG_ERR, "can't update path list ... retry");
 			sleep(5);
 		}
 
@@ -648,24 +693,57 @@ checkerloop (void *ap)
 }
 
 static struct paths *
-initpaths (void)
+init_paths (void)
 {
 	struct paths *allpaths;
 
-	allpaths = MALLOC (sizeof (struct paths));
+	allpaths = MALLOC(sizeof(struct paths));
+
+	if (!allpaths)
+		return NULL;
+
 	allpaths->lock = 
-		(pthread_mutex_t *) MALLOC (sizeof (pthread_mutex_t));
+		(pthread_mutex_t *)MALLOC(sizeof(pthread_mutex_t));
+
+	if (!allpaths->lock)
+		goto out;
+
 	allpaths->pathvec = vector_alloc();
+
+	if (!allpaths->pathvec)
+		goto out1;
+		
 	pthread_mutex_init (allpaths->lock, NULL);
 
-	event = (pthread_cond_t *) MALLOC (sizeof (pthread_cond_t));
-	pthread_cond_init (event, NULL);
-	event_lock = (pthread_mutex_t *) MALLOC (sizeof (pthread_mutex_t));
-	pthread_mutex_init (event_lock, NULL);
-	
 	return (allpaths);
+out1:
+	FREE(allpaths->lock);
+out:
+	FREE(allpaths);
+	return NULL;
 }
 
+static int
+init_event (void)
+{
+	event = (pthread_cond_t *)MALLOC(sizeof (pthread_cond_t));
+
+	if (!event)
+		return 1;
+
+	pthread_cond_init (event, NULL);
+	event_lock = (pthread_mutex_t *) MALLOC (sizeof (pthread_mutex_t));
+
+	if (!event_lock)
+		goto out;
+
+	pthread_mutex_init (event_lock, NULL);
+	
+	return 0;
+out:
+	FREE(event);
+	return 1;
+}
 /*
  * this logic is all about keeping callouts working in case of
  * system disk outage (think system over SAN)
@@ -842,9 +920,9 @@ set_oom_adj (int val)
 static int
 child (void * param)
 {
-	pthread_t wait_thr, check_thr;
+	pthread_t wait_thr, check_thr, uevent_thr;
 	pthread_attr_t attr;
-	struct paths *allpaths;
+	struct paths * allpaths;
 
 	mlockall(MCL_CURRENT | MCL_FUTURE);
 
@@ -858,8 +936,11 @@ child (void * param)
 	signal_init();
 	setscheduler();
 	set_oom_adj(-17);
-	allpaths = initpaths();
-	
+	allpaths = init_paths();
+
+	if (!allpaths || init_event())
+		exit(1);
+
 	conf->checkint = CHECKINT;
 
 	setlogmask(LOG_UPTO(conf->verbosity + 3));
@@ -917,8 +998,10 @@ child (void * param)
 	
 	pthread_create(&wait_thr, &attr, waiterloop, allpaths);
 	pthread_create(&check_thr, &attr, checkerloop, allpaths);
+	pthread_create(&uevent_thr, &attr, ueventloop, allpaths);
 	pthread_join(wait_thr, NULL);
 	pthread_join(check_thr, NULL);
+	pthread_join(uevent_thr, NULL);
 
 	return 0;
 }
