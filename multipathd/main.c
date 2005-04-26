@@ -79,7 +79,6 @@
  * global vars
  */
 int pending_event = 0;
-int from_sighup;
 pthread_mutex_t *event_lock;
 pthread_cond_t *event;
 
@@ -279,7 +278,6 @@ out:
 static void *
 waiteventloop (struct event_thread * waiter, char * cmd)
 {
-	//char buff[1];
 	struct dm_task *dmt;
 	int event_nr;
 
@@ -310,7 +308,6 @@ waiteventloop (struct event_thread * waiter, char * cmd)
 				waiter->event_nr, waiter->mapname);
 
 		mark_failed_path(waiter->allpaths, waiter->mapname);
-		//execute_program(cmd, buff, 1);
 
 		event_nr = dm_geteventnr(waiter->mapname);
 
@@ -791,24 +788,11 @@ signal_set(int signo, void (*func) (int))
 static void
 sighup (int sig)
 {
-	log_safe(LOG_NOTICE, "SIGHUP received from multipath or operator");
+	log_safe(LOG_NOTICE, "SIGHUP received");
 
 #ifdef _DEBUG_
-	        dbg_free_final(NULL);
+	dbg_free_final(NULL);
 #endif
-
-	/*
-	 * signal updatepaths() that we come from SIGHUP
-	 */
-	from_sighup = 1;
-
-	/*
-	 * ask for allpaths refresh
-	 */
-	lock(event_lock);
-	pending_event++;
-	pthread_cond_signal(event);
-	unlock(event_lock);
 }
 
 static void
