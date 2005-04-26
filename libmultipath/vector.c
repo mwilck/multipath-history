@@ -63,6 +63,18 @@ vector_insert_slot(vector v, int slot, void *value)
 	return v->slot[slot];
 }
 
+int
+find_slot(vector v, void * addr)
+{
+	int i;
+
+	for (i = 0; i < (v->allocated / VECTOR_DEFAULT_SIZE); i++)
+		if (v->slot[i] == addr)
+			return i;
+
+	return -1;
+}
+
 void
 vector_del_slot(vector v, int slot)
 {
@@ -80,6 +92,19 @@ vector_del_slot(vector v, int slot)
 		v->slot = NULL;
 	else
 		v = REALLOC(v->slot, sizeof (void *) * v->allocated);
+}
+
+void
+vector_repack(vector v)
+{
+	int i;
+
+	if (!v->allocated)
+		return;
+
+	for (i = 0; i < (v->allocated / VECTOR_DEFAULT_SIZE); i++)
+		if (i > 0 && v->slot[i] == NULL)
+			vector_del_slot(v, i--);
 }
 
 /* Free memory vector allocation */
