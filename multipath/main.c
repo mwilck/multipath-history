@@ -20,7 +20,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <signal.h>
 
 #include <parser.h>
 #include <vector.h>
@@ -759,35 +758,6 @@ coalesce_paths (vector curmp, vector pathvec)
 }
 
 static void
-signal_daemon (void)
-{
-	FILE *file;
-	pid_t pid;
-	char *buf;
-
-	buf = MALLOC(8);
-
-	if (!buf)
-		return;
-
-	file = fopen(DEFAULT_PIDFILE, "r");
-
-	if (!file) {
-		condlog(1, "cannot signal daemon, pidfile not found");
-		FREE(buf);
-		return;
-	}
-
-	buf = fgets(buf, 8, file);
-	fclose(file);
-
-	pid = (pid_t)atol(buf);
-	FREE(buf);
-
-	kill(pid, SIGHUP);
-}
-
-static void
 usage (char * progname)
 {
 	fprintf (stderr, VERSION_STRING);
@@ -804,7 +774,6 @@ usage (char * progname)
 		"\t   3\t\t\tprint debug information\n" \
 		"\t-d\t\tdry run, do not create or update devmaps\n" \
 		"\t-l\t\tlist the current multipath topology\n" \
-		"\t-S\t\tinhibit signal sending to multipathd\n"
 		"\t-F\t\tflush all multipath device maps\n" \
 		"\t-p policy\tforce all maps to specified policy :\n" \
 		"\t   failover\t\t1 path per priority group\n" \
@@ -898,7 +867,7 @@ main (int argc, char *argv[])
 	if (load_config(DEFAULT_CONFIGFILE))
 		exit(1);
 
-	while ((arg = getopt(argc, argv, ":qdlFSi:M:v:p:")) != EOF ) {
+	while ((arg = getopt(argc, argv, ":qdlFi:M:v:p:")) != EOF ) {
 		switch(arg) {
 		case 1: printf("optarg : %s\n",optarg);
 			break;
@@ -911,7 +880,6 @@ main (int argc, char *argv[])
 			break;
 		case 'd':
 			conf->dry_run = 1;
-			conf->signal = 0;
 			break;
 		case 'F':
 			dm_flush_maps(DEFAULT_TARGET);
@@ -920,15 +888,11 @@ main (int argc, char *argv[])
 		case 'l':
 			conf->list = 1;
 			conf->dry_run = 1;
-			conf->signal = 0;
 			break;
 		case 'M':
 #if _DEBUG_
 			debug = atoi(optarg);
 #endif
-			break;
-		case 'S':
-			conf->signal = 0;
 			break;
 		case 'p':
 			conf->pgpolicy_flag = get_pgpolicy_id(optarg);
@@ -1014,12 +978,6 @@ main (int argc, char *argv[])
 	coalesce_paths(curmp, pathvec);
 
 out:
-	/*
-	 * signal multipathd that new devmaps may have come up
-	 */
-	if (conf->signal)
-		signal_daemon();
-	
 	if (refwwid)
 		FREE(refwwid);
 
