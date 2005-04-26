@@ -1,4 +1,14 @@
-2005-03-19 multipath-tools-0.4.4
+2005-05-23 multipath-tools-0.4.5
+
+	* [multipathd] check return codes in init_paths(), split out
+	  init_event().
+	* [libmultipath] add find_slot(vec, addr) to vector lib.
+	* [multipath] remove signal sending
+	* [multipathd] use uevent to do paths list housekeeping for
+	  checkers. Remove signal handling.
+	* [libmultipath] add uevent.[ch]
+
+2005-04-23 multipath-tools-0.4.4
 
 	* [path_prio] clarify pp_alua licensing. Stefan Bader, IBM.
 	* [devmap_name] add a target_type filter (suggested by Hannes)
