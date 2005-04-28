@@ -1,5 +1,18 @@
 2005-05-23 multipath-tools-0.4.5
 
+	* [libmultipath] default_prio and prio_callout keyword can be
+	  explicitly set to "none". Suggested by Kiyoshi Ueda, NEC
+	* [path_prio] don't exit pp_balance_units with error when
+	  find_controler() is not successful. It just means no other
+	  path is currently active on this controler.
+	* [path_prio] move balance_units in its own dir
+	* [multipathd] proactively fail_path upon checker up->down
+	  transitions. Suggested by Edward Goggin, EMC
+	* [libmultipath] .priority is clearly an int, not an unsigned
+	  int. /bin/false is now personna non grata as a prio callout.
+	  Kiyoshi Ueda, NEC
+	* [libmultipath] callout.c argv parsing fix. Kiyoshi Ueda,
+	  NEC
 	* [multipathd] check return codes in init_paths(), split out
 	  init_event().
 	* [libmultipath] add find_slot(vec, addr) to vector lib.

@@ -125,7 +125,6 @@ uev_trigger (struct uevent * uev, void * trigger_data)
 		i = find_slot(allpaths->pathvec, (void *)pp);
 		vector_del_slot(allpaths->pathvec, i);
 		free_path(pp);
-vector_foreach_slot(allpaths->pathvec, pp, i) printf("%s\n", pp->dev);
 	}
 	if (!pp && !strncmp(uev->action, "add", 3)) {
 		condlog(2, "add %s path checker", devname);

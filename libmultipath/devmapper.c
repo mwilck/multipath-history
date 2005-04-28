@@ -392,7 +392,7 @@ dm_get_maps (vector mp, char * type)
 	struct dm_names *names;
 	unsigned next = 0;
 
-	if (!type)
+	if (!type || !mp)
 		return 1;
 
 	if (!(dmt = dm_task_create(DM_DEVICE_LIST)))
