@@ -68,7 +68,7 @@ struct path {
 	int state;
 	int dmstate;
 	int failcount;
-	unsigned int priority;
+	int priority;
 	int claimed;
 	char * getuid;
 	char * getprio;
