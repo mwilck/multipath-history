@@ -809,7 +809,7 @@ update_pathvec (vector pathvec)
 }
 
 static int
-get_current_mp (vector curmp, vector pathvec, char * refwwid)
+get_dm_mpvec (vector curmp, vector pathvec, char * refwwid)
 {
 	int i;
 	struct multipath * mpp;
@@ -963,7 +963,7 @@ main (int argc, char *argv[])
 
 	refwwid = get_refwwid(pathvec);
 
-	if (get_current_mp(curmp, pathvec, refwwid))
+	if (get_dm_mpvec(curmp, pathvec, refwwid))
 		goto out;
 
 	cache_dump(pathvec);
