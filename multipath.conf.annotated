@@ -59,10 +59,9 @@ defaults {
 	# scope   : multipath
 	# desc    : the default program and args to callout to obtain a path 
 	#           priority value. The ALUA bits in SPC-3 provide an
-	#           exploitable prio value for example
-	# default : /bin/false
+	# default : (null)
 	#
-	default_prio_callout	"/bin/false"
+	#default_prio_callout	"/bin/true"
 
 	#
 	# name    : rr_min_io
