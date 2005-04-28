@@ -411,12 +411,24 @@ free_waiter (struct event_thread * wp)
 	free(wp);
 }
 
+static void
+fail_path (struct path * pp)
+{
+	if (!pp->mpp)
+		return;
+
+	log_safe(LOG_NOTICE, "checker failed path %s in map %s",
+		 pp->dev_t, pp->mpp->alias);
+
+	dm_fail_path(pp->mpp->alias, pp->dev_t);
+}
+
 static void *
 waiterloop (void *ap)
 {
 	struct paths *allpaths;
-	vector devmaps = NULL;
-	char *devmap;
+	struct multipath *mpp;
+	vector mpvec = NULL;
 	vector waiters;
 	struct event_thread *wp;
 	pthread_attr_t attr;
@@ -457,43 +469,48 @@ waiterloop (void *ap)
 	}
 
 	log_safe(LOG_NOTICE, "initial reconfigure multipath maps");
-	execute_program(conf->multipath, buff, 1);
+//	execute_program(conf->multipath, buff, 1);
 
 	while (1) {
 		/*
 		 * revoke the leases
 		 */
-		vector_foreach_slot (waiters, wp, i)
+		vector_foreach_slot(waiters, wp, i)
 			wp->lease = 0;
 
 		/*
-		 * update devmap list
+		 * update multipaths list
 		 */
-		log_safe(LOG_INFO, "refresh devmaps list");
+		log_safe(LOG_INFO, "refresh multipaths list");
 
-		if (devmaps)
-			free_strvec(devmaps);
+		if (mpvec)
+			free_multipathvec(mpvec, KEEP_PATHS);
 
 		while (1) {
 			/*
 			 * we're not allowed to fail here
 			 */
-			log_safe(LOG_ERR, "can't get devmaps ... retry");
+			mpvec = vector_alloc();
+
+			if (mpvec && !get_dm_mpvec(mpvec, allpaths))
+				break;
+
+			log_safe(LOG_ERR, "can't get mpvec ... retry");
 			sleep(5);
 		}
 
 		/*
-		 * start waiters on all devmaps
+		 * start waiters on all mpvec
 		 */
 		log_safe(LOG_INFO, "start up event loops");
 
-		vector_foreach_slot (devmaps, devmap, i) {
+		vector_foreach_slot (mpvec, mpp, i) {
 			/*
 			 * find out if devmap already has
 			 * a running waiter thread
 			 */
 			vector_foreach_slot (waiters, wp, j)
-				if (!strcmp(wp->mapname, devmap))
+				if (!strcmp(wp->mapname, mpp->alias))
 					break;
 					
 			/*
@@ -505,7 +522,7 @@ waiterloop (void *ap)
 				if (!wp)
 					continue;
 
-				strncpy(wp->mapname, devmap, WWID_SIZE);
+				strncpy(wp->mapname, mpp->alias, WWID_SIZE);
 				wp->allpaths = allpaths;
 
 				if (!vector_alloc_slot(waiters)) {
@@ -619,13 +636,13 @@ checkerloop (void *ap)
 				LOG_MSG(checker_msg, pp->dev_t);
 
 				/*
-				 * don't trigger map reconfiguration for
-				 * path going down. It will be handled
-				 * in due time by DM event waiters
+				 * proactively fail path in the DM
 				 */
 				if (newstate == PATH_DOWN ||
-				    newstate == PATH_SHAKY)
+				    newstate == PATH_SHAKY) {
+					fail_path(pp);
 					continue;
+				}
 
 				/*
 				 * reconfigure map now
