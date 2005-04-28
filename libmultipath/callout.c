@@ -29,6 +29,7 @@ int execute_program(char *path, char *value, int len)
 	int i;
 
 	i = 0;
+
 	if (strchr(path, ' ')) {
 		strfieldcpy(arg, path);
 		pos = arg;
@@ -39,11 +40,13 @@ int execute_program(char *path, char *value, int len)
 				argv[i] = strsep(&pos, "\'");
 				while (pos[0] == ' ')
 					pos++;
-		} else {
+			} else {
 				argv[i] = strsep(&pos, " ");
 			}
 			i++;
 		}
+	} else {
+		argv[i++] = path;
 	}
 	argv[i] =  NULL;
 
