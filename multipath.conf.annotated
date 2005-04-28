@@ -59,6 +59,7 @@ defaults {
 	# scope   : multipath
 	# desc    : the default program and args to callout to obtain a path 
 	#           priority value. The ALUA bits in SPC-3 provide an
+	#           exploitable prio value for example. "none" is a valid value
 	# default : (null)
 	#
 	#default_prio_callout	"/bin/true"
@@ -196,6 +197,7 @@ devices {
 		# desc    : the program and args to callout to obtain a path 
 		#           weight. Weights are summed for each path group to
 		#	    determine the next PG to use case of failure.
+		#	    "none" is a valid value.
 		# default : no callout, all paths equals
 		#
 		prio_callout          "/sbin/pp_balance_units %d"

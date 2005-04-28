@@ -92,6 +92,12 @@ def_prio_callout_handler(vector strvec)
 	if (!conf->default_getprio)
 		return 1;
 	
+	if (!strncmp(conf->default_getprio, "none", 4)) {
+		FREE(conf->default_getprio);
+		conf->default_getprio = NULL;
+		return 0;
+	}
+		
 	return push_callout(conf->default_getprio);
 }
 
@@ -328,6 +334,12 @@ prio_callout_handler(vector strvec)
 
 	if (!hwe->getprio)
 		return 1;
+
+	if (!strncmp(hwe->getprio, "none", 4)) {
+		FREE(hwe->getprio);
+		hwe->getprio = NULL;
+		return 0;
+	}
 
 	return push_callout(hwe->getprio);
 }
