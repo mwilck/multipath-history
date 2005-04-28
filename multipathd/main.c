@@ -177,77 +177,43 @@ exit_daemon (int status)
 	exit(status);
 }
 
-static void *
-get_devmaps (void)
+static void
+set_paths_owner (struct paths * allpaths, struct multipath * mpp)
 {
-	char *devmap;
-	struct dm_task *dmt;
-	struct dm_names *names = NULL;
-	unsigned next = 0;
-	void *nexttgt;
-	vector devmaps;
+	int i;
+	struct path * pp;
 
-	devmaps = vector_alloc();
+	lock(allpaths->lock);
 
-	if (!devmaps)
-		return NULL;
+	vector_foreach_slot (allpaths->pathvec, pp, i)
+		if (!strncmp(mpp->wwid, pp->wwid, WWID_SIZE))
+			pp->mpp = mpp;
 
-	if (!(dmt = dm_task_create(DM_DEVICE_LIST)))
-		goto out;
+	unlock(allpaths->lock);
+}
 
-	dm_task_no_open_count(dmt);
+static int
+get_dm_mpvec (vector mpvec, struct paths * allpaths)
+{
+	int i;
+	struct multipath * mpp;
+	char * wwid;
 
-	if (!dm_task_run(dmt))
-		goto out1;
+	if (dm_get_maps(mpvec, "multipath"))
+		return 1;
 
-	if (!(names = dm_task_get_names(dmt)))
-		goto out1;
+	vector_foreach_slot (mpvec, mpp, i) {
+		wwid = get_mpe_wwid(mpp->alias);
 
-	if (!names->dev) {
-		log_safe(LOG_WARNING, "no devmap found");
-		goto out1;
-	}
-	do {
-		names = (void *) names + next;
-		nexttgt = NULL;
+		if (wwid) {
+			strncpy(mpp->wwid, wwid, WWID_SIZE);
+			wwid = NULL;
+		} else
+			strncpy(mpp->wwid, mpp->alias, WWID_SIZE);
 
-		/*
-		 * keep only multipath maps
-		 */
-		log_safe(LOG_DEBUG, "devmap %s", names->name);
-		
-		if (!dm_type(names->name, "multipath")) {
-			log_safe(LOG_DEBUG,
-			       "   skip non multipath target");
-			goto out2;
-		}
-
-		/*
-		 * new map
-		 */
-		devmap = MALLOC(WWID_SIZE);
-
-		if (!devmap)
-			goto out2;
-
-		strcpy(devmap, names->name);
-			
-		if (!vector_alloc_slot(devmaps)) {
-			free(devmap);
-			goto out2;
-		}
-		vector_set_slot(devmaps, devmap);
-out2:
-		next = names->next;
-	} while (next);
-
-	dm_task_destroy(dmt);
-	return devmaps;
-out1:
-	dm_task_destroy(dmt);
-out:
-	strvec_free(devmaps);
-	return NULL;
+		set_paths_owner(allpaths, mpp);
+        }
+        return 0;
 }
 
 static int
@@ -508,7 +474,7 @@ waiterloop (void *ap)
 		if (devmaps)
 			free_strvec(devmaps);
 
-		while ((devmaps = get_devmaps()) == NULL) {
+		while (1) {
 			/*
 			 * we're not allowed to fail here
 			 */
