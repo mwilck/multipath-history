@@ -347,6 +347,7 @@ get_paths (vector pathvec)
 			str += get_word(str, pp->dev_t);
 
 			if (!is_path(pp->dev_t)) {
+				debug("skip \"%s\"", pp->dev_t);
 				free(pp);
 
 				if (pos == INPG)
@@ -461,8 +462,11 @@ main (int argc, char **argv)
 	max_path_count = get_max_path_count(controlers);
 	cp = find_controler(controlers, ref_path->serial);
 
-	if (!cp)
-		exit_tool(1);
+	if (!cp) {
+		debug("no other active path on serial %s\n",
+			ref_path->serial);
+		exit_tool(0);
+	}
 
 	printf("%i\n", max_path_count - cp->path_count + 1);
 
