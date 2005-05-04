@@ -112,45 +112,18 @@ sysfs_get_##fname (char * sysfs_path, char * dev) \
 declare_sysfs_get_val(size, "%s/block/%s/size");
 
 static int
-opennode (char * devt, int mode)
+opennode (char * dev, int mode)
 {
 	char devpath[FILE_NAME_SIZE];
-	unsigned int major;
-	unsigned int minor;
 	int fd;
 
-	sscanf(devt, "%u:%u", &major, &minor);
-
-	if (safe_sprintf(devpath, "/tmp/.multipath.%u.%u.devnode",
-			 major, minor)) {
+	if (safe_sprintf(devpath, "%s/%s", conf->udev_dir, dev)) {
 		fprintf(stderr, "devpath too small\n");
 		return -1;
 	}
-	unlink(devpath);
-	mknod(devpath, S_IFBLK|S_IRUSR|S_IWUSR, makedev(major, minor));
 	fd = open(devpath, mode);
 	
-	if (fd < 0)
-		unlink(devpath);
-
 	return fd;
-
-}
-
-static void
-unlinknode (char * devt)
-{
-	char devpath[FILE_NAME_SIZE];
-	unsigned int major;
-	unsigned int minor;
-
-	sscanf(devt, "%u:%u", &major, &minor);
-	if (safe_sprintf(devpath, "/tmp/.multipath.%u.%u.devnode",
-			 major, minor)) {
-		fprintf(stderr, "devpath too small\n");
-		return;
-	}
-	unlink(devpath);
 }
 
 #if 0
@@ -459,10 +432,9 @@ devinfo (struct path *pp, vector hwtable)
 	/*
 	 * then those not available through sysfs
 	 */
-	if (pp->fd <= 0) {
-		pp->fd = opennode(pp->dev_t, O_RDONLY);
-		unlinknode(pp->dev_t);
-	}
+	if (pp->fd <= 0)
+		pp->fd = opennode(pp->dev, O_RDONLY);
+
 	if (pp->fd <= 0)
 		return 1;
 
