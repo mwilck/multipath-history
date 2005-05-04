@@ -47,7 +47,6 @@
 #include <debug.h>
 
 #include "main.h"
-#include "devinfo.h"
 #include "copy.h"
 #include "clone_platform.h"
 #include "pidfile.h"
@@ -256,7 +255,8 @@ waitevent (void * et)
 	}
 	pthread_mutex_lock (waiter->waiter_lock);
 
-	waiter->event_nr = dm_geteventnr (waiter->mapname);
+	waiter->event_nr = dm_geteventnr(waiter->mapname);
+
 	log_safe(LOG_DEBUG, "waiter->event_nr = %i", waiter->event_nr);
 
 	if (!(dmt = dm_task_create(DM_DEVICE_WAITEVENT)))
@@ -584,7 +584,7 @@ prepare_namespace(void)
 	 * bind the ramfs to :
 	 * /sbin : default home of multipath ...
 	 * /bin  : default home of scsi_id ...
-	 * /tmp  : home of tools temp files
+	 * /tmp  : home of scsi_id temp files
 	 */
 	if (mount(CALLOUT_DIR, "/sbin", NULL, MS_BIND, NULL) < 0) {
 		log_safe(LOG_ERR, "cannot bind ramfs on /sbin");
