@@ -5,8 +5,6 @@
 #include <ctype.h>
 #include <linux/kdev_t.h>
 
-#include "memory.h"
-
 extern int
 dm_prereq (char * str, int x, int y, int z)
 {
