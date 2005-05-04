@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "safe_printf.h"
+#include "util.h"
 #include "memory.h"
 #include "vector.h"
 #include "structs.h"
