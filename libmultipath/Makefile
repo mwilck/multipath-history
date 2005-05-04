@@ -11,11 +11,7 @@ OBJS = memory.o parser.o vector.o devmapper.o callout.o \
        structs.o cache.o discovery.o propsel.o dict.o \
        pgpolicies.o debug.o regex.o
 
-ifeq ($(strip $(BUILD)),klibc)
-	CFLAGS += -I/usr/include
-else
-	CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes
-endif
+CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes
 
 ifeq ($(strip $(DAEMON)),1)
 	CFLAGS += -DDAEMON

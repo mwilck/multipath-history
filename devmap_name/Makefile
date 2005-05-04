@@ -5,21 +5,13 @@ BUILD = glibc
 
 include ../Makefile.inc
 
-ifeq ($(strip $(BUILD)),klibc)
-	CFLAGS = -I$(libdmdir)
-	OBJS = devmap_name.o $(DMLIB)-$(BUILD).a
-else
-	CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes \
-		 -DDEBUG=$(DEBUG)
-	LDFLAGS =
-	OBJS = devmap_name.o
+OBJS = devmap_name.o
+CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes
 
-ifneq	($(WITH_LOCAL_LIBDM),)
-	CFLAGS	+= -I$(libdmdir)
-	OBJS	+= $(DMLIB)-$(BUILD).a
+ifeq ($(strip $(BUILD)),klibc)
+	OBJS += $(libdm)
 else
-	LDFLAGS	+= -ldevmapper
-endif
+	LDFLAGS = -ldevmapper
 endif
 
 EXEC = devmap_name
@@ -35,12 +27,9 @@ glibc: prepare $(OBJS)
 	$(GZIP) $(EXEC).8 > $(EXEC).8.gz
 	
 klibc: prepare $(OBJS)
-	$(CC) -static -o $(EXEC) $(CRT0) $(OBJS) $(KLIBC) $(LIBGCC)
+	$(CC) -static -o $(EXEC) $(OBJS)
 	$(STRIP) $(EXEC)
 	$(GZIP) $(EXEC).8 > $(EXEC).8.gz
-
-$(DMLIB)-$(BUILD).a:
-	make -C $(libdmdir) BUILD=$(BUILD) $(BUILD)
 
 install:
 	install -d $(DESTDIR)$(bindir)
