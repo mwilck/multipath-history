@@ -603,7 +603,7 @@ reinstate_paths (struct multipath * mpp)
 static int
 domap (struct multipath * mpp)
 {
-	int op;
+	int op = ACT_NOTHING;
 	int r = 0;
 
 	print_mp(mpp);

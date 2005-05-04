@@ -87,12 +87,12 @@ disassemble_map (vector pathvec, char * params, struct multipath * mpp)
 	char * word;
 	char * p;
 	int i, j, k;
-	int num_features;
-	int num_hwhandler;
-	int num_pg;
-	int num_pg_args;
-	int num_paths;
-	int num_paths_args;
+	int num_features = 0;
+	int num_hwhandler = 0;
+	int num_pg = 0;
+	int num_pg_args = 0;
+	int num_paths = 0;
+	int num_paths_args = 0;
 	struct path * pp;
 	struct pathgroup * pgp;
 
