@@ -35,7 +35,7 @@
 #include <memory.h>
 #include <config.h>
 #include <callout.h>
-#include <safe_printf.h>
+#include <util.h>
 #include <blacklist.h>
 #include <hwtable.h>
 #include <defaults.h>

@@ -1,7 +1,5 @@
 #include <stdio.h>
 #include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
 
@@ -13,7 +11,6 @@
 #include "blacklist.h"
 #include "util.h"
 #include "structs.h"
-#include "safe_printf.h"
 #include "callout.h"
 #include "config.h"
 #include "debug.h"

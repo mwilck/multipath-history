@@ -29,7 +29,6 @@
 #include <devmapper.h>
 #include <checkers.h>
 #include <path_state.h>
-#include <safe_printf.h>
 #include <blacklist.h>
 #include <hwtable.h>
 #include <util.h>
