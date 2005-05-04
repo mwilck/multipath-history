@@ -8,16 +8,6 @@ include ../Makefile.inc
 
 OBJS = readsector0.o tur.o selector.o emc_clariion.o
 
-ifeq ($(strip $(BUILD)),klibc)
-	CFLAGS = -I/usr/include
-else
-	CFLAGS =
-
-ifneq	($(WITH_LOCAL_LIBDM),)
-	CFLAGS	+= -I$(libdmdir)
-endif
-endif
-
 all: $(BUILD)
 
 prepare:

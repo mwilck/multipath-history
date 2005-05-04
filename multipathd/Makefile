@@ -15,7 +15,7 @@ rcdir = /etc/init.d
 #
 CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes \
 	 -DDAEMON -I$(multipathdir) -I$(checkersdir)
-LDFLAGS = -lpthread
+LDFLAGS = -lpthread -ldevmapper -lsysfs
 
 #
 # object files
@@ -24,21 +24,6 @@ OBJS = main.o copy.o log.o log_pthread.o pidfile.o \
        $(MULTIPATHLIB)-glibc.a \
        $(CHECKERSLIB)-glibc.a \
 
-#
-# Conditional flags for forced local libs.
-#
-ifneq	($(WITH_LOCAL_LIBDM),)
-CFLAGS	+= -I$(libdmdir)
-OBJS	+= $(DMLIB)-glibc.a
-else
-LDFLAGS	+= -ldevmapper
-endif
-ifneq	($(WITH_LOCAL_LIBSYSFS),)
-CFLAGS	+= -I$(sysfsdir)
-OBJS	+= $(SYSFSLIB)-glibc.a
-else
-LDFLAGS	+= -lsysfs
-endif
 
 #
 # directives

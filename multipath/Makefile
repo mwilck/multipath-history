@@ -7,26 +7,13 @@ include ../Makefile.inc
 
 OBJS = main.o $(MULTIPATHLIB)-$(BUILD).a $(CHECKERSLIB)-$(BUILD).a
 
-ifeq ($(strip $(BUILD)),klibc)
-	CFLAGS = -I$(multipathdir) -I$(checkersdir)
-	OBJS += $(SYSFSLIB)-$(BUILD).a $(DMLIB)-$(BUILD).a
-else
-	CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes \
-		 -I$(multipathdir) -I$(checkersdir)
-	LDFLAGS =
+CFLAGS = -pipe -g -Wall -Wunused -Wstrict-prototypes
+CFLAGS += -I$(multipathdir) -I$(checkersdir)
 
-ifneq	($(WITH_LOCAL_LIBDM),)
-	CFLAGS	+= -I$(libdmdir)
-	OBJS	+= $(DMLIB)-$(BUILD).a
+ifeq ($(strip $(BUILD)),klibc)
+	OBJS += $(libdm) $(libsysfs)
 else
-	LDFLAGS	+= -ldevmapper
-endif
-ifneq	($(WITH_LOCAL_LIBSYSFS),)
-	CFLAGS	+= -I$(sysfsdir)
-	OBJS	+= $(SYSFSLIB)-$(BUILD).a
-else
-	LDFLAGS	+= -lsysfs
-endif
+	LDFLAGS += -ldevmapper -lsysfs
 endif
 
 EXEC = multipath
@@ -52,12 +39,6 @@ $(CHECKERSLIB)-$(BUILD).a:
 
 $(MULTIPATHLIB)-$(BUILD).a:
 	make -C $(multipathdir) BUILD=$(BUILD) $(BUILD)
-
-$(SYSFSLIB)-$(BUILD).a:
-	make -C $(sysfsdir) BUILD=$(BUILD) $(BUILD)
-
-$(DMLIB)-$(BUILD).a:
-	make -C $(libdmdir) BUILD=$(BUILD) $(BUILD)
 
 install:
 	install -d $(DESTDIR)$(bindir)

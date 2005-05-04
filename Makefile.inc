@@ -14,14 +14,15 @@ ifeq ($(TOPDIR),)
 endif
 
 ifeq ($(strip $(BUILD)),klibc)
-	CC=klcc
+	CC = klcc
+	klibcdir = /usr/lib/klibc
+	libdm    = $(klibcdir)/lib/libdevmapper.a
+	libsysfs = $(klibcdir)/lib/libsysfs.a
 endif
 
 prefix      = 
 exec_prefix = $(prefix)
 bindir      = $(exec_prefix)/sbin
-libdmdir    = $(TOPDIR)/libdevmapper
-sysfsdir    = $(TOPDIR)/libsysfs
 checkersdir = $(TOPDIR)/libcheckers
 multipathdir = $(TOPDIR)/libmultipath
 mandir      = /usr/share/man/man8
@@ -29,7 +30,5 @@ mandir      = /usr/share/man/man8
 GZIP        = /bin/gzip -9 -c
 STRIP       = strip --strip-all -R .comment -R .note
 
-DMLIB = $(libdmdir)/libdevmapper
-SYSFSLIB = $(sysfsdir)/libsysfs
 CHECKERSLIB = $(checkersdir)/libcheckers
 MULTIPATHLIB = $(multipathdir)/libmultipath
