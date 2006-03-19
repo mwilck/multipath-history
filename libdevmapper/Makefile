@@ -12,13 +12,14 @@ OBJS = ioctl/libdm-iface.o libdm-common.o
 
 all: $(BUILD)
 
-klibc: $(KLIBC) $(OBJS)
+prepare:
+	rm -f *.o ioctl/*.o
+
+klibc: prepare $(OBJS)
 	ar rs libdevmapper-klibc.a *.o ioctl/*.o
 
-$(KLIBC):
-	rm -f $(klibcdir)/linux
-	ln -s $(KERNEL_BUILD) $(klibcdir)/linux
-	make -C $(klibcdir)
+glibc: prepare $(OBJS)
+	ar rs libdevmapper-glibc.a *.o ioctl/*.o
 
 install:
 

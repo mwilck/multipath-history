@@ -37,7 +37,8 @@ all : $(BUILD)
 
 glibc: $(EXEC)
 
-klibc: glibc
+klibc:
+	$(MAKE) BUILD=glibc glibc
 
 $(EXEC): $(OBJS)
 	$(CC) $(OBJS) -o $(EXEC) $(LDFLAGS)
@@ -49,6 +50,12 @@ $(CHECKERSLIB)-glibc.a:
 
 $(MULTIPATHLIB)-glibc.a:
 	$(MAKE) -C $(multipathdir) BUILD=glibc glibc
+
+$(DMLIB)-glibc.a:
+	$(MAKE) -C $(libdmdir) BUILD=glibc glibc
+
+$(SYSFSLIB)-glibc.a:
+	$(MAKE) -C $(sysfsdir) BUILD=glibc glibc
 
 install:
 	install -d $(DESTDIR)$(bindir)
