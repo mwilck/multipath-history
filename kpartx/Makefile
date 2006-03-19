@@ -31,8 +31,8 @@ glibc: prepare $(OBJS)
 	$(STRIP) $(EXEC)
 	$(GZIP) $(EXEC).8 > $(EXEC).8.gz
 	
-klibc: prepare $(KLIBC) $(OBJS)
-	$(LD) -o $(EXEC) $(CRT0) $(OBJS) $(KLIBC) $(LIBGCC)
+klibc: prepare $(OBJS)
+	$(CC) -static -o $(EXEC) $(CRT0) $(OBJS) $(KLIBC) $(LIBGCC)
 	$(STRIP) $(EXEC)
 	$(GZIP) $(EXEC).8 > $(EXEC).8.gz
 
@@ -41,11 +41,6 @@ $(DMLIB)-$(BUILD).a:
 
 $(MULTIPATHLIB)-$(BUILD).a:
 	make -C $(multipathdir) BUILD=$(BUILD)
-
-$(KLIBC):
-	rm -f $(klibcdir)/linux
-	ln -s $(KERNEL_BUILD) $(klibcdir)/linux
-	make -C $(klibcdir)
 
 install:
 	install -d $(DESTDIR)$(bindir)

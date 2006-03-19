@@ -21,13 +21,9 @@ INSTALLDIRS = devmap_name multipath multipathd kpartx path_priority
 all: recurse
 
 recurse:
-	@if [ "$(BUILD)" = "klibc" ]; then\
-	ln -s ${KERNEL_BUILD} klibc/linux ; \
-	$(MAKE) -C klibc || exit $?; \
-	fi
-	@for dir in $(BUILDDIRS); do\
-	$(MAKE) -C $$dir BUILD=$(BUILD) VERSION=$(VERSION) || \
-	exit $?; \
+	@for dir in $(BUILDDIRS); do \
+	$(MAKE) -C $$dir BUILD=$(BUILD) VERSION=$(VERSION) \
+		KRNLSRC=$(KRNLSRC) KRNLOBJ=$(KRNLOBJ) || exit $?; \
 	done
 
 recurse_clean:
@@ -39,7 +35,6 @@ recurse_clean_klibc:
 	@for dir in $(BUILDDIRS); do\
 	$(MAKE) -C $$dir BUILD=klibc clean || exit $?; \
 	done
-	$(MAKE) -C klibc spotless
 
 recurse_install:
 	@for dir in $(INSTALLDIRS); do\
@@ -53,7 +48,6 @@ recurse_uninstall:
 
 clean:	recurse_clean recurse_clean_klibc
 	rm -f multipath-tools.spec
-	rm -f klibc/linux
 	rm -rf rpms
 
 install:	recurse_install

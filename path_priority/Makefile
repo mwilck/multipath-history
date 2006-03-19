@@ -29,8 +29,8 @@ glibc: prepare $(OBJS)
 	$(CC) -o $(EXEC) $(OBJS) $(LDFLAGS)
 #	$(STRIP) $(EXEC)
 	
-klibc: prepare $(KLIBC) $(OBJS)
-	$(LD) -o $(EXEC) $(CRT0) $(OBJS) $(KLIBC) $(LIBGCC)
+klibc: prepare $(OBJS)
+	$(CC) -static -o $(EXEC) $(CRT0) $(OBJS) $(KLIBC) $(LIBGCC)
 	$(STRIP) $(EXEC)
 
 $(DMLIB)-$(BUILD).a:

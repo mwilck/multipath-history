@@ -19,16 +19,11 @@ all: $(BUILD)
 prepare:
 	rm -f core *.o *.gz
 
-klibc: prepare $(KLIBC) $(OBJS)
+klibc: prepare $(OBJS)
 	ar rs libcheckers-klibc.a *.o
 
 glibc: prepare $(OBJS)
 	ar rs libcheckers-glibc.a *.o
-
-$(KLIBC):
-	rm -f $(klibcdir)/linux
-	ln -s $(KERNEL_BUILD) $(klibcdir)/linux
-	make -C $(klibcdir)
 
 install:
 

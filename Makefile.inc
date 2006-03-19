@@ -3,14 +3,12 @@
 # Copyright (C) 2004 Christophe Varoqui, <christophe.varoqui@free.fr>
 
 ifeq ($(strip $(BUILD)),klibc)
-	SRCROOT=../klibc
-	include ${SRCROOT}/MCONFIG
+	CC=klcc
 endif
 
 prefix      = 
 exec_prefix = $(prefix)
 bindir      = $(exec_prefix)/sbin
-klibcdir    = $(SRCROOT)
 libdmdir    = ../libdevmapper
 sysfsdir    = ../libsysfs
 checkersdir = ../libcheckers
