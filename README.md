@@ -7,14 +7,18 @@ This repository contains the reconstructed early history of
 [multipath-tools][1], covering the revision history before the author,
 Christophe Varoqui, began tracking the code with git in 
 [the upstream repository][2].
-The tree was created by taking the historical tarballs from the 
-[sourceware download site][3], iteratively copying the code, and trying to
-split the 
-changes between releases into meaningful commits, using the code itself and the
-Changelog entries as guidance. The result is a history of
-487 commits extracted from 60 tarballs between the initial release
-made by Greg Kroah-Hartmann in his udev repository (0.0.1, Nov 12th, 2003) and
-Christophe's first git import (0.4.5-pre2, May 1st, 2005).
+
+Beetwen 0.0.1, Nov 12th, 2003 and 0.1.1 (Mar 10, 2004), multipath was
+tracked in a subdirectory of the now historical [udev git repository][6].
+Until 0.4.5-pre2 (May 1st, 2005), releases were available in the form of
+tarballs on the [sourceware download site][3].
+
+The tree in this repository was created by taking the udev git commits and
+historical tarballs
+and iteratively copying the code, trying to split the changes between releases
+into meaningful commits, using the code itself and the Changelog entries as guidance. The
+result is a history of 487 commits extracted from 22 udev git commits and
+60 tarballs between 0.0.1 and 0.4.5-pre2.
 
 **Note on authorship:** although Christophe is listed as the author of all the
 commits, it'd be pure coincidence if he actually created one of them in exactly 
@@ -67,3 +71,4 @@ commit IDs from upstream are referenced in the commit messages.
 [3]: http://www.sourceware.org/pub/dm/multipath-tools/
 [4]: https://github.com/mwilck/multipath-history
 [5]: https://github.com/mwilck/multipath-history/tree/modern
+[6]: https://git.kernel.org/pub/scm/linux/hotplug/udev.git
