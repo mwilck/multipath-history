@@ -17,7 +17,7 @@ made by Greg Kroah-Hartmann in his udev repository (0.0.1, Nov 12th, 2003) and
 Christophe's first git import (0.4.5-pre2, May 1st, 2005).
 
 **Note on authorship:** although Christophe is listed as the author of all the
-commits, it'd be pure coincidence if he actually created none of them in exactly 
+commits, it'd be pure coincidence if he actually created one of them in exactly 
 this form. I am responsible for every single commit in the "master" branch.
 However, Christophe wrote the code, and I didn't want to pretend that I did. 
 3rd party authors are mentioned in the commit messages if they were mentioned 
